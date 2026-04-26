@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SSO 单点登录 & OIDC 完全入门指南</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --green: #4ade80;
+    --orange: #fb923c;
+    --red: #f87171;
+    --pink: #f472b6;
+    --code-bg: #0c1222;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.75;
+    padding: 0;
+  }
+
+  /* ---- Nav ---- */
+  nav {
+    position: fixed; top:0; left:0; right:0; z-index:100;
+    background: rgba(15,23,42,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 52px;
+    display: flex; align-items: center; gap: 24px;
+    font-size: 14px;
+  }
+  nav a { color: var(--muted); text-decoration: none; transition: color .15s; }
+  nav a:hover { color: var(--text); }
+  nav .brand { font-weight: 700; color: var(--accent); font-size: 15px; margin-right: auto; }
+
+  /* ---- Layout ---- */
+  .container { max-width: 900px; margin: 0 auto; padding: 80px 24px 120px; }
+
+  h1 { font-size: 2.4em; margin-bottom: 8px; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--muted); font-size: 1.1em; margin-bottom: 48px; }
+
+  h2 {
+    font-size: 1.55em; margin: 56px 0 16px; padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.2em; margin: 32px 0 12px; color: var(--accent); }
+
+  p { margin: 12px 0; color: var(--muted); }
+  strong { color: var(--text); }
+
+  /* ---- Cards ---- */
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 24px; margin: 20px 0;
+  }
+  .card.accent { border-left: 3px solid var(--accent); }
+  .card.green  { border-left: 3px solid var(--green); }
+  .card.orange { border-left: 3px solid var(--orange); }
+  .card.pink   { border-left: 3px solid var(--pink); }
+
+  /* ---- Scenario Box ---- */
+  .scenario {
+    background: linear-gradient(135deg, #1e293b 0%, #1a2340 100%);
+    border: 2px solid var(--accent2); border-radius: 16px;
+    padding: 32px; margin: 24px 0;
+  }
+
+  /* ---- Flow Diagram ---- */
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+    align-items: center; margin: 24px 0;
+  }
+  .flow-box {
+    background: var(--card); border: 2px solid var(--border);
+    border-radius: 12px; padding: 16px 20px; text-align: center;
+    min-width: 110px;
+  }
+  .flow-box.user { border-color: var(--green); }
+  .flow-box.idp  { border-color: var(--accent); }
+  .flow-box.sp   { border-color: var(--accent2); }
+  .flow-box .icon { font-size: 2em; margin-bottom: 4px; }
+  .flow-box .label { font-weight: 600; font-size: 14px; }
+  .flow-arrow {
+    font-size: 1.5em; color: var(--muted); font-weight: bold;
+  }
+
+  /* ---- Step list ---- */
+  .step-list { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .step-list li {
+    counter-increment: step; position: relative;
+    padding: 12px 16px 12px 52px; margin: 8px 0;
+    background: var(--card); border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .step-list li::before {
+    content: counter(step);
+    position: absolute; left: 12px; top: 12px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px;
+  }
+
+  /* ---- Code ---- */
+  code {
+    background: var(--code-bg); padding: 2px 6px; border-radius: 4px;
+    font-family: "JetBrains Mono", "Fira Code", monospace; font-size: 0.9em;
+    color: var(--accent);
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; overflow-x: auto;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.85em; line-height: 1.6;
+  }
+  pre .kw { color: #c792ea; }
+  pre .str { color: #c3e88d; }
+  pre .cmt { color: #546e7a; font-style: italic; }
+  pre .fn  { color: #82aaff; }
+  pre .num { color: #f78c6c; }
+
+  /* ---- Table ---- */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--card); color: var(--accent); font-weight: 600; }
+  tr:hover td { background: rgba(56,189,248,0.04); }
+
+  /* ---- Highlight box ---- */
+  .highlight {
+    background: rgba(56,189,248,0.08); border: 1px solid rgba(56,189,248,0.25);
+    border-radius: 8px; padding: 16px 20px; margin: 16px 0;
+  }
+  .highlight.warn {
+    background: rgba(251,146,60,0.08); border-color: rgba(251,146,60,0.25);
+  }
+
+  /* ---- SVG diagram area ---- */
+  .diagram-svg {
+    display: flex; justify-content: center; margin: 32px 0;
+  }
+  .diagram-svg svg { max-width: 100%; }
+
+  /* ---- Tabs ---- */
+  .tabs { display: flex; gap: 4px; margin: 20px 0 0; }
+  .tab {
+    padding: 8px 18px; border-radius: 8px 8px 0 0;
+    background: var(--card); border: 1px solid var(--border);
+    cursor: pointer; font-size: 13px; color: var(--muted);
+  }
+  .tab.active { background: var(--code-bg); color: var(--accent); border-bottom-color: var(--code-bg); }
+  .tab-content { display: none; background: var(--code-bg); border: 1px solid var(--border); border-radius: 0 8px 8px 8px; padding: 20px; }
+  .tab-content.active { display: block; }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 640px) {
+    .flow { flex-direction: column; }
+    .flow-arrow { transform: rotate(90deg); }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">SSO/OIDC 指南</span>
+  <a href="#what">什么是SSO</a>
+  <a href="#oidc">OIDC</a>
+  <a href="#how">工作原理</a>
+  <a href="#scenario">你的场景</a>
+  <a href="#implement">怎么落地</a>
+</nav>
+
+<div class="container">
+
+<!-- ==================== HEADER ==================== -->
+<h1><span>SSO 单点登录</span> & OIDC 完全入门</h1>
+<p class="subtitle">
+  从零理解单点登录，学会用 OIDC 让你的系统与第三方网站打通账号。
+  即使你之前完全没接触过这个领域，看完也能上手。
+</p>
+
+<!-- ==================== 什么是 SSO ==================== -->
+<h2 id="what">一、什么是 SSO（单点登录）</h2>
+
+<div class="card accent">
+  <h3 style="margin-top:0">一句话定义</h3>
+  <p style="font-size:1.1em;color:var(--text)">
+    <strong>SSO（Single Sign-On）</strong> = 用户只需登录<strong>一次</strong>，
+    就能访问<strong>多个</strong>相互信任的系统，不需要在每个系统都输入用户名密码。
+  </p>
+</div>
+
+<h3>日常生活中的 SSO</h3>
+<p>你其实每天都在用 SSO，只是可能没意识到：</p>
+
+<div class="flow">
+  <div class="flow-box user">
+    <div class="icon">🧑</div>
+    <div class="label">你</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box idp">
+    <div class="icon">🔐</div>
+    <div class="label">登录 Google</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box sp">
+    <div class="icon">📧</div>
+    <div class="label">Gmail</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box sp">
+    <div class="icon">📺</div>
+    <div class="label">YouTube</div>
+  </div>
+  <div class="flow-arrow">→</div>
+  <div class="flow-box sp">
+    <div class="icon">📁</div>
+    <div class="label">Google Drive</div>
+  </div>
+</div>
+
+<p style="text-align:center;color:var(--muted);margin-top:8px">
+  登录一次 Google 账号 = 自动登录 Gmail / YouTube / Drive。这就是 SSO。
+</p>
+
+<h3>核心角色（三个参与者）</h3>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:16px 0">
+  <div class="card green">
+    <h3 style="margin:0 0 8px;color:var(--green)">👤 User（用户 / 主体）</h3>
+    <p style="margin:0;font-size:14px">想用一个身份访问多个系统的<strong>人</strong>。只需要记住一套账号密码。</p>
+  </div>
+  <div class="card accent">
+    <h3 style="margin:0 0 8px;color:var(--accent)">🏢 IdP（身份提供商）</h3>
+    <p style="margin:0;font-size:14px"><strong>Identity Provider</strong>——负责认证用户身份的"权威机构"。存储账号密码，验证你是谁。</p>
+  </div>
+  <div class="card orange">
+    <h3 style="margin:0 0 8px;color:var(--orange)">🌐 SP / RP（服务提供商）</h3>
+    <p style="margin:0;font-size:14px"><strong>Service Provider / Relying Party</strong>——实际提供服务的应用。它<strong>信任</strong> IdP 的认证结果，不再自己验证密码。</p>
+  </div>
+</div>
+
+<!-- ==================== OIDC ==================== -->
+<h2 id="oidc">二、OIDC 是什么</h2>
+
+<div class="card accent">
+  <h3 style="margin-top:0">一句话定义</h3>
+  <p style="font-size:1.1em;color:var(--text)">
+    <strong>OIDC（OpenID Connect）</strong> = 在 OAuth 2.0 <strong>授权</strong>协议之上，
+    加了一层<strong>身份认证</strong>层。它让客户端能验证用户是谁，并获取用户的基本信息。
+  </p>
+</div>
+
+<h3>OAuth 2.0 vs OIDC——最容易混淆的两个概念</h3>
+<table>
+  <tr><th></th><th>OAuth 2.0</th><th>OIDC (OpenID Connect)</th></tr>
+  <tr>
+    <td><strong>解决的问题</strong></td>
+    <td><strong>授权</strong>：允许 A 访问 B 的资源</td>
+    <td><strong>认证</strong>：证明用户是谁</td>
+  </tr>
+  <tr>
+    <td><strong>类比</strong></td>
+    <td>🏨 酒店门卡——给你进入房间的权限</td>
+    <td>🆔 身份证——证明你的身份</td>
+  </tr>
+  <tr>
+    <td><strong>核心产出</strong></td>
+    <td>Access Token（访问令牌）</td>
+    <td><strong>ID Token</strong>（身份令牌）+ Access Token</td>
+  </tr>
+  <tr>
+    <td><strong>用户信息</strong></td>
+    <td>不包含用户信息</td>
+    <td>ID Token 包含<code>sub</code>（用户唯一标识）、姓名、邮箱等</td>
+  </tr>
+  <tr>
+    <td><strong>关系</strong></td>
+    <td colspan="2" style="text-align:center">OIDC 是 OAuth 2.0 的<strong>上层协议</strong>（扩展）</td>
+  </tr>
+</table>
+
+<h3>OIDC 中的核心概念</h3>
+
+<div class="card">
+  <h3 style="margin-top:0">ID Token（JWT）</h3>
+  <p>ID Token 是一个 <strong>JWT（JSON Web Token）</strong>，由 IdP 签发，包含用户身份信息。它是 OIDC 区别于 OAuth 2.0 的关键。</p>
+  <pre>{
+  <span class="str">"iss"</span>: <span class="str">"https://your-idp.com"</span>,    <span class="cmt">// 签发者（谁签发的）</span>
+  <span class="str">"sub"</span>: <span class="str">"user_123456"</span>,            <span class="cmt">// 用户唯一标识</span>
+  <span class="str">"aud"</span>: <span class="str">"system_b_client_id"</span>,     <span class="cmt">// 受众（这个 Token 是给谁用的）</span>
+  <span class="str">"exp"</span>: <span class="num">1714137600</span>,                <span class="cmt">// 过期时间</span>
+  <span class="str">"iat"</span>: <span class="num">1714051200</span>,                <span class="cmt">// 签发时间</span>
+  <span class="str">"email"</span>: <span class="str">"zhangsan@example.com"</span>, <span class="cmt">// 邮箱（可选）</span>
+  <span class="str">"name"</span>:  <span class="str">"张三"</span>                   <span class="cmt">// 姓名（可选）</span>
+}</pre>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0">
+  <div class="card" style="margin:0">
+    <strong>sub</strong>（Subject）
+    <p style="margin:4px 0 0;font-size:13px">用户的<strong>唯一标识</strong>。你的系统用这个字段把 IdP 用户映射到本地账号。</p>
+  </div>
+  <div class="card" style="margin:0">
+    <strong>iss</strong>（Issuer）
+    <p style="margin:4px 0 0;font-size:13px">Token 的<strong>签发者 URL</strong>。验证 Token 时要确认 iss 是可信的。</p>
+  </div>
+  <div class="card" style="margin:0">
+    <strong>aud</strong>（Audience）
+    <p style="margin:4px 0 0;font-size:13px">Token 的目标<strong>接收方</strong>（client_id）。防止 Token 被用于错误的系统。</p>
+  </div>
+  <div class="card" style="margin:0">
+    <strong>exp / iat</strong>
+    <p style="margin:4px 0 0;font-size:13px"><strong>过期时间</strong>和签发时间。过期 Token 必须被拒绝。</p>
+  </div>
+</div>
+
+<!-- ==================== 协议对比 ==================== -->
+<h2>三、SSO 的三大主流协议</h2>
+
+<table>
+  <tr><th></th><th>SAML 2.0</th><th>OAuth 2.0</th><th>OIDC</th></tr>
+  <tr>
+    <td><strong>年代</strong></td>
+    <td>2005 年</td>
+    <td>2012 年</td>
+    <td>2014 年</td>
+  </tr>
+  <tr>
+    <td><strong>数据格式</strong></td>
+    <td>XML（繁重）</td>
+    <td>JSON</td>
+    <td>JSON（JWT）</td>
+  </tr>
+  <tr>
+    <td><strong>用途</strong></td>
+    <td>企业 SSO</td>
+    <td>API 授权</td>
+    <td>用户认证 + SSO</td>
+  </tr>
+  <tr>
+    <td><strong>典型场景</strong></td>
+    <td>企业内网（Office 365 + AD）</td>
+    <td>"用 GitHub 登录"授权访问仓库</td>
+    <td>"用 Google 登录"第三方网站</td>
+  </tr>
+  <tr>
+    <td><strong>移动/SPA 友好</strong></td>
+    <td>❌ 不友好</td>
+    <td>✅</td>
+    <td>✅（推荐）</td>
+  </tr>
+  <tr>
+    <td><strong>推荐度</strong></td>
+    <td>仅企业遗留系统</td>
+    <td>纯 API 授权场景</td>
+    <td style="color:var(--green)"><strong>新系统首选</strong></td>
+  </tr>
+</table>
+
+<div class="highlight">
+  <strong>结论：</strong>2026 年了，做新系统直接用 <strong>OIDC</strong>。SAML 太重，纯 OAuth 2.0 不包含身份信息。
+</div>
+
+<!-- ==================== 工作原理 ==================== -->
+<h2 id="how">四、OIDC 的核心流程（Authorization Code Flow + PKCE）</h2>
+
+<p>这是目前<strong>最推荐</strong>的流程，适合所有有后端的 Web 应用。</p>
+
+<svg viewBox="0 0 880 580" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+  <defs>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#38bdf8"/></marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#4ade80"/></marker>
+    <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#818cf8"/></marker>
+  </defs>
+
+  <!-- Backgrounds -->
+  <rect x="20" y="20" width="840" height="540" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+
+  <!-- Three columns -->
+  <rect x="50" y="60" width="180" height="460" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="140" y="90" text-anchor="middle" fill="#4ade80" font-weight="bold" font-size="15">🧑 浏览器</text>
+  <text x="140" y="112" text-anchor="middle" fill="#94a3b8" font-size="11">(User Agent)</text>
+
+  <rect x="310" y="60" width="220" height="460" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="2"/>
+  <text x="420" y="90" text-anchor="middle" fill="#818cf8" font-weight="bold" font-size="15">🌐 你的系统</text>
+  <text x="420" y="112" text-anchor="middle" fill="#94a3b8" font-size="11">(Relying Party / SP)</text>
+
+  <rect x="610" y="60" width="220" height="460" rx="8" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+  <text x="720" y="90" text-anchor="middle" fill="#38bdf8" font-weight="bold" font-size="15">🔐 IdP</text>
+  <text x="720" y="112" text-anchor="middle" fill="#94a3b8" font-size="11">(Identity Provider)</text>
+
+  <!-- Step 1 -->
+  <line x1="230" y1="160" x2="305" y2="160" stroke="#4ade80" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="268" y="150" text-anchor="middle" fill="#4ade80" font-size="11">1. 用户访问</text>
+  <text x="268" y="178" text-anchor="middle" fill="#a0aec0" font-size="11">点击"登录"</text>
+
+  <!-- Step 2 -->
+  <line x1="420" y1="200" x2="605" y2="200" stroke="#818cf8" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <text x="512" y="193" text-anchor="middle" fill="#818cf8" font-size="11">2. 生成 auth URL,</text>
+  <text x="512" y="218" text-anchor="middle" fill="#a0aec0" font-size="11">302 重定向浏览器</text>
+
+  <!-- Step 3 -->
+  <line x1="230" y1="250" x2="605" y2="250" stroke="#4ade80" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="418" y="243" text-anchor="middle" fill="#4ade80" font-size="11">3. 浏览器跟随重定向 → IdP 登录页</text>
+
+  <!-- Step 4 -->
+  <line x1="720" y1="290" x2="720" y2="340" stroke="#38bdf8" stroke-width="2"/>
+  <text x="742" y="320" fill="#38bdf8" font-size="11">4. 用户输入</text>
+  <text x="742" y="335" fill="#a0aec0" font-size="11">账号密码</text>
+
+  <!-- Step 5 -->
+  <line x1="720" y1="370" x2="640" y2="370" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <line x1="530" y1="370" x2="240" y2="370" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowBlue)"/>
+  <text x="580" y="363" text-anchor="middle" fill="#38bdf8" font-size="11">5. 认证成功,</text>
+  <text x="580" y="388" text-anchor="middle" fill="#a0aec0" font-size="11">302 带回 code</text>
+
+  <!-- Step 6 -->
+  <line x1="230" y1="420" x2="305" y2="420" stroke="#4ade80" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="268" y="413" text-anchor="middle" fill="#4ade80" font-size="11">6. 浏览器携带</text>
+  <text x="268" y="438" text-anchor="middle" fill="#a0aec0" font-size="11">code 回到系统</text>
+
+  <!-- Step 7 -->
+  <line x1="420" y1="460" x2="605" y2="460" stroke="#818cf8" stroke-width="2" marker-end="url(#arrowPurple)"/>
+  <text x="512" y="453" text-anchor="middle" fill="#818cf8" font-size="11">7. 后端用 code 换</text>
+  <text x="512" y="478" text-anchor="middle" fill="#a0aec0" font-size="11">ID Token + Access Token</text>
+
+  <!-- Step 8 -->
+  <line x1="230" y1="510" x2="305" y2="510" stroke="#4ade80" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="268" y="503" text-anchor="middle" fill="#4ade80" font-size="11">8. 登录成功!</text>
+  <text x="268" y="528" text-anchor="middle" fill="#a0aec0" font-size="11">设置 Session</text>
+</svg>
+
+<h3>各步骤详解</h3>
+
+<ol class="step-list">
+  <li>
+    <strong>用户点击"用 XX 登录"</strong><br>
+    <span style="color:var(--muted)">用户在你的系统中点击登录按钮，后端生成一个授权URL。</span>
+  </li>
+  <li>
+    <strong>重定向到 IdP 登录页</strong><br>
+    <span style="color:var(--muted)">你的系统后端构造 Authorization Request，包含 client_id、redirect_uri、scope（openid profile email）、state（防CSRF）、code_challenge（PKCE）。然后 302 重定向浏览器到 IdP。
+    </span>
+    <pre>GET /authorize?
+  response_type=code
+  &amp;client_id=your_system_client_id
+  &amp;redirect_uri=https://your-system.com/callback
+  &amp;scope=openid+profile+email
+  &amp;state=random_csrf_token
+  &amp;code_challenge=base64url(sha256(code_verifier))
+  &amp;code_challenge_method=S256</pre>
+  </li>
+  <li>
+    <strong>用户在 IdP 输入密码</strong><br>
+    <span style="color:var(--muted)">用户在 IdP 的登录页面输入账号密码（或扫码、生物识别等）。<strong>你的系统永远看不到这个密码。</strong></span>
+  </li>
+  <li>
+    <strong>IdP 回调你的系统，携带 authorization code</strong><br>
+    <span style="color:var(--muted)">IdP 认证成功后，302 重定向回你在第2步指定的 redirect_uri，URL 中携带一个<strong>一次性的、短有效期的</strong> authorization code。</span>
+    <pre>GET /callback?code=xxxxx&amp;state=random_csrf_token</pre>
+  </li>
+  <li>
+    <strong>后端用 code 换 Token</strong><br>
+    <span style="color:var(--muted)">你的后端<strong>服务器到服务器</strong>地向 IdP 的 /token 端点 POST，用 code + code_verifier 交换 ID Token 和 Access Token。</span>
+    <pre>POST /token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code
+&amp;code=xxxxx
+&amp;redirect_uri=https://your-system.com/callback
+&amp;client_id=your_system_client_id
+&amp;client_secret=your_secret
+&amp;code_verifier=原始随机字符串</pre>
+  </li>
+  <li>
+    <strong>验证 ID Token，创建本地会话</strong><br>
+    <span style="color:var(--muted)">验证 ID Token 的签名、iss、aud、exp。提取 <code>sub</code>，查询是否已有绑定的本地账号。如有则直接登录，如无则走注册/绑定流程。创建自己系统的 Session/Cookie。</span>
+  </li>
+</ol>
+
+<h3>关键安全机制</h3>
+
+<div class="card orange">
+  <h3 style="margin:0 0 8px;color:var(--orange)">PKCE（Proof Key for Code Exchange，发音 "pixy"）</h3>
+  <p style="margin:0;font-size:14px">
+    即使 authorization code 被拦截，攻击者没有 <code>code_verifier</code> 也无法兑换 Token。
+    现代 OIDC 实现<strong>必须使用 PKCE</strong>，即使是后端应用。
+  </p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:12px 0">
+  <div class="card" style="margin:0">
+    <strong>state 参数</strong>
+    <p style="margin:4px 0 0;font-size:13px">防止 CSRF 攻击。回调时验证 state 是否匹配，不匹配则拒绝。</p>
+  </div>
+  <div class="card" style="margin:0">
+    <strong>nonce 参数</strong>
+    <p style="margin:4px 0 0;font-size:13px">防止重放攻击。ID Token 中的 nonce 必须和请求时一致。</p>
+  </div>
+  <div class="card" style="margin:0">
+    <strong>签名验证</strong>
+    <p style="margin:4px 0 0;font-size:13px">使用 IdP 的公钥（JWKS）验证 ID Token 的签名，确保没有被篡改。</p>
+  </div>
+</div>
+
+<!-- ==================== 你的场景 ==================== -->
+<h2 id="scenario">五、你的场景分析</h2>
+
+<div class="scenario">
+  <h3 style="color:var(--accent2);margin-top:0">📋 你的需求</h3>
+  <div style="font-size:1.05em;line-height:2">
+    <p>✅ 你有一个<strong>自己的系统</strong>（系统A），用户可以在上面注册和登录</p>
+    <p>✅ 用户登录系统A后，访问<strong>另一个网站</strong>（系统B）希望<strong>自动登录</strong></p>
+    <p>✅ 登录的是该用户在系统B中<strong>对应的账号</strong>（不是同一个账号，而是映射关系）</p>
+  </div>
+</div>
+
+<h3>这种情况能不能用 SSO 实现？</h3>
+
+<div class="card green">
+  <h3 style="margin:0 0 8px;color:var(--green)">答案：完全可以！这是 SSO 的经典场景。</h3>
+  <p style="margin:0">你可以把你的系统A作为 <strong>IdP（身份提供商）</strong>，系统B作为 <strong>RP（服务提供商）</strong>。当用户从系统A跳转到系统B时，系统B通过 OIDC 协议向系统A验证用户身份，实现自动登录。</p>
+</div>
+
+<h3>具体怎么做到"对应另一个系统的账号"？</h3>
+<p>这是关键问题。系统B的用户账号和系统A的用户账号<strong>不是同一个数据库</strong>，需要建立映射关系。有几种方案：</p>
+
+<table>
+  <tr><th>方案</th><th>原理</th><th>优劣</th></tr>
+  <tr>
+    <td><strong>1. 账号绑定（推荐）</strong></td>
+    <td>用户首次通过 SSO 登录系统B时，系统B要求用户<strong>绑定已有账号</strong>或<strong>创建新账号</strong>。之后系统B存储 <code>sub</code> → 本地账号 的映射。</td>
+    <td style="color:var(--green)">✅ 最灵活<br>✅ 支持存量用户<br>⚠️ 首次需要绑定</td>
+  </tr>
+  <tr>
+    <td><strong>2. ID Token 携带业务标识</strong></td>
+    <td>系统A（IdP）在 ID Token 的 <code>sub</code> 或自定义 claim 中直接传递系统B的用户ID。需要系统A知道用户在系统B中的ID。</td>
+    <td style="color:var(--orange)">⚠️ 系统A需要知道系统B的账号体系<br>⚠️ 耦合度高</td>
+  </tr>
+  <tr>
+    <td><strong>3. 统一账号体系</strong></td>
+    <td>系统A和系统B共用一套用户数据库。ID Token 中的 <code>sub</code> 就是统一用户ID。</td>
+    <td style="color:var(--red)">❌ 需要改造系统B<br>❌ 不适用于第三方系统</td>
+  </tr>
+</table>
+
+<div class="highlight">
+  <strong>推荐方案1——账号绑定：</strong>流程和"用 Google 登录某某网站"一模一样。
+  首次登录时系统B问"检测到新账号，请绑定已有账号或注册"，之后就自动登录了。
+</div>
+
+<!-- ==================== 怎么落地 ==================== -->
+<h2 id="implement">六、落地：怎么把你的系统变成 IdP</h2>
+
+<h3>你有两个选择</h3>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:16px 0">
+  <div class="card accent" style="margin:0">
+    <h3 style="margin:0 0 8px;color:var(--accent)">方案A：用现成的 IdP 服务</h3>
+    <p style="margin:0;font-size:14px">
+      把你的用户导入到成熟的 IdP 平台，你的系统和系统B都对接它。
+    </p>
+    <p style="margin-top:8px;font-size:13px;color:var(--muted)">
+      代表产品：<br>
+      · <strong>Keycloak</strong>（开源，自部署）<br>
+      · <strong>Auth0</strong>（SaaS）<br>
+      · <strong>Zitadel</strong>（开源）<br>
+      · <strong>Logto</strong>（开源）<br>
+      · <strong>Azure AD / Entra ID</strong>（微软生态）
+    </p>
+    <p style="margin-top:8px;font-size:13px;color:var(--green)">
+      ✅ 开发量小，功能全<br>
+      ✅ 安全合规（SOC2/GDPR）<br>
+      ⚠️ 需要迁移/同步用户
+    </p>
+  </div>
+  <div class="card orange" style="margin:0">
+    <h3 style="margin:0 0 8px;color:var(--orange)">方案B：自己实现 OIDC IdP</h3>
+    <p style="margin:0;font-size:14px">
+      在你的系统中直接实现 OIDC 协议，对外提供 /authorize、/token、/userinfo 等端点。
+    </p>
+    <p style="margin-top:8px;font-size:13px;color:var(--muted)">
+      常用库：<br>
+      · <strong>node-oidc-provider</strong>（Node.js）<br>
+      · <strong>IdentityServer</strong>（.NET）<br>
+      · <strong>oidc-provider</strong>（Python / Django）<br>
+      · <strong>Casdoor</strong>（Go）<br>
+      · <strong>Ory Hydra</strong>（Go，云原生）
+    </p>
+    <p style="margin-top:8px;font-size:13px;color:var(--orange)">
+      ⚠️ 开发量大，需要深入理解协议<br>
+      ⚠️ 安全责任在你（Token 签名、密钥轮换等）<br>
+      ✅ 无需迁移用户数据
+    </p>
+  </div>
+</div>
+
+<h3>方案A 架构示例（使用 Keycloak）</h3>
+<svg viewBox="0 0 880 300" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+  <rect x="0" y="0" width="880" height="300" rx="12" fill="#1e293b"/>
+
+  <!-- Keycloak Center -->
+  <rect x="340" y="40" width="200" height="220" rx="10" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+  <text x="440" y="80" text-anchor="middle" fill="#38bdf8" font-weight="bold" font-size="16">🔐 Keycloak</text>
+  <text x="440" y="105" text-anchor="middle" fill="#94a3b8" font-size="11">(OIDC IdP)</text>
+  <line x1="360" y1="120" x2="520" y2="120" stroke="#334155"/>
+  <text x="440" y="145" text-anchor="middle" fill="#94a3b8" font-size="11">/authorize</text>
+  <text x="440" y="165" text-anchor="middle" fill="#94a3b8" font-size="11">/token</text>
+  <text x="440" y="185" text-anchor="middle" fill="#94a3b8" font-size="11">/userinfo</text>
+  <text x="440" y="205" text-anchor="middle" fill="#94a3b8" font-size="11">用户管理后台</text>
+
+  <!-- System A -->
+  <rect x="40" y="60" width="180" height="80" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="2"/>
+  <text x="130" y="95" text-anchor="middle" fill="#818cf8" font-weight="bold" font-size="14">🖥️ 你的系统A</text>
+  <text x="130" y="118" text-anchor="middle" fill="#94a3b8" font-size="11">通过 Keycloak API</text>
+  <text x="130" y="133" text-anchor="middle" fill="#94a3b8" font-size="11">同步/导入用户</text>
+
+  <!-- System B -->
+  <rect x="660" y="60" width="180" height="80" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="2"/>
+  <text x="750" y="95" text-anchor="middle" fill="#818cf8" font-weight="bold" font-size="14">🌍 系统B</text>
+  <text x="750" y="118" text-anchor="middle" fill="#94a3b8" font-size="11">以 OIDC RP 身份</text>
+  <text x="750" y="133" text-anchor="middle" fill="#94a3b8" font-size="11">对接 Keycloak</text>
+
+  <!-- Arrows -->
+  <line x1="220" y1="100" x2="335" y2="100" stroke="#818cf8" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+  <line x1="545" y1="100" x2="655" y2="100" stroke="#818cf8" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+  <!-- User browser -->
+  <rect x="40" y="190" width="180" height="60" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="130" y="218" text-anchor="middle" fill="#4ade80" font-weight="bold" font-size="13">🧑 用户浏览器</text>
+  <text x="130" y="238" text-anchor="middle" fill="#94a3b8" font-size="11">先登录系统A</text>
+
+  <line x1="130" y1="250" x2="130" y2="258" stroke="#4ade80" stroke-width="1.5"/>
+  <line x1="130" y1="258" x2="440" y2="258" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+  <text x="285" y="253" text-anchor="middle" fill="#4ade80" font-size="10">SSO 流程 (OIDC)</text>
+
+  <line x1="440" y1="275" x2="750" y2="275" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+  <line x1="750" y1="275" x2="750" y2="145" stroke="#4ade80" stroke-width="1.5"/>
+</svg>
+<p style="text-align:center;color:var(--muted);font-size:13px;margin-top:8px">
+  用户先登录系统A（系统A用 Keycloak 做认证），之后访问系统B时自动完成 SSO
+</p>
+
+<h3>方案B 架构示例（你的系统直接做 IdP）</h3>
+<svg viewBox="0 0 880 260" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+  <rect x="0" y="0" width="880" height="260" rx="12" fill="#1e293b"/>
+
+  <rect x="40" y="30" width="250" height="200" rx="10" fill="#0f172a" stroke="#38bdf8" stroke-width="3"/>
+  <text x="165" y="65" text-anchor="middle" fill="#38bdf8" font-weight="bold" font-size="15">🖥️ 你的系统A = IdP</text>
+  <text x="165" y="90" text-anchor="middle" fill="#94a3b8" font-size="11">对用户：正常的登录/注册</text>
+  <text x="165" y="108" text-anchor="middle" fill="#94a3b8" font-size="11">对系统B：提供 OIDC 端点</text>
+  <line x1="60" y1="120" x2="270" y2="120" stroke="#334155"/>
+  <text x="165" y="145" text-anchor="middle" fill="#94a3b8" font-size="11">/authorize</text>
+  <text x="165" y="165" text-anchor="middle" fill="#94a3b8" font-size="11">/token</text>
+  <text x="165" y="185" text-anchor="middle" fill="#94a3b8" font-size="11">/userinfo</text>
+  <text x="165" y="205" text-anchor="middle" fill="#94a3b8" font-size="11">/.well-known/openid-configuration</text>
+
+  <rect x="590" y="80" width="250" height="80" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="2"/>
+  <text x="715" y="112" text-anchor="middle" fill="#818cf8" font-weight="bold" font-size="14">🌍 系统B (RP)</text>
+  <text x="715" y="135" text-anchor="middle" fill="#94a3b8" font-size="11">对接你的 OIDC 端点</text>
+
+  <line x1="290" y1="120" x2="585" y2="120" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+  <text x="438" y="113" text-anchor="middle" fill="#38bdf8" font-size="11">OIDC 协议（/authorize, /token）</text>
+
+  <rect x="320" y="180" width="240" height="50" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="440" y="202" text-anchor="middle" fill="#4ade80" font-weight="bold" font-size="13">🧑 用户浏览器</text>
+  <text x="440" y="220" text-anchor="middle" fill="#94a3b8" font-size="11">（通过重定向参与流程）</text>
+</svg>
+
+<h3>系统B需要做什么</h3>
+<p>如果系统B是你<strong>也能控制</strong>的，它只需要：</p>
+<ol class="step-list">
+  <li><strong>引入 OIDC Client 库</strong>（任何语言都有现成的）</li>
+  <li><strong>配置 IdP 信息</strong>：你的系统A的 issuer URL、client_id、client_secret</li>
+  <li><strong>添加回调端点</strong>：处理 /callback 路由</li>
+  <li><strong>建立账号映射表</strong>：<code>idp_sub → local_user_id</code></li>
+  <li><strong>改造登录入口</strong>：加一个"用系统A登录"按钮，或检测到系统A的 Session 后自动跳转</li>
+</ol>
+
+<h3>如果系统B是第三方系统（你改不了代码）？</h3>
+<div class="highlight warn">
+  <strong>这种情况比较麻烦：</strong>需要系统B本身就支持 SSO/OIDC 协议（企业 SaaS 常见的"配置 SSO"功能）。
+  如果系统B完全不支持，你<strong>无法</strong>通过标准 SSO 实现自动登录。
+  可能的替代方案包括：反向代理注入 Cookie、浏览器插件等，但这些都不是"干净"的方案。
+</div>
+
+<!-- ==================== 账号绑定详解 ==================== -->
+<h2 id="binding">七、账号绑定的详细流程</h2>
+
+<p>这是实现"登录系统A后，自动以系统B对应账号登录"的核心机制：</p>
+
+<svg viewBox="0 0 880 520" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+  <rect x="0" y="0" width="880" height="520" rx="12" fill="#1e293b"/>
+
+  <!-- Phase 1 -->
+  <rect x="30" y="20" width="820" height="180" rx="8" fill="#0f172a" stroke="#818cf8" stroke-width="1"/>
+  <text x="440" y="48" text-anchor="middle" fill="#818cf8" font-weight="bold" font-size="14">第一次：账号绑定</text>
+
+  <text x="80" y="78" fill="#4ade80" font-size="12" font-weight="bold">1.</text>
+  <text x="100" y="78" fill="#e2e8f0" font-size="12">用户在系统B点击"用系统A登录"</text>
+
+  <text x="80" y="102" fill="#4ade80" font-size="12" font-weight="bold">2.</text>
+  <text x="100" y="102" fill="#e2e8f0" font-size="12">OIDC 流程完成，系统B拿到 ID Token（sub: "user_a_123", email: "zhangsan@qq.com"）</text>
+
+  <text x="80" y="126" fill="#4ade80" font-size="12" font-weight="bold">3.</text>
+  <text x="100" y="126" fill="#e2e8f0" font-size="12">系统B查映射表：sub "user_a_123" 没有对应本地账号</text>
+
+  <text x="80" y="150" fill="#4ade80" font-size="12" font-weight="bold">4.</text>
+  <text x="100" y="150" fill="#e2e8f0" font-size="12">系统B弹出页面："检测到您通过系统A登录，请绑定系统B的已有账号"</text>
+
+  <text x="80" y="174" fill="#4ade80" font-size="12" font-weight="bold">5.</text>
+  <text x="100" y="174" fill="#e2e8f0" font-size="12">用户输入系统B的账号密码 → 验证通过 → 写入映射表（sub → local_user_b_456）</text>
+
+  <!-- Phase 2 -->
+  <rect x="30" y="220" width="820" height="140" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="1"/>
+  <text x="440" y="248" text-anchor="middle" fill="#4ade80" font-weight="bold" font-size="14">第二次及以后：自动登录</text>
+
+  <text x="80" y="278" fill="#4ade80" font-size="12" font-weight="bold">1.</text>
+  <text x="100" y="278" fill="#e2e8f0" font-size="12">用户已登录系统A，在浏览器中打开系统B</text>
+
+  <text x="80" y="302" fill="#4ade80" font-size="12" font-weight="bold">2.</text>
+  <text x="100" y="302" fill="#e2e8f0" font-size="12">系统B → 发起 OIDC → IdP（系统A）→ 用户已登录，直接返回 code（无需再次输入密码）</text>
+
+  <text x="80" y="326" fill="#4ade80" font-size="12" font-weight="bold">3.</text>
+  <text x="100" y="326" fill="#e2e8f0" font-size="12">系统B 拿到 ID Token（sub: "user_a_123"）→ 查映射表 → 找到 local_user_b_456</text>
+
+  <text x="80" y="350" fill="#4ade80" font-size="12" font-weight="bold">4.</text>
+  <text x="100" y="350" fill="#e2e8f0" font-size="12">系统B 以 local_user_b_456 的身份创建 Session → ✅ 自动登录完成！</text>
+
+  <!-- DB schema -->
+  <rect x="30" y="380" width="820" height="120" rx="8" fill="#0f172a" stroke="#fb923c" stroke-width="1"/>
+  <text x="440" y="408" text-anchor="middle" fill="#fb923c" font-weight="bold" font-size="14">系统B需要的数据库表</text>
+
+  <rect x="60" y="420" width="760" height="65" rx="4" fill="#1a2330"/>
+  <text x="80" y="442" fill="#94a3b8" font-size="11" font-family="monospace">
+    CREATE TABLE oidc_identity_binding (
+  </text>
+  <text x="80" y="458" fill="#94a3b8" font-size="11" font-family="monospace">
+      id            BIGINT PRIMARY KEY AUTO_INCREMENT,
+  </text>
+  <text x="80" y="474" fill="#94a3b8" font-size="11" font-family="monospace">
+      idp_issuer    VARCHAR(255)  NOT NULL,  -- IdP 的 issuer URL（支持未来对接多个 IdP）
+  </text>
+  <text x="80" y="490" fill="#94a3b8" font-size="11" font-family="monospace">
+      idp_sub       VARCHAR(255)  NOT NULL,  -- IdP 返回的用户唯一标识
+  </text>
+  <text x="80" y="506" fill="#94a3b8" font-size="11" font-family="monospace">
+      local_user_id BIGINT        NOT NULL,  -- 系统B的本地用户 ID
+  </text>
+</svg>
+
+<!-- ==================== 代码示例 ==================== -->
+<h2 id="code">八、关键代码示例</h2>
+
+<h3>系统A（IdP）需要实现的端点</h3>
+<p>如果你选择<strong>方案B（自己实现 IdP）</strong>，以下是需要提供的核心端点：</p>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab(event,'tab-py')">Python (FastAPI)</button>
+  <button class="tab" onclick="switchTab(event,'tab-js')">Node.js</button>
+</div>
+
+<div id="tab-py" class="tab-content active">
+<pre><span class="cmt"># 你的系统A：OIDC IdP 端点实现概要</span>
+
+<span class="kw">from</span> fastapi <span class="kw">import</span> FastAPI, Request, HTTPException
+<span class="kw">from</span> authlib.jose <span class="kw">import</span> jwt, JWTClaims
+<span class="kw">import</span> time, secrets, hashlib
+
+app = FastAPI()
+
+<span class="cmt"># ===== 1. 发现端点（OIDC Discovery） =====</span>
+<span class="kw">@app.get</span>(<span class="str">"/.well-known/openid-configuration"</span>)
+<span class="kw">async def</span> <span class="fn">openid_configuration</span>():
+    <span class="kw">return</span> {
+        <span class="str">"issuer"</span>: <span class="str">"https://your-system-a.com"</span>,
+        <span class="str">"authorization_endpoint"</span>: <span class="str">"https://your-system-a.com/authorize"</span>,
+        <span class="str">"token_endpoint"</span>: <span class="str">"https://your-system-a.com/token"</span>,
+        <span class="str">"userinfo_endpoint"</span>: <span class="str">"https://your-system-a.com/userinfo"</span>,
+        <span class="str">"jwks_uri"</span>: <span class="str">"https://your-system-a.com/jwks"</span>,
+        <span class="str">"scopes_supported"</span>: [<span class="str">"openid"</span>, <span class="str">"profile"</span>, <span class="str">"email"</span>],
+        <span class="str">"response_types_supported"</span>: [<span class="str">"code"</span>],
+        <span class="str">"id_token_signing_alg_values_supported"</span>: [<span class="str">"RS256"</span>],
+        <span class="str">"code_challenge_methods_supported"</span>: [<span class="str">"S256"</span>],
+    }
+
+<span class="cmt"># ===== 2. 授权端点 =====</span>
+<span class="kw">@app.get</span>(<span class="str">"/authorize"</span>)
+<span class="kw">async def</span> <span class="fn">authorize</span>(request: Request):
+    <span class="cmt"># 验证参数：client_id, redirect_uri, response_type, scope, state, code_challenge</span>
+    client_id = request.query_params[<span class="str">"client_id"</span>]
+    redirect_uri = request.query_params[<span class="str">"redirect_uri"</span>]
+    state = request.query_params.get(<span class="str">"state"</span>)
+    code_challenge = request.query_params[<span class="str">"code_challenge"</span>]
+
+    <span class="cmt"># 检查用户是否已登录你的系统A</span>
+    session_user = get_current_user(request)  <span class="cmt"># 你的现有Session机制</span>
+    <span class="kw">if not</span> session_user:
+        <span class="cmt"># 未登录，重定向到你的登录页</span>
+        <span class="kw">return</span> RedirectResponse(<span class="str">"/login?next="</span> + quote(str(request.url)))
+
+    <span class="cmt"># 用户已登录，生成一次性 authorization code</span>
+    code = secrets.token_urlsafe(<span class="num">32</span>)
+    store_code(code, {
+        <span class="str">"user_id"</span>: session_user.id,
+        <span class="str">"client_id"</span>: client_id,
+        <span class="str">"redirect_uri"</span>: redirect_uri,
+        <span class="str">"code_challenge"</span>: code_challenge,
+        <span class="str">"expires_at"</span>: time.time() + <span class="num">600</span>,  <span class="cmt">// 10分钟有效</span>
+    })
+
+    <span class="cmt"># 重定向回系统B</span>
+    <span class="kw">return</span> RedirectResponse(<span class="str">f"{redirect_uri}?code={code}&state={state}"</span>)
+
+<span class="cmt"># ===== 3. Token 端点（服务器到服务器） =====</span>
+<span class="kw">@app.post</span>(<span class="str">"/token"</span>)
+<span class="kw">async def</span> <span class="fn">token</span>(request: Request):
+    form = <span class="kw">await</span> request.form()
+    code_data = verify_and_consume_code(
+        form[<span class="str">"code"</span>],
+        form[<span class="str">"code_verifier"</span>],   <span class="cmt"># PKCE 验证</span>
+        form[<span class="str">"client_id"</span>],
+    )
+    <span class="kw">if not</span> code_data:
+        <span class="kw">raise</span> HTTPException(<span class="num">400</span>, <span class="str">"invalid_grant"</span>)
+
+    user = get_user_by_id(code_data[<span class="str">"user_id"</span>])
+
+    <span class="cmt"># 生成 ID Token（JWT）</span>
+    id_token = jwt.encode(
+        {<span class="str">"alg"</span>: <span class="str">"RS256"</span>},
+        {
+            <span class="str">"iss"</span>: <span class="str">"https://your-system-a.com"</span>,
+            <span class="str">"sub"</span>: str(user.id),            <span class="cmt"># 用户在系统A的唯一ID</span>
+            <span class="str">"aud"</span>: code_data[<span class="str">"client_id"</span>],
+            <span class="str">"exp"</span>: int(time.time()) + <span class="num">3600</span>,
+            <span class="str">"iat"</span>: int(time.time()),
+            <span class="str">"email"</span>: user.email,          <span class="cmt"># 可选</span>
+            <span class="str">"name"</span>: user.name,             <span class="cmt"># 可选</span>
+        },
+        PRIVATE_KEY,  <span class="cmt"># RSA 私钥</span>
+    )
+
+    <span class="kw">return</span> {
+        <span class="str">"access_token"</span>: generate_access_token(user),
+        <span class="str">"id_token"</span>: id_token,
+        <span class="str">"token_type"</span>: <span class="str">"Bearer"</span>,
+        <span class="str">"expires_in"</span>: <span class="num">3600</span>,
+    }
+</pre>
+</div>
+
+<div id="tab-js" class="tab-content">
+<pre><span class="cmt">// 你的系统A：OIDC IdP 端点（使用 node-oidc-provider）</span>
+
+<span class="kw">const</span> { Provider } = <span class="fn">require</span>(<span class="str">'oidc-provider'</span>);
+
+<span class="kw">const</span> oidc = <span class="kw">new</span> <span class="fn">Provider</span>(<span class="str">'https://your-system-a.com'</span>, {
+  <span class="cmt">// 配置 client（系统B）</span>
+  clients: [
+    {
+      client_id: <span class="str">'system_b_client_id'</span>,
+      client_secret: <span class="str">'system_b_secret_xxx'</span>,
+      redirect_uris: [<span class="str">'https://system-b.com/callback'</span>],
+      grant_types: [<span class="str">'authorization_code'</span>],
+      response_types: [<span class="str">'code'</span>],
+    },
+  ],
+
+  <span class="cmt">// 核心：对接你现有的用户数据库</span>
+  <span class="fn">findAccount</span>(ctx, sub) {
+    <span class="cmt">// 从你的数据库查找用户</span>
+    <span class="kw">const</span> user = <span class="kw">await</span> <span class="fn">db</span>.users.findByPk(sub);
+    <span class="kw">return</span> {
+      accountId: user.id,
+      <span class="kw">async</span> <span class="fn">claims</span>() {
+        <span class="kw">return</span> {
+          sub: user.id,
+          email: user.email,
+          name: user.name,
+        };
+      },
+    };
+  },
+
+  features: {
+    pkce: { enabled: <span class="kw">true</span> },       <span class="cmt">// 必须开启 PKCE</span>
+  },
+
+  cookies: {
+    keys: [<span class="str">'your-cookie-signing-key'</span>],
+  },
+
+  jwks: {
+    keys: yourJWKSKeys,  <span class="cmt">// RSA 密钥对</span>
+  },
+});
+
+<span class="cmt">// 挂载到你的 Express/Koa 应用</span>
+app.use(<span class="str">'/'</span>, oidc.callback());
+</pre>
+</div>
+
+<h3>系统B（RP）实现</h3>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab(event,'tab-rp-py')">Python</button>
+  <button class="tab" onclick="switchTab(event,'tab-rp-js')">Node.js</button>
+</div>
+
+<div id="tab-rp-py" class="tab-content active">
+<pre><span class="cmt"># 系统B：OIDC Relying Party 实现</span>
+
+<span class="kw">from</span> authlib.integrations.starlette_client <span class="kw">import</span> OAuth
+
+oauth = OAuth()
+oauth.register(
+    name=<span class="str">"system_a"</span>,
+    server_metadata_url=<span class="str">"https://your-system-a.com/.well-known/openid-configuration"</span>,
+    client_id=<span class="str">"system_b_client_id"</span>,
+    client_secret=<span class="str">"system_b_secret_xxx"</span>,
+    client_kwargs={<span class="str">"code_challenge_method"</span>: <span class="str">"S256"</span>},
+)
+
+<span class="kw">@app.get</span>(<span class="str">"/login/oidc"</span>)
+<span class="kw">async def</span> <span class="fn">login_via_system_a</span>(request: Request):
+    redirect_uri = <span class="str">"https://system-b.com/callback"</span>
+    <span class="kw">return await</span> oauth.system_a.authorize_redirect(request, redirect_uri)
+
+<span class="kw">@app.get</span>(<span class="str">"/callback"</span>)
+<span class="kw">async def</span> <span class="fn">oidc_callback</span>(request: Request):
+    <span class="cmt"># 用 code 换 token</span>
+    token = <span class="kw">await</span> oauth.system_a.authorize_access_token(request)
+    id_token = token[<span class="str">"id_token"</span>]       <span class="cmt"># 已自动验证签名</span>
+
+    sub = id_token[<span class="str">"sub"</span>]               <span class="cmt"># 用户在系统A的唯一ID</span>
+    email = id_token.get(<span class="str">"email"</span>)
+
+    <span class="cmt"># 查映射表</span>
+    binding = <span class="kw">await</span> db.query(
+        <span class="str">"SELECT local_user_id FROM oidc_identity_binding"</span>
+        <span class="str">" WHERE idp_issuer = :iss AND idp_sub = :sub"</span>,
+        {<span class="str">"iss"</span>: <span class="str">"https://your-system-a.com"</span>, <span class="str">"sub"</span>: sub}
+    )
+
+    <span class="kw">if</span> binding:
+        <span class="cmt"># 已绑定 → 直接登录</span>
+        user = get_user_by_id(binding.local_user_id)
+        set_session(request, user)
+        <span class="kw">return</span> RedirectResponse(<span class="str">"/dashboard"</span>)
+    <span class="kw">else</span>:
+        <span class="cmt"># 未绑定 → 导向绑定页面</span>
+        request.session[<span class="str">"pending_oidc"</span>] = {<span class="str">"sub"</span>: sub, <span class="str">"email"</span>: email}
+        <span class="kw">return</span> RedirectResponse(<span class="str">"/bind-account"</span>)
+
+<span class="kw">@app.post</span>(<span class="str">"/bind-account"</span>)
+<span class="kw">async def</span> <span class="fn">bind_account</span>(request: Request):
+    pending = request.session.pop(<span class="str">"pending_oidc"</span>)
+    <span class="cmt"># 验证用户在系统B的密码</span>
+    user = authenticate_local_user(request.form[<span class="str">"username"</span>], request.form[<span class="str">"password"</span>])
+    <span class="kw">if not</span> user:
+        <span class="kw">raise</span> HTTPException(<span class="num">401</span>)
+
+    <span class="cmt"># 写入映射</span>
+    <span class="kw">await</span> db.execute(
+        <span class="str">"INSERT INTO oidc_identity_binding (idp_issuer, idp_sub, local_user_id) VALUES (:iss, :sub, :uid)"</span>,
+        {<span class="str">"iss"</span>: <span class="str">"https://your-system-a.com"</span>, <span class="str">"sub"</span>: pending[<span class="str">"sub"</span>], <span class="str">"uid"</span>: user.id}
+    )
+    set_session(request, user)
+    <span class="kw">return</span> RedirectResponse(<span class="str">"/dashboard"</span>)
+</pre>
+</div>
+
+<div id="tab-rp-js" class="tab-content">
+<pre><span class="cmt">// 系统B：OIDC Relying Party（使用 openid-client）</span>
+
+<span class="kw">const</span> { Issuer, generators } = <span class="fn">require</span>(<span class="str">'openid-client'</span>);
+
+<span class="cmt">// 自动发现 IdP 配置</span>
+<span class="kw">const</span> systemAIssuer = <span class="kw">await</span> Issuer.<span class="fn">discover</span>(
+  <span class="str">'https://your-system-a.com'</span>
+);
+
+<span class="kw">const</span> client = <span class="kw">new</span> systemAIssuer.<span class="fn">Client</span>({
+  client_id: <span class="str">'system_b_client_id'</span>,
+  client_secret: <span class="str">'system_b_secret_xxx'</span>,
+  redirect_uris: [<span class="str">'https://system-b.com/callback'</span>],
+  response_types: [<span class="str">'code'</span>],
+});
+
+<span class="cmt">// 登录入口</span>
+app.<span class="fn">get</span>(<span class="str">'/login/oidc'</span>, <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> codeVerifier = generators.<span class="fn">codeVerifier</span>();
+  <span class="kw">const</span> codeChallenge = generators.<span class="fn">codeChallenge</span>(codeVerifier);
+  req.session.codeVerifier = codeVerifier;
+
+  <span class="kw">const</span> authUrl = client.<span class="fn">authorizationUrl</span>({
+    scope: <span class="str">'openid profile email'</span>,
+    code_challenge: codeChallenge,
+    code_challenge_method: <span class="str">'S256'</span>,
+  });
+  res.<span class="fn">redirect</span>(authUrl);
+});
+
+<span class="cmt">// 回调处理</span>
+app.<span class="fn">get</span>(<span class="str">'/callback'</span>, <span class="kw">async</span> (req, res) => {
+  <span class="kw">const</span> params = client.<span class="fn">callbackParams</span>(req);
+  <span class="kw">const</span> tokenSet = <span class="kw">await</span> client.<span class="fn">callback</span>(
+    <span class="str">'https://system-b.com/callback'</span>, params,
+    { code_verifier: req.session.codeVerifier }
+  );
+
+  <span class="kw">const</span> { sub, email } = tokenSet.<span class="fn">claims</span>();
+
+  <span class="cmt">// 查映射 → 绑定或登录</span>
+  <span class="kw">const</span> binding = <span class="kw">await</span> <span class="fn">db</span>.query(
+    <span class="str">'SELECT local_user_id FROM oidc_identity_binding WHERE idp_sub = :sub'</span>,
+    { sub }
+  );
+
+  <span class="kw">if</span> (binding) {
+    req.session.userId = binding.local_user_id;
+    res.<span class="fn">redirect</span>(<span class="str">'/dashboard'</span>);
+  } <span class="kw">else</span> {
+    req.session.pendingOidc = { sub, email };
+    res.<span class="fn">redirect</span>(<span class="str">'/bind-account'</span>);
+  }
+});
+</pre>
+</div>
+
+<!-- ==================== 常见问题 ==================== -->
+<h2>九、常见问题 FAQ</h2>
+
+<div class="card">
+  <h3 style="margin:0 0 8px">Q: SSO 和"免密登录"是一个东西吗？</h3>
+  <p style="margin:0;font-size:14px;color:var(--muted)">
+    <strong>不完全一样。</strong>"免密登录"更广，包括：密码管理器自动填充、Passkey/WebAuthn（指纹/Face ID）、Magic Link（邮箱链接登录）、短信验证码登录等。SSO 是免密登录的<strong>一种实现方式</strong>——用户第一次在 IdP 登录后，访问其他系统不需要再输入密码。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px">Q: 如果系统A和系统B在不同域名下，Session 能共享吗？</h3>
+  <p style="margin:0;font-size:14px;color:var(--muted">
+    <strong>不能直接共享 Cookie。</strong>这正是需要 OIDC/SAML 协议的原因——通过<strong>基于重定向的协议</strong>来跨域名传递认证信息，而不是依赖 Cookie 共享。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px">Q: 用户在系统A退出登录了，系统B也会自动退出吗？</h3>
+  <p style="margin:0;font-size:14px;color:var(--muted)">
+    需要额外实现 <strong>Single Logout (SLO)</strong>。OIDC 有 RP-Initiated Logout 和 Back-Channel Logout 规范。简单方案：设置较短的 Session 过期时间 + 每次访问系统B时主动向 IdP 校验。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px">Q: 我的系统A的用户密码是 bcrypt 哈希的，能直接给 Keycloak 用吗？</h3>
+  <p style="margin:0;font-size:14px;color:var(--muted)">
+    可以。Keycloak 支持<strong>用户迁移</strong>——你可以写一个 Provider 插件，将认证委托给你的系统A API，或批量导入用户时直接保留 bcrypt 哈希（Keycloak 支持 bcrypt）。
+  </p>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px">Q: 系统B是别人的 SaaS 产品（比如 Jira、Slack），怎么对接？</h3>
+  <p style="margin:0;font-size:14px;color:var(--muted">
+    这些企业 SaaS 通常有"配置 SAML/OIDC SSO"的功能（在管理后台的"安全"或"认证"设置中）。你提供 IdP 的 metadata URL，它们就能对接。如果系统B完全没有 SSO 功能，那就无法通过标准方式实现。
+  </p>
+</div>
+
+<!-- ==================== 决策树 ==================== -->
+<h2>十、你应该怎么做——决策路径</h2>
+
+<svg viewBox="0 0 880 620" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#94a3b8"/></marker>
+  </defs>
+
+  <rect x="0" y="0" width="880" height="620" rx="12" fill="#1e293b"/>
+
+  <!-- Start -->
+  <rect x="310" y="15" width="260" height="44" rx="22" fill="#38bdf8"/>
+  <text x="440" y="43" text-anchor="middle" fill="#0f172a" font-weight="bold" font-size="14">开始：你的需求</text>
+
+  <line x1="440" y1="59" x2="440" y2="85" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- Q1 -->
+  <polygon points="440,85 540,125 440,165 340,125" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+  <text x="440" y="122" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="bold">系统B</text>
+  <text x="440" y="138" text-anchor="middle" fill="#e2e8f0" font-size="12">你能改代码吗?</text>
+
+  <!-- YES branch -->
+  <line x1="340" y1="125" x2="180" y2="125" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="260" y="118" fill="#4ade80" font-size="11" font-weight="bold">✅ 能</text>
+
+  <rect x="30" y="100" width="150" height="50" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="105" y="122" text-anchor="middle" fill="#4ade80" font-size="12" font-weight="bold">最简单路径</text>
+  <text x="105" y="140" text-anchor="middle" fill="#94a3b8" font-size="11">系统B接入OIDC</text>
+
+  <line x1="105" y1="150" x2="105" y2="510" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- NO branch -->
+  <line x1="540" y1="125" x2="700" y2="125" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="620" y="118" fill="#f87171" font-size="11" font-weight="bold">❌ 不能</text>
+
+  <rect x="700" y="100" width="150" height="50" rx="8" fill="#0f172a" stroke="#f87171" stroke-width="2"/>
+  <text x="775" y="122" text-anchor="middle" fill="#f87171" font-size="12" font-weight="bold">系统B支持</text>
+  <text x="775" y="140" text-anchor="middle" fill="#94a3b8" font-size="11">企业SSO吗?</text>
+
+  <!-- NO->YES -->
+  <line x1="775" y1="150" x2="775" y2="220" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="790" y="190" fill="#4ade80" font-size="11" font-weight="bold">✅ 支持</text>
+
+  <rect x="690" y="220" width="170" height="50" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="775" y="242" text-anchor="middle" fill="#4ade80" font-size="12" font-weight="bold">配置系统B的</text>
+  <text x="775" y="260" text-anchor="middle" fill="#94a3b8" font-size="11">SSO设置 → 填入IdP信息</text>
+
+  <line x1="775" y1="270" x2="775" y2="510" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <!-- NO->NO -->
+  <line x1="850" y1="125" x2="850" y2="330" stroke="#f87171" stroke-width="1.5"/>
+  <line x1="850" y1="330" x2="775" y2="330" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="690" y="330" width="170" height="50" rx="8" fill="#0f172a" stroke="#f87171" stroke-width="2"/>
+  <text x="775" y="352" text-anchor="middle" fill="#f87171" font-size="12" font-weight="bold">❌ 不支持SSO</text>
+  <text x="775" y="370" text-anchor="middle" fill="#94a3b8" font-size="11">标准方案不可行</text>
+
+  <line x1="775" y1="380" x2="775" y2="420" stroke="#f87171" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <rect x="660" y="420" width="230" height="65" rx="8" fill="#0f172a" stroke="#fb923c" stroke-width="2"/>
+  <text x="775" y="442" text-anchor="middle" fill="#fb923c" font-size="12" font-weight="bold">替代方案</text>
+  <text x="775" y="460" text-anchor="middle" fill="#94a3b8" font-size="10">· 反向代理注入认证头</text>
+  <text x="775" y="475" text-anchor="middle" fill="#94a3b8" font-size="10">· 与系统B厂商协商定制开发</text>
+
+  <!-- Middle decision -->
+  <line x1="105" y1="150" x2="105" y2="280" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr)"/>
+
+  <polygon points="105,280 205,320 105,360 5,320" fill="#1e293b" stroke="#818cf8" stroke-width="2"/>
+  <text x="105" y="317" text-anchor="middle" fill="#e2e8f0" font-size="12" font-weight="bold">系统A</text>
+  <text x="105" y="333" text-anchor="middle" fill="#e2e8f0" font-size="12">改造策略?</text>
+
+  <line x1="5" y1="320" x2="5" y2="430" stroke="#fb923c" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="10" y="380" fill="#fb923c" font-size="11" font-weight="bold">自建IdP</text>
+
+  <rect x="5" y="430" width="100" height="80" rx="8" fill="#0f172a" stroke="#fb923c" stroke-width="2"/>
+  <text x="55" y="453" text-anchor="middle" fill="#fb923c" font-size="11" font-weight="bold">方案B</text>
+  <text x="55" y="470" text-anchor="middle" fill="#94a3b8" font-size="10">加OIDC</text>
+  <text x="55" y="485" text-anchor="middle" fill="#94a3b8" font-size="10">端点</text>
+  <text x="55" y="500" text-anchor="middle" fill="#94a3b8" font-size="10">node-oidc-provider</text>
+
+  <line x1="205" y1="320" x2="205" y2="430" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arr)"/>
+  <text x="215" y="380" fill="#4ade80" font-size="11" font-weight="bold">引入独立IdP(推荐)</text>
+
+  <rect x="155" y="430" width="100" height="80" rx="8" fill="#0f172a" stroke="#4ade80" stroke-width="2"/>
+  <text x="205" y="453" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="bold">方案A</text>
+  <text x="205" y="470" text-anchor="middle" fill="#94a3b8" font-size="10">Keycloak</text>
+  <text x="205" y="485" text-anchor="middle" fill="#94a3b8" font-size="10">/Auth0</text>
+  <text x="205" y="500" text-anchor="middle" fill="#94a3b8" font-size="10">/Zitadel</text>
+
+  <!-- Summary -->
+  <rect x="40" y="540" width="800" height="65" rx="10" fill="rgba(56,189,248,0.1)" stroke="#38bdf8" stroke-width="2"/>
+  <text x="440" y="568" text-anchor="middle" fill="#38bdf8" font-size="15" font-weight="bold">推荐路径：方案A（Keycloak 做 IdP） + 系统B 以 OIDC RP 接入 + 账号绑定映射表</text>
+  <text x="440" y="592" text-anchor="middle" fill="#94a3b8" font-size="12">这是业界最成熟、最安全、开发量最小的方案</text>
+</svg>
+
+<!-- ==================== 总结 ==================== -->
+<h2>十一、核心要点速查</h2>
+
+<div class="card accent">
+  <table style="margin:0">
+    <tr><td style="width:220px"><strong>你的需求</strong></td><td>登录系统A → 自动登录系统B（对应账号）</td></tr>
+    <tr><td><strong>最合适的协议</strong></td><td>OIDC（OpenID Connect）</td></tr>
+    <tr><td><strong>推荐方案</strong></td><td>使用 Keycloak / Auth0 作为 IdP，系统A 和系统B 都对接它</td></tr>
+    <tr><td><strong>账号对应怎么解决</strong></td><td>系统B 维护映射表：<code>idp_sub → local_user_id</code>，首次绑定时建立</td></tr>
+    <tr><td><strong>核心安全机制</strong></td><td>PKCE + state + nonce + JWT 签名验证</td></tr>
+    <tr><td><strong>必须实现的端点</strong></td><td>/authorize、/token、/userinfo、/.well-known/openid-configuration、JWKS</td></tr>
+    <tr><td><strong>开发量参考</strong></td><td>方案A（Keycloak）：1-3天；方案B（自建IdP）：1-2周</td></tr>
+  </table>
+</div>
+
+<p style="text-align:center;color:var(--muted);margin-top:40px;font-size:13px">
+  —— 本指南覆盖了 SSO/OIDC 从概念到落地的完整知识链，祝顺利！——
+</p>
+
+</div><!-- /container -->
+
+<script>
+function switchTab(evt, tabId) {
+  // Deactivate all tabs in this group
+  const tabs = evt.target.parentElement;
+  const tabContent = tabs.nextElementSibling;
+
+  // Find the container
+  let container = tabs.parentElement;
+
+  // Hide all tab contents
+  container.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  // Deactivate all tabs
+  container.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+
+  // Activate clicked
+  evt.target.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
+}
+</script>
+
+</body>
+</html>
