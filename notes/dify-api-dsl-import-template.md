@@ -30,6 +30,56 @@ POST /console/api/apps/imports
 - `mode`: `"yaml-content"`（传 YAML 字符串）或 `"yaml-url"`（传 URL 拉取，GitHub blob URL 会自动转 raw）
 - `app_id`: 不为空时是更新已有应用（仅 workflow/advanced-chat 模式）
 
+### DSL 文件转请求体字符串
+
+**curl（推荐）**
+
+```bash
+curl -s -X POST http://localhost:5001/console/api/apps/imports \
+  -H "Authorization: Bearer $ADMIN_API_KEY" \
+  -H "X-WORKSPACE-ID: $WORKSPACE_ID" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --rawfile yml workflow.yml '{mode: "yaml-content", yaml_content: $yml, name: "My App"}')"
+```
+
+`jq --rawfile` 读取文件并自动转义换行符和特殊字符，无需手动处理。
+
+**Python**
+
+```python
+import requests
+
+with open("workflow.yml") as f:
+    yaml_content = f.read()
+
+resp = requests.post(
+    "http://localhost:5001/console/api/apps/imports",
+    headers={
+        "Authorization": f"Bearer {admin_api_key}",
+        "X-WORKSPACE-ID": workspace_id,
+    },
+    json={
+        "mode": "yaml-content",
+        "yaml_content": yaml_content,
+        "name": "My App",
+    },
+)
+```
+
+**URL 模式（更省事）**
+
+如果文件能通过 URL 访问，连内容都不需要读：
+
+```json
+{
+  "mode": "yaml-url",
+  "yaml_url": "https://example.com/workflow.yml",
+  "name": "My App"
+}
+```
+
+GitHub 上的文件直接用 raw URL 即可，Dify 内部也会自动把 `github.com/blob/` 转成 raw。
+
 ### 返回
 
 ```json
