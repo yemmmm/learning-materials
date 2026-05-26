@@ -4,9 +4,9 @@
 
 v0.23.1 的 `Dealer.search()` 是同步函数，在 Quart async 事件循环中直接调用，阻塞整个事件循环，导致并发请求串行化。
 
-## 最小实现（3 个文件）
+## 最小实现（6 个文件）
 
-只需修改 3 个文件，覆盖检索 API 核心路径。
+### 核心层（3 个文件）：添加 thread_pool_exec 基础设施 + 改造检索方法为异步
 
 ---
 
@@ -235,7 +235,81 @@ async def knowledge_graph():
 #                 ranks["chunks"].insert(0, ck)
 ```
 
-> **说明**：`KGSearch` 继承 `Dealer`，其 `retrieval()` 也需要改为 async，但内部调用了多个同步辅助方法（`query_rewrite`、`get_relevant_ents_by_keywords`、`_community_retrieval_`），改动链路长。最小验证跳过 KGSearch，专注核心检索链路。
+> **说明**：`KGSearch` 继承 `Dealer`，其 `retrieval()` 也需要改为 async，但内部调用了多个同步辅助方法（`query_rewrite`、`get_relevant_ents_by_keywords`、`_community_retrieval_`），改动链路长。最小验证跳过 KGSearch，专注核心检索链路。所有 SDK 文件中的 `kg_retriever.retrieval()` 调用均用同样方式注释。
+
+---
+
+### 调用层 B：`api/apps/sdk/doc.py`（SDK 检索接口）
+
+**改动** — `retrieval_test()` (line 1561)，已在 `async def` 中，3 处加 `await` + 注释 kg_retriever：
+
+```python
+# 修改前 (line 1561)
+        ranks = settings.retriever.retrieval(
+            question, embd_mdl, tenant_ids, kb_ids, page, size,
+            ...
+        )
+# 修改后
+        ranks = await settings.retriever.retrieval(
+            question, embd_mdl, tenant_ids, kb_ids, page, size,
+            ...
+        )
+```
+
+```python
+# 修改前 (line 1578)
+            cks = settings.retriever.retrieval_by_toc(question, ranks["chunks"], tenant_ids, chat_mdl, size)
+
+# 修改后
+            cks = await settings.retriever.retrieval_by_toc(question, ranks["chunks"], tenant_ids, chat_mdl, size)
+```
+
+```python
+# 修改前 (line 1582-1584)
+        if use_kg:
+            ck = settings.kg_retriever.retrieval(...)
+            if ck["content_with_weight"]:
+                ranks["chunks"].insert(0, ck)
+
+# 修改后 — 注释掉
+        # NOTE: kg_retriever.retrieval skipped in minimal backport (KGSearch not yet async)
+        # if use_kg:
+        #     ck = settings.kg_retriever.retrieval(...)
+        #     if ck["content_with_weight"]:
+        #         ranks["chunks"].insert(0, ck)
+```
+
+### 调用层 C：`api/apps/sdk/dify_retrieval.py`（Dify 兼容检索接口）
+
+**改动** — `retrieval()` (line 138)，已在 `async def` 中，1 处加 `await` + 注释 kg_retriever：
+
+```python
+# 修改前 (line 138)
+        ranks = settings.retriever.retrieval(
+            question, embd_mdl, kb.tenant_id, [kb_id], ...
+
+# 修改后
+        ranks = await settings.retriever.retrieval(
+            question, embd_mdl, kb.tenant_id, [kb_id], ...
+```
+
+同样注释掉 kg_retriever 块（lines 152-160）。
+
+### 调用层 D：`api/apps/sdk/session.py`（会话检索测试接口）
+
+**改动** — `retrieval_test_embedded()` (line 1114)，已在 `async def` 中，1 处加 `await` + 注释 kg_retriever：
+
+```python
+# 修改前 (line 1114)
+        ranks = settings.retriever.retrieval(
+            _question, embd_mdl, tenant_ids, kb_ids, page, size, ...
+
+# 修改后
+        ranks = await settings.retriever.retrieval(
+            _question, embd_mdl, tenant_ids, kb_ids, page, size, ...
+```
+
+同样注释掉 kg_retriever 块（lines 1118-1122）。
 
 ---
 
@@ -246,6 +320,9 @@ for c in ha-node1-web ha-node2-web; do
   docker cp common/misc_utils.py $c:/ragflow/common/misc_utils.py
   docker cp rag/nlp/search.py $c:/ragflow/rag/nlp/search.py
   docker cp api/apps/chunk_app.py $c:/ragflow/api/apps/chunk_app.py
+  docker cp api/apps/sdk/doc.py $c:/ragflow/api/apps/sdk/doc.py
+  docker cp api/apps/sdk/dify_retrieval.py $c:/ragflow/api/apps/sdk/dify_retrieval.py
+  docker cp api/apps/sdk/session.py $c:/ragflow/api/apps/sdk/session.py
 done
 docker exec ha-node1-web pkill -f ragflow_server
 docker exec ha-node2-web pkill -f ragflow_server
@@ -263,13 +340,14 @@ docker logs -f ha-node1-web 2>&1 | grep TIMING
 
 ## 不改动的范围
 
-以下调用点在最小实现中**暂不修改**，不影响核心检索路径的验证：
+以下调用点在最小实现中**暂不修改**（不在 `async def` 中，改为 async 会级联修改更多文件）：
 
-| 文件 | 调用 | 原因 |
-|------|------|------|
-| `graphrag/search.py` | `KGSearch.retrieval()` 内部 | 继承 Dealer，内部链路复杂，单独处理 |
-| `api/apps/kb_app.py` | `retriever.search()` | dataset 列表页，非检索路径 |
-| `api/apps/sdk/doc.py` | SDK 检索接口 | 非当前测试范围 |
+| 文件 | 调用 | 所在函数 |
+|------|------|---------|
+| `api/apps/sdk/doc.py:1084` | `retriever.search()` | `def list_chunks()` sync |
+| `api/apps/sdk/dataset.py:500` | `retriever.search()` | `def knowledge_graph()` sync |
+| `api/apps/kb_app.py:391` | `retriever.search()` | `def knowledge_graph()` sync |
+| `graphrag/search.py` | `KGSearch.retrieval()` 内部 | 继承 Dealer，链路复杂 |
 | `api/db/services/dialog_service.py` | 对话检索 | 非当前测试范围 |
 | `agent/tools/retrieval.py` | Agent 检索 | 非当前测试范围 |
 | `api/apps/llm_app.py` | `asyncio.to_thread()` | LLM 测试接口，非检索路径 |
