@@ -129,6 +129,59 @@ self.es_conn = Elasticsearch(
 [TIMING] total=0.847s emb=0.315s es=0.055s post=0.477s
 ```
 
+## 修改三：ThreadPoolExecutor 排队监控
+
+**文件**: `common/misc_utils.py`  
+**函数**: `thread_pool_exec()` (line 128)
+
+embedding 和 ES 搜索都通过 `thread_pool_exec()` 提交到同一个 `ThreadPoolExecutor`（默认 128 workers）。如果线程池饱和，任务会在队列中等待，导致延迟增加。此修改在每次任务提交时记录队列深度和总耗时。
+
+### 3.1 添加 import time (line 26)
+
+```python
+# 修改前
+import threading
+import uuid
+
+# 修改后
+import threading
+import time
+import uuid
+```
+
+### 3.2 thread_pool_exec 增加监控日志 (line 129-133)
+
+```python
+# 修改前
+async def thread_pool_exec(func, *args, **kwargs):
+    loop = asyncio.get_running_loop()
+    if kwargs:
+        func = functools.partial(func, *args, **kwargs)
+        return await loop.run_in_executor(_thread_pool_executor(), func)
+    return await loop.run_in_executor(_thread_pool_executor(), func, *args)
+
+# 修改后
+async def thread_pool_exec(func, *args, **kwargs):
+    pool = _thread_pool_executor()
+    qsize = pool._work_queue.qsize()
+    _t0 = time.time()
+    loop = asyncio.get_running_loop()
+    if kwargs:
+        func = functools.partial(func, *args, **kwargs)
+        result = await loop.run_in_executor(pool, func)
+    else:
+        result = await loop.run_in_executor(pool, func, *args)
+    _elapsed = time.time() - _t0
+    if _elapsed > 0.3 or qsize > 20:
+        logging.warning(f"[THREADPOOL] elapsed={_elapsed:.3f}s queue_depth={qsize}")
+    return result
+```
+
+关键改动：
+- 每次提交前记录 `_work_queue.qsize()`（等待执行的任务数）
+- 每次完成后记录从提交到返回的总耗时
+- 只打印耗时 >0.3s 或队列 >20 的异常情况，避免日志刷屏
+
 ## 部署方式
 
 Docker 容器内热更新，无需 rebuild：
@@ -137,6 +190,7 @@ Docker 容器内热更新，无需 rebuild：
 for c in ha-node1-web ha-node2-web; do
   docker cp /path/to/ragflow/rag/nlp/search.py $c:/ragflow/rag/nlp/search.py
   docker cp /path/to/ragflow/common/doc_store/es_conn_pool.py $c:/ragflow/common/doc_store/es_conn_pool.py
+  docker cp /path/to/ragflow/common/misc_utils.py $c:/ragflow/common/misc_utils.py
 done
 docker exec ha-node1-web pkill -f ragflow_server
 docker exec ha-node2-web pkill -f ragflow_server
@@ -147,8 +201,8 @@ docker exec ha-node2-web pkill -f ragflow_server
 ## 观察方法
 
 ```bash
-# 实时看 TIMING 日志
-docker logs -f ha-node1-web 2>&1 | grep TIMING
+# 同时看 TIMING 和 THREADPOOL 日志
+docker logs -f ha-node1-web 2>&1 | grep -E "TIMING|THREADPOOL"
 
 # ES 搜索线程池吞吐
 BEFORE=$(curl ... | jq '.nodes[].thread_pool.search.completed')
@@ -156,6 +210,15 @@ BEFORE=$(curl ... | jq '.nodes[].thread_pool.search.completed')
 AFTER=$(curl ... | jq '.nodes[].thread_pool.search.completed')
 echo "$(( (AFTER-BEFORE)/5 )) QPS"
 ```
+
+### 日志解读
+
+| 模式 | 含义 |
+|------|------|
+| `[TIMING] total=3.2s emb=2.8s es=0.05s` | embedding 耗时占比最高，embedding 是瓶颈 |
+| `[TIMING] total=4.0s emb=0.5s es=0.4s post=0.3s` | 有未计量的时间（total > emb+es+post），瓶颈可能在 Quart/中间件 |
+| `[THREADPOOL] elapsed=2.5s queue_depth=45` | 线程池严重饱和，45 个任务在排队 |
+| `[THREADPOOL]` 日志少且 TIMING 正常 | 瓶颈不在线程池，排查上游（Nginx LB、Quart worker）
 
 ## 调用链
 
