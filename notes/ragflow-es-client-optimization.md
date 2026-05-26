@@ -37,26 +37,96 @@ self.es_conn = Elasticsearch(
 **文件**: `rag/nlp/search.py`  
 **方法**: `Dealer.search()` (line 74)
 
-在检索入口方法中加入三段计时：
-- `emb`: embedding 生成耗时
-- `es`: ES 搜索耗时（不含 embedding）
-- `post`: 结果后处理耗时（highlight、aggregation 等）
+共修改 5 处，在检索入口加入三段计时：`emb`（embedding）、`es`（ES 搜索）、`post`（后处理）。
+
+### 2.1 方法入口 — 初始化计时器 (line 80-82)
 
 ```python
-# 方法入口新增
-_t0 = time.time()
-_t_emb = 0.0
-_t_es = 0.0
+# 修改前
+    if highlight is None:
+        highlight = False
 
-# embedding 完成后
-_t_emb = time.time() - _t0
+# 修改后
+    _t0 = time.time()
+    _t_emb = 0.0
+    _t_es = 0.0
+    if highlight is None:
+        highlight = False
+```
 
-# ES 搜索完成后
-_t_es = time.time() - _t0 - _t_emb
+### 2.2 embedding 完成后 — 记录 embedding 耗时 (line 128)
 
-# return 前
-_t_post = time.time() - _t0 - _t_emb - _t_es
-logging.warning(f"[TIMING] total={time.time()-_t0:.3f}s emb={_t_emb:.3f}s es={_t_es:.3f}s post={_t_post:.3f}s")
+```python
+# 修改前
+                matchDense = await self.get_vector(qst, emb_mdl, topk, req.get("similarity", 0.1))
+                q_vec = matchDense.embedding_data
+
+# 修改后
+                matchDense = await self.get_vector(qst, emb_mdl, topk, req.get("similarity", 0.1))
+                _t_emb = time.time() - _t0
+                q_vec = matchDense.embedding_data
+```
+
+### 2.3 ES 搜索完成后 — 记录 ES 耗时 (line 138)
+
+```python
+# 修改前
+                res = await thread_pool_exec(self.dataStore.search, src, highlightFields, filters, matchExprs, orderBy, offset, limit,
+                                            idx_names, kb_ids, rank_feature=rank_feature)
+                total = self.dataStore.get_total(res)
+
+# 修改后
+                res = await thread_pool_exec(self.dataStore.search, src, highlightFields, filters, matchExprs, orderBy, offset, limit,
+                                            idx_names, kb_ids, rank_feature=rank_feature)
+                _t_es = time.time() - _t0 - _t_emb
+                total = self.dataStore.get_total(res)
+```
+
+### 2.4 非 embedding 路径 — 同样记录 ES 耗时 (line 120-123)
+
+```python
+# 修改前
+            if emb_mdl is None:
+                matchExprs = [matchText]
+                res = await thread_pool_exec(self.dataStore.search, src, highlightFields, filters, matchExprs, orderBy, offset, limit,
+                                            idx_names, kb_ids, rank_feature=rank_feature)
+                total = self.dataStore.get_total(res)
+
+# 修改后
+            if emb_mdl is None:
+                matchExprs = [matchText]
+                _t_pre = time.time() - _t0
+                res = await thread_pool_exec(self.dataStore.search, src, highlightFields, filters, matchExprs, orderBy, offset, limit,
+                                            idx_names, kb_ids, rank_feature=rank_feature)
+                _t_es = time.time() - _t0 - _t_pre
+                total = self.dataStore.get_total(res)
+```
+
+### 2.5 return 前 — 输出三段计时 (line 168-169)
+
+```python
+# 修改前
+        ids = self.dataStore.get_doc_ids(res)
+        keywords = list(kwds)
+        highlight = self.dataStore.get_highlight(res, keywords, "content_with_weight")
+        aggs = self.dataStore.get_aggregation(res, "docnm_kwd")
+        return self.SearchResult(
+
+# 修改后
+        ids = self.dataStore.get_doc_ids(res)
+        keywords = list(kwds)
+        highlight = self.dataStore.get_highlight(res, keywords, "content_with_weight")
+        aggs = self.dataStore.get_aggregation(res, "docnm_kwd")
+        _t_post = time.time() - _t0 - _t_emb - _t_es
+        logging.warning(f"[TIMING] total={time.time()-_t0:.3f}s emb={_t_emb:.3f}s es={_t_es:.3f}s post={_t_post:.3f}s")
+        return self.SearchResult(
+```
+
+### 日志输出示例
+
+```
+[TIMING] total=3.215s emb=2.850s es=0.052s post=0.313s
+[TIMING] total=0.847s emb=0.315s es=0.055s post=0.477s
 ```
 
 ## 部署方式
