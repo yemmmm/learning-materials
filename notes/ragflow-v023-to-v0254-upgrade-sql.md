@@ -247,14 +247,23 @@ ALTER TABLE api_token ALTER COLUMN dialog_id DROP NOT NULL;
 
 ---
 
-## 4. 列重命名
+## 4. 列重命名（仅 v0.22 以下需要，v0.23+ 跳过）
+
+v0.23 起这两列已经叫 `process_duration`，以下 SQL 仅在列名仍为 `process_duation` 时才执行：
 
 ```sql
--- task.process_duation → process_duration
-ALTER TABLE task RENAME COLUMN process_duation TO process_duration;
-
--- document.process_duation → process_duration
-ALTER TABLE document RENAME COLUMN process_duation TO process_duration;
+-- 仅在 process_duation 列存在时才重命名
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'task' AND column_name = 'process_duation') THEN
+        ALTER TABLE task RENAME COLUMN process_duation TO process_duration;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name = 'document' AND column_name = 'process_duation') THEN
+        ALTER TABLE document RENAME COLUMN process_duation TO process_duration;
+    END IF;
+END $$;
 ```
 
 ---
