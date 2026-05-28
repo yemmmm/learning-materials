@@ -71,84 +71,88 @@ echo "timestamp,cpu_pct,mem_used_gb,mem_total_gb,mem_pct,load_1m,load_5m,load_15
 # ── 辅助函数 ──
 now_iso() { date -Iseconds; }
 
+# ── 单位转 MB ──
+to_mb() {
+    awk "{
+        val=\$1; unit=\$2;
+        gsub(/[^0-9.]/,\"\",val);
+        if      (unit ~ /GiB/) printf \"%.2f\", val*1024;
+        else if (unit ~ /MiB/) printf \"%.2f\", val;
+        else if (unit ~ /KiB/) printf \"%.2f\", val/1024;
+        else if (unit ~ /B/)   printf \"%.2f\", val/1048576;
+        else printf \"%.2f\", val;
+    }" <<< "$1"
+}
+
+# ── 单位转 KB ──
+to_kb() {
+    awk "{
+        val=\$1; unit=\$2;
+        gsub(/[^0-9.]/,\"\",val);
+        if      (unit ~ /GB/) printf \"%.2f\", val*1048576;
+        else if (unit ~ /MB/) printf \"%.2f\", val*1024;
+        else if (unit ~ /kB/) printf \"%.2f\", val;
+        else if (unit ~ /B/)  printf \"%.2f\", val/1024;
+        else printf \"%.2f\", val;
+    }" <<< "$1"
+}
+
 collect_container_stats() {
     local ts
     ts=$(now_iso)
 
+    # 并行采集所有容器的 docker stats
+    local tmpdir
+    tmpdir=$(mktemp -d -t mon-XXXX)
+    local pids=()
+
     for c in "${CONTAINERS[@]}"; do
-        if ! docker inspect "$c" --format '{{.Name}}' &>/dev/null; then
+        (
+            if docker inspect "$c" --format '{{.Name}}' &>/dev/null; then
+                docker stats "$c" --no-stream --no-trunc --format \
+                    "{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}" 2>/dev/null \
+                    > "$tmpdir/${c//\//_}.stats"
+            fi
+        ) &
+        pids+=($!)
+    done
+
+    for pid in "${pids[@]}"; do
+        wait "$pid" 2>/dev/null
+    done
+
+    for c in "${CONTAINERS[@]}"; do
+        local sf="$tmpdir/${c//\//_}.stats"
+        if [ ! -f "$sf" ]; then
             echo "$ts,$c,STOPPED,0,0,0,0,0,0,0" >> "$CONTAINER_CSV"
             continue
         fi
 
-        local stats
-        stats=$(docker stats "$c" --no-stream --no-trunc --format \
-            "{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}" 2>/dev/null) \
-            || stats="0%|0 / 0|0%|0 / 0|0 / 0"
+        local stats cpu mem_usage mem_pct net_io block_io
+        IFS='|' read -r cpu mem_usage mem_pct net_io block_io < "$sf"
 
-        IFS='|' read -r cpu mem_usage mem_pct net_io block_io <<< "$stats"
-
-        # 解析 CPU
+        local cpu_val
         cpu_val=$(echo "$cpu" | sed 's/%//' | awk '{printf "%.2f", $1}')
 
-        # 解析内存: "123.4MiB / 1GiB" -> mb_used, mb_limit
-        mem_used_mb=$(echo "$mem_usage" | awk -F'/' '{print $1}' | awk '{
-            val=$1; unit=$2;
-            if (unit ~ /GiB/) printf "%.2f", val*1024;
-            else if (unit ~ /MiB/) printf "%.2f", val;
-            else if (unit ~ /KiB/) printf "%.2f", val/1024;
-            else if (unit ~ /B/) printf "%.2f", val/1024/1024;
-            else printf "%.2f", val;
-        }')
-        mem_limit_mb=$(echo "$mem_usage" | awk -F'/' '{print $2}' | awk '{
-            val=$1; unit=$2;
-            if (unit ~ /GiB/) printf "%.2f", val*1024;
-            else if (unit ~ /MiB/) printf "%.2f", val;
-            else if (unit ~ /KiB/) printf "%.2f", val/1024;
-            else if (unit ~ /B/) printf "%.2f", val/1024/1024;
-            else printf "%.2f", val;
-        }')
+        local mem_used_mb mem_limit_mb
+        mem_used_mb=$(to_mb "$(echo "$mem_usage" | awk -F'/' '{print $1, $2}' || true)")
+        mem_limit_mb=$(to_mb "$(echo "$mem_usage" | awk -F'/' '{print $2}' || true)")
+        local mem_pct_val
         mem_pct_val=$(echo "$mem_pct" | sed 's/%//' | awk '{printf "%.2f", $1}')
 
-        # 解析网络 I/O: "1.2kB / 3.4MB" -> kb_in, kb_out
-        net_in_kb=$(echo "$net_io" | awk -F'/' '{print $1}' | awk '{
-            val=$1; unit=$2;
-            if (unit ~ /GB/) printf "%.2f", val*1024*1024;
-            else if (unit ~ /MB/) printf "%.2f", val*1024;
-            else if (unit ~ /kB/) printf "%.2f", val;
-            else if (unit ~ /B/) printf "%.2f", val/1024;
-            else printf "%.2f", val;
-        }')
-        net_out_kb=$(echo "$net_io" | awk -F'/' '{print $2}' | awk '{
-            val=$1; unit=$2;
-            if (unit ~ /GB/) printf "%.2f", val*1024*1024;
-            else if (unit ~ /MB/) printf "%.2f", val*1024;
-            else if (unit ~ /kB/) printf "%.2f", val;
-            else if (unit ~ /B/) printf "%.2f", val/1024;
-            else printf "%.2f", val;
-        }')
+        local net_in_kb net_out_kb
+        net_in_kb=$(to_kb "$(echo "$net_io" | awk -F'/' '{print $1}' || true)")
+        net_out_kb=$(to_kb "$(echo "$net_io" | awk -F'/' '{print $2}' || true)")
 
-        # 解析块 I/O
-        block_in_kb=$(echo "$block_io" | awk -F'/' '{print $1}' | awk '{
-            val=$1; unit=$2;
-            if (unit ~ /GB/) printf "%.2f", val*1024*1024;
-            else if (unit ~ /MB/) printf "%.2f", val*1024;
-            else if (unit ~ /kB/) printf "%.2f", val;
-            else if (unit ~ /B/) printf "%.2f", val/1024;
-            else printf "%.2f", val;
-        }')
-        block_out_kb=$(echo "$block_io" | awk -F'/' '{print $2}' | awk '{
-            val=$1; unit=$2;
-            if (unit ~ /GB/) printf "%.2f", val*1024*1024;
-            else if (unit ~ /MB/) printf "%.2f", val*1024;
-            else if (unit ~ /kB/) printf "%.2f", val;
-            else if (unit ~ /B/) printf "%.2f", val/1024;
-            else printf "%.2f", val;
-        }')
+        local block_in_kb block_out_kb
+        block_in_kb=$(to_kb "$(echo "$block_io" | awk -F'/' '{print $1}' || true)")
+        block_out_kb=$(to_kb "$(echo "$block_io" | awk -F'/' '{print $2}' || true)")
 
         echo "$ts,$c,$cpu_val,$mem_used_mb,$mem_limit_mb,$mem_pct_val,$net_in_kb,$net_out_kb,$block_in_kb,$block_out_kb" \
             >> "$CONTAINER_CSV"
     done
+
+    rm -rf "$tmpdir"
 }
 
 collect_server_stats() {
