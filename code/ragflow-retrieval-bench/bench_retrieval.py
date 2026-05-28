@@ -51,6 +51,7 @@ class BenchConfig:
     top_k: int = 1024
     similarity_threshold: float = 0.2
     vector_similarity_weight: float = 0.3
+    verify_ssl: bool = True
 
 
 @dataclass
@@ -176,6 +177,7 @@ async def run_bench(config: BenchConfig) -> BenchStats:
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(300.0, connect=10.0),
         headers={"Authorization": f"Bearer {config.api_key}"},
+        verify=config.verify_ssl,
     ) as client:
         tasks = [
             worker(client, config, deadline, stats, i)
@@ -273,6 +275,11 @@ def parse_args() -> tuple[argparse.Namespace, list[tuple[str, str]]]:
         default=0.3,
         help="向量相似度权重（默认 0.3）",
     )
+    parser.add_argument(
+        "--no-verify-ssl",
+        action="store_true",
+        help="跳过 SSL 证书验证（自签名证书时使用）",
+    )
 
     args = parser.parse_args()
 
@@ -297,6 +304,7 @@ def main():
         top_k=args.top_k,
         similarity_threshold=args.similarity_threshold,
         vector_similarity_weight=args.vector_similarity_weight,
+        verify_ssl=not args.no_verify_ssl,
     )
 
     print(f"启动压测: {config.concurrency} 并发 × {config.duration}s")
