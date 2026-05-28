@@ -140,27 +140,29 @@ done
 
 ### 可视化
 
+自动读取目录下所有 `container_stats_*.csv` 和 `server_stats_*.csv`，按服务类型分组绘图。
+
 ```bash
-# 自动查找当前目录最新的 CSV
+# 读取当前目录所有 CSV
 python plot_monitor.py
 
-# 指定文件
-python plot_monitor.py -c container_stats_20260528.csv -s server_stats_20260528.csv
-
 # 指定 CSV 目录和输出目录
-python plot_monitor.py -d ./data -o ./plots
+python plot_monitor.py -d ./bench-data -o ./plots
 ```
 
 生成图表：
 
 | 图表 | 说明 |
 |------|------|
-| `container_cpu.png` | 各容器 CPU 使用率趋势 |
-| `container_memory.png` | 各容器内存使用量和百分比 |
-| `container_network.png` | 各容器网络出入流量 |
-| `container_block_io.png` | 各容器磁盘读写 |
-| `container_heatmap.png` | 容器资源热力图（最终快照）|
-| `server_overview.png` | 服务器 CPU、内存、负载、磁盘总览 |
+| `all_cpu.png` | 所有服务 CPU 使用率（多节点同图，按颜色+线型区分）|
+| `all_memory.png` | 所有服务内存使用量和百分比 |
+| `all_network.png` | 所有服务网络出入流量 |
+| `all_block_io.png` | 所有服务磁盘读写 |
+| `heatmap.png` | 所有容器资源热力图（最终快照）|
+| `service_<名称>.png` | 按服务类型单独出图（如 `service_web.png` 含 node1+node2）|
+| `server_overview.png` | 服务器 CPU、内存、负载、磁盘总览（合并所有采样数据）|
+
+服务名解析规则：`ha-node1-web` → 服务类型 `web`、节点 `node1`；`ha-mysql` → 服务类型 `mysql`、节点 `infra`。多节点同类服务合并到同一张 `service_<名称>.png` 中，用不同颜色和线型区分节点。
 
 ### 推荐工作流：压测 + 监控并行
 
@@ -177,3 +179,4 @@ python bench_retrieval.py \
 
 # 压测结束后，生成图表
 python plot_monitor.py -d ./bench-data -o ./bench-data
+```
