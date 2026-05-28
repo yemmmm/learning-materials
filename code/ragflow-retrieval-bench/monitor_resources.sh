@@ -155,27 +155,41 @@ collect_server_stats() {
     local ts
     ts=$(now_iso)
 
-    # CPU 使用率 (取 /proc/stat 两次采样的差值)
-    local cpu_pct
-    cpu_pct=$(awk -v interval="$INTERVAL" 'BEGIN {
-        # 简化: 直接从 top 取
-    }' 2>/dev/null)
-    cpu_pct=$(top -bn1 | grep "Cpu(s)" | awk '{printf "%.2f", 100 - $8}') || cpu_pct="0"
+    # CPU 使用率: 读取 /proc/stat 两次采样取差值
+    local cpu_pct="0"
+    local stat1 stat2
+    stat1=$(head -1 /proc/stat)
+    sleep 1
+    stat2=$(head -1 /proc/stat)
+    cpu_pct=$(awk -v s1="$stat1" -v s2="$stat2" 'BEGIN {
+        split(s1, a); split(s2, b);
+        idle1 = a[5]; idle2 = b[5];
+        total1 = 0; total2 = 0;
+        for (i = 2; i <= 8; i++) { total1 += a[i]; total2 += b[i]; }
+        dt = total2 - total1; di = idle2 - idle1;
+        if (dt > 0) printf "%.2f", (1 - di / dt) * 100;
+        else printf "0";
+    }')
 
-    # 内存
-    local mem_used_gb mem_total_gb mem_pct
-    read mem_used_gb mem_total_gb mem_pct < <(free -g | awk '/^Mem:/ {printf "%.2f %.2f %.2f", $3, $2, $3/$2*100}')
+    # 内存 (从 /proc/meminfo 读取，避免 free 的格式差异)
+    local mem_used_gb mem_total_gb mem_pct="0"
+    read mem_used_gb mem_total_gb mem_pct < <(awk '
+        /^MemTotal:/   { total = $2 }
+        /^MemAvailable:/ { avail = $2 }
+        END {
+            used = total - avail;
+            printf "%.2f %.2f %.2f", used/1048576, total/1048576, (total > 0 ? used/total*100 : 0);
+        }
+    ' /proc/meminfo)
 
     # 负载
     local load_1m load_5m load_15m
     read load_1m load_5m load_15m < <(awk '{print $1, $2, $3}' /proc/loadavg)
 
     # 磁盘 (根分区)
-    local disk_used_gb disk_total_gb disk_pct
-    read disk_used_gb disk_total_gb disk_pct < <(df -BG / | awk 'NR==2 {
-        used=$3; total=$2; pct=$5;
-        sub(/G/,"",used); sub(/G/,"",total); sub(/%/,"",pct);
-        printf "%.2f %.2f %.2f", used, total, pct
+    local disk_used_gb disk_total_gb disk_pct="0"
+    read disk_used_gb disk_total_gb disk_pct < <(df -B1G / | awk 'NR==2 {
+        printf "%.2f %.2f %.2f", $3+0, $2+0, $5+0;
     }')
 
     echo "$ts,$cpu_pct,$mem_used_gb,$mem_total_gb,$mem_pct,$load_1m,$load_5m,$load_15m,$disk_used_gb,$disk_total_gb,$disk_pct" \
