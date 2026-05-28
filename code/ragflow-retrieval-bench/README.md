@@ -5,13 +5,13 @@
 ## 依赖
 
 ```bash
-pip install httpx
+pip install httpx pandas matplotlib
 ```
 
 或使用 uv：
 
 ```bash
-uv pip install httpx
+uv pip install httpx pandas matplotlib
 ```
 
 ## 用法
@@ -116,3 +116,64 @@ for c in 1 5 10 20 50; do
         --concurrency $c --duration 30
 done
 ```
+
+## 资源监控
+
+压测过程中同步采集 Docker 容器 + 服务器资源数据。
+
+### 采集数据
+
+```bash
+# 默认: 每5秒采样，持续300秒，自动检测 ha- 前缀容器
+./monitor_resources.sh
+
+# 自定义参数
+./monitor_resources.sh -i 2 -d 600 -o ./data
+
+# 指定容器
+./monitor_resources.sh -c "ha-node1-web ha-node2-web ha-node1-worker ha-node2-worker"
+```
+
+输出两个 CSV 文件：
+- `container_stats_<时间戳>.csv` — 容器 CPU、内存、网络 I/O、块 I/O
+- `server_stats_<时间戳>.csv` — 服务器 CPU、内存、负载、磁盘
+
+### 可视化
+
+```bash
+# 自动查找当前目录最新的 CSV
+python plot_monitor.py
+
+# 指定文件
+python plot_monitor.py -c container_stats_20260528.csv -s server_stats_20260528.csv
+
+# 指定 CSV 目录和输出目录
+python plot_monitor.py -d ./data -o ./plots
+```
+
+生成图表：
+
+| 图表 | 说明 |
+|------|------|
+| `container_cpu.png` | 各容器 CPU 使用率趋势 |
+| `container_memory.png` | 各容器内存使用量和百分比 |
+| `container_network.png` | 各容器网络出入流量 |
+| `container_block_io.png` | 各容器磁盘读写 |
+| `container_heatmap.png` | 容器资源热力图（最终快照）|
+| `server_overview.png` | 服务器 CPU、内存、负载、磁盘总览 |
+
+### 推荐工作流：压测 + 监控并行
+
+```bash
+# 终端1: 启动监控
+./monitor_resources.sh -i 5 -d 120 -o ./bench-data
+
+# 终端2: 启动压测
+python bench_retrieval.py \
+    --base-url http://localhost:18080 \
+    --api-key ragflow-xxxx \
+    --kb <id> --query "test" \
+    --concurrency 20 --duration 90
+
+# 压测结束后，生成图表
+python plot_monitor.py -d ./bench-data -o ./bench-data
