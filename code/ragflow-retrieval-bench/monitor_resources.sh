@@ -155,13 +155,11 @@ collect_server_stats() {
     local ts
     ts=$(now_iso)
 
-    # CPU 使用率: 读取 /proc/stat 两次采样取差值
+    # CPU 使用率: 利用循环间隔作为两次采样间隔（不再额外 sleep）
     local cpu_pct="0"
-    local stat1 stat2
-    stat1=$(head -1 /proc/stat)
-    sleep 1
-    stat2=$(head -1 /proc/stat)
-    cpu_pct=$(awk -v s1="$stat1" -v s2="$stat2" 'BEGIN {
+    local cur_stat
+    cur_stat=$(head -1 /proc/stat)
+    cpu_pct=$(awk -v s1="$_prev_cpu_stat" -v s2="$cur_stat" 'BEGIN {
         split(s1, a); split(s2, b);
         idle1 = a[5]; idle2 = b[5];
         total1 = 0; total2 = 0;
@@ -170,6 +168,7 @@ collect_server_stats() {
         if (dt > 0) printf "%.2f", (1 - di / dt) * 100;
         else printf "0";
     }')
+    _prev_cpu_stat=$cur_stat
 
     # 内存 (从 /proc/meminfo 读取，避免 free 的格式差异)
     local mem_used_gb mem_total_gb mem_pct="0"
@@ -202,6 +201,7 @@ echo ""
 
 iterations=$((DURATION / INTERVAL))
 count=0
+_prev_cpu_stat=$(head -1 /proc/stat)
 
 cleanup() {
     echo ""
@@ -214,10 +214,19 @@ trap cleanup INT TERM
 
 while [ $count -lt $iterations ]; do
     count=$((count + 1))
+    loop_start=$(date +%s%N)
+
     printf "\r采集中... [%d/%d]" "$count" "$iterations"
     collect_container_stats
     collect_server_stats
-    sleep "$INTERVAL"
+
+    # 补偿采集耗时，只 sleep 不足间隔的部分
+    loop_end=$(date +%s%N)
+    elapsed_ms=$(( (loop_end - loop_start) / 1000000 ))
+    remaining=$(( INTERVAL * 1000 - elapsed_ms ))
+    if [ "$remaining" -gt 0 ]; then
+        sleep "$(( remaining / 1000 )).$(( (remaining % 1000) / 100 ))"
+    fi
 done
 
 cleanup
