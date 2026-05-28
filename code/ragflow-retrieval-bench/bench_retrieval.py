@@ -196,7 +196,7 @@ def print_report(stats: BenchStats, config: BenchConfig):
     kb_info = ", ".join(f"{kid} ({q[:20]}...)" for kid, q in config.kb_queries)
     print(f"  知识库:      {kb_info}")
     print(f"  并发数:      {config.concurrency}")
-    print(f"  持续时间:    {config.elapsed:.1f}s")
+    print(f"  持续时间:    {stats.elapsed:.1f}s")
 
     print(f"\n  --- 请求统计 ---")
     print(f"  总请求数:    {stats.total}")
