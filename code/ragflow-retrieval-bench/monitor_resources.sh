@@ -10,7 +10,7 @@
 #   ./monitor_resources.sh -c "ha-node1-web ha-node1-worker"  # 指定容器
 #
 
-set -euo pipefail
+set -uo pipefail
 
 # ── 默认参数 ──
 INTERVAL=5
@@ -83,7 +83,8 @@ collect_container_stats() {
 
         local stats
         stats=$(docker stats "$c" --no-stream --no-trunc --format \
-            "{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}" 2>/dev/null || echo "0%|0 / 0|0%|0 / 0|0 / 0")
+            "{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.NetIO}}|{{.BlockIO}}" 2>/dev/null) \
+            || stats="0%|0 / 0|0%|0 / 0|0 / 0"
 
         IFS='|' read -r cpu mem_usage mem_pct net_io block_io <<< "$stats"
 
@@ -159,7 +160,7 @@ collect_server_stats() {
     cpu_pct=$(awk -v interval="$INTERVAL" 'BEGIN {
         # 简化: 直接从 top 取
     }' 2>/dev/null)
-    cpu_pct=$(top -bn1 | grep "Cpu(s)" | awk '{printf "%.2f", 100 - $8}')
+    cpu_pct=$(top -bn1 | grep "Cpu(s)" | awk '{printf "%.2f", 100 - $8}') || cpu_pct="0"
 
     # 内存
     local mem_used_gb mem_total_gb mem_pct
