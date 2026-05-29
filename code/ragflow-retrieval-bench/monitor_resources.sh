@@ -73,28 +73,40 @@ now_iso() { date -Iseconds; }
 
 # ── 单位转 MB ──
 to_mb() {
-    awk "{
-        val=\$1; unit=\$2;
-        gsub(/[^0-9.]/,\"\",val);
-        if      (unit ~ /GiB/) printf \"%.2f\", val*1024;
-        else if (unit ~ /MiB/) printf \"%.2f\", val;
-        else if (unit ~ /KiB/) printf \"%.2f\", val/1024;
-        else if (unit ~ /B/)   printf \"%.2f\", val/1048576;
-        else printf \"%.2f\", val;
-    }" <<< "$1"
+    awk '{
+        str = $0;
+        # Extract numeric part and unit part
+        if (match(str, /[0-9.]+[[:space:]]*([KkMmGgTtPp]?[iI]?[Bb])/, arr)) {
+            val = str; gsub(/[^0-9.]/, "", val);
+            unit = tolower(arr[1]);
+            if (unit ~ /^g/) printf "%.2f", val * 1024;
+            else if (unit ~ /^m/) printf "%.2f", val;
+            else if (unit ~ /^k/) printf "%.2f", val / 1024;
+            else if (unit ~ /^b/) printf "%.2f", val / 1048576;
+            else printf "%.2f", val;
+        } else {
+            printf "%.2f", str + 0;
+        }
+    }' <<< "$1"
 }
 
 # ── 单位转 KB ──
 to_kb() {
-    awk "{
-        val=\$1; unit=\$2;
-        gsub(/[^0-9.]/,\"\",val);
-        if      (unit ~ /GB/) printf \"%.2f\", val*1048576;
-        else if (unit ~ /MB/) printf \"%.2f\", val*1024;
-        else if (unit ~ /kB/) printf \"%.2f\", val;
-        else if (unit ~ /B/)  printf \"%.2f\", val/1024;
-        else printf \"%.2f\", val;
-    }" <<< "$1"
+    awk '{
+        str = $0;
+        # Extract numeric part and unit part
+        if (match(str, /[0-9.]+[[:space:]]*([KkMmGgTtPp]?[iI]?[Bb])/, arr)) {
+            val = str; gsub(/[^0-9.]/, "", val);
+            unit = tolower(arr[1]);
+            if (unit ~ /^g/) printf "%.2f", val * 1048576;
+            else if (unit ~ /^m/) printf "%.2f", val * 1024;
+            else if (unit ~ /^k/) printf "%.2f", val;
+            else if (unit ~ /^b/) printf "%.2f", val / 1024;
+            else printf "%.2f", val;
+        } else {
+            printf "%.2f", str + 0;
+        }
+    }' <<< "$1"
 }
 
 collect_container_stats() {
@@ -135,7 +147,7 @@ collect_container_stats() {
         cpu_val=$(echo "$cpu" | sed 's/%//' | awk '{printf "%.2f", $1}')
 
         local mem_used_mb mem_limit_mb
-        mem_used_mb=$(to_mb "$(echo "$mem_usage" | awk -F'/' '{print $1, $2}' || true)")
+        mem_used_mb=$(to_mb "$(echo "$mem_usage" | awk -F'/' '{print $1}' || true)")
         mem_limit_mb=$(to_mb "$(echo "$mem_usage" | awk -F'/' '{print $2}' || true)")
         local mem_pct_val
         mem_pct_val=$(echo "$mem_pct" | sed 's/%//' | awk '{printf "%.2f", $1}')

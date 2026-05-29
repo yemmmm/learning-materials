@@ -366,6 +366,10 @@ def plot_heatmap(df: pd.DataFrame, output_dir: str):
     data = latest[metrics].copy()
     for col in metrics:
         mx = data[col].max()
+        # Use a meaningful minimum for normalization so tiny values
+        # don't appear as maximum intensity (e.g., 0.1% CPU on an idle cluster)
+        floor = 1.0 if col in ("cpu_pct", "mem_pct") else 10.0
+        mx = max(mx, floor) if mx > 0 else 0
         data[col] = data[col] / mx if mx > 0 else 0
 
     fig, ax = plt.subplots(figsize=(max(8, len(metrics) * 2.2),

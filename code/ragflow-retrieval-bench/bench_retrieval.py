@@ -162,15 +162,23 @@ async def worker(
 ):
     kb_count = len(config.kb_queries)
     idx = worker_id % kb_count
-    while time.monotonic() < deadline:
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
         dataset_id, query = config.kb_queries[idx]
-        result = await send_request(client, config, dataset_id, query)
+        try:
+            result = await asyncio.wait_for(
+                send_request(client, config, dataset_id, query),
+                timeout=remaining,
+            )
+        except asyncio.TimeoutError:
+            break
         stats.results.append(result)
         idx = (idx + 1) % kb_count
 
 
-async def run_bench(config: BenchConfig) -> BenchStats:
-    stats = BenchStats()
+async def run_bench(config: BenchConfig, stats: BenchStats) -> None:
     stats.start_time = time.monotonic()
     deadline = stats.start_time + config.duration
 
@@ -183,10 +191,10 @@ async def run_bench(config: BenchConfig) -> BenchStats:
             worker(client, config, deadline, stats, i)
             for i in range(config.concurrency)
         ]
-        await asyncio.gather(*tasks)
-
-    stats.end_time = time.monotonic()
-    return stats
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            stats.end_time = time.monotonic()
 
 
 def print_report(stats: BenchStats, config: BenchConfig):
@@ -313,12 +321,13 @@ def main():
         print(f"  - {kid}: \"{q}\"")
     print("按 Ctrl+C 可提前终止...\n")
 
+    stats = BenchStats()
     try:
-        stats = asyncio.run(run_bench(config))
+        asyncio.run(run_bench(config, stats))
     except KeyboardInterrupt:
         print("\n\n用户中断，正在生成报告...")
-        stats = BenchStats()
-        stats.end_time = time.monotonic()
+        if stats.end_time == 0.0:
+            stats.end_time = time.monotonic()
 
     print_report(stats, config)
 
