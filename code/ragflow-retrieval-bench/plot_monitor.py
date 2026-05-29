@@ -12,10 +12,10 @@ RAGFlow HA 集群资源监控数据可视化
 """
 
 import argparse
-import glob
 import os
 import re
 import sys
+from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
@@ -79,8 +79,8 @@ def get_color(node: str) -> str:
     return NODE_COLORS.get(node, DEFAULT_COLOR)
 
 
-def load_all_container_csvs(directory: str) -> pd.DataFrame:
-    files = sorted(glob.glob(os.path.join(directory, "container_stats_*.csv")))
+def load_all_container_csvs(directory: Path) -> pd.DataFrame:
+    files = sorted(directory.glob("container_stats_*.csv"))
     if not files:
         return pd.DataFrame()
     frames = []
@@ -105,8 +105,8 @@ def load_all_container_csvs(directory: str) -> pd.DataFrame:
     return df
 
 
-def load_all_server_csvs(directory: str) -> pd.DataFrame:
-    files = sorted(glob.glob(os.path.join(directory, "server_stats_*.csv")))
+def load_all_server_csvs(directory: Path) -> pd.DataFrame:
+    files = sorted(directory.glob("server_stats_*.csv"))
     if not files:
         return pd.DataFrame()
     frames = []
@@ -395,37 +395,39 @@ def main():
     parser.add_argument("-o", "--output-dir", default=None, help="图片输出目录，默认与 CSV 同目录")
     args = parser.parse_args()
 
-    output_dir = args.output_dir or args.csv_dir
-    os.makedirs(output_dir, exist_ok=True)
+    csv_dir = Path(args.csv_dir).resolve()
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else csv_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"扫描目录: {csv_dir}")
     generated = []
 
     # ── 容器数据 ──
-    container_files = sorted(glob.glob(os.path.join(args.csv_dir, "container_stats_*.csv")))
+    container_files = sorted(csv_dir.glob("container_stats_*.csv"))
     if container_files:
         print(f"读取 {len(container_files)} 个容器 CSV 文件...")
-        df_c = load_all_container_csvs(args.csv_dir)
+        df_c = load_all_container_csvs(csv_dir)
         if not df_c.empty:
             services = df_c["service"].unique()
             print(f"  服务: {', '.join(sorted(services))}")
             print(f"  容器: {', '.join(df_c['label'].unique())}")
             print(f"  数据点: {len(df_c)}")
 
-            plot_service_cpu(df_c, output_dir)
+            plot_service_cpu(df_c, str(output_dir))
             generated.append("all_cpu.png")
 
-            plot_service_memory(df_c, output_dir)
+            plot_service_memory(df_c, str(output_dir))
             generated.append("all_memory.png")
 
-            plot_service_network(df_c, output_dir)
+            plot_service_network(df_c, str(output_dir))
             generated.append("all_network.png")
 
-            plot_service_block_io(df_c, output_dir)
+            plot_service_block_io(df_c, str(output_dir))
             generated.append("all_block_io.png")
 
-            plot_heatmap(df_c, output_dir)
+            plot_heatmap(df_c, str(output_dir))
             generated.append("heatmap.png")
 
-            svc_files = plot_per_service_type(df_c, output_dir)
+            svc_files = plot_per_service_type(df_c, str(output_dir))
             generated.extend(svc_files)
         else:
             print("  容器数据为空")
@@ -433,24 +435,13 @@ def main():
         print("警告: 未找到 container_stats_*.csv 文件", file=sys.stderr)
 
     # ── 服务器数据 ──
-    server_files = sorted(glob.glob(os.path.join(args.csv_dir, "server_stats_*.csv")))
+    server_files = sorted(csv_dir.glob("server_stats_*.csv"))
     if server_files:
         print(f"\n读取 {len(server_files)} 个服务器 CSV 文件...")
-        dfs = []
-        for f in server_files:
-            try:
-                dfs.append(load_all_server_csvs(os.path.dirname(f) or ".").pipe(
-                    lambda d: d[d["timestamp"].between(
-                        pd.Timestamp.min, pd.Timestamp.max
-                    )]
-                ))
-            except Exception:
-                pass
-        # 简化: 直接合并所有 server CSV
-        df_s = load_all_server_csvs(args.csv_dir)
+        df_s = load_all_server_csvs(csv_dir)
         if not df_s.empty:
             print(f"  数据点: {len(df_s)}")
-            plot_server_overview([df_s], output_dir)
+            plot_server_overview([df_s], str(output_dir))
             generated.append("server_overview.png")
         else:
             print("  服务器数据为空")
@@ -460,7 +451,7 @@ def main():
     if generated:
         print(f"\n已生成 {len(generated)} 张图:")
         for f in generated:
-            print(f"  {os.path.join(output_dir, f)}")
+            print(f"  {output_dir / f}")
     else:
         print("未生成任何图表，请检查 CSV 文件", file=sys.stderr)
         sys.exit(1)

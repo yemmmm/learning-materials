@@ -51,7 +51,7 @@ fi
 
 mkdir -p "$OUTPUT_DIR"
 
-TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+TIMESTAMP=$(date +%Y%m%d_%H%M%S%3N)
 CONTAINER_CSV="$OUTPUT_DIR/container_stats_${TIMESTAMP}.csv"
 SERVER_CSV="$OUTPUT_DIR/server_stats_${TIMESTAMP}.csv"
 
