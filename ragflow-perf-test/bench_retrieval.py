@@ -598,7 +598,7 @@ async def main():
 
     # 问题池
     if args.questions_file:
-        questions = Path(args.questions_file).read_text().strip().splitlines()
+        questions = Path(args.questions_file).read_text(encoding="utf-8").strip().splitlines()
     else:
         questions = _DEFAULT_QUESTIONS
 

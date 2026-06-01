@@ -294,7 +294,7 @@ def main():
         print("错误: 找不到 " + str(summary_path))
         sys.exit(1)
 
-    summary = json.loads(summary_path.read_text())
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
     label = args.label or input_dir.name
 
     # 加载监控数据（如果存在）
@@ -311,7 +311,7 @@ def main():
         compare_dir = Path(args.compare)
         compare_summary_path = compare_dir / "summary.json"
         if compare_summary_path.exists():
-            compare_summary = json.loads(compare_summary_path.read_text())
+            compare_summary = json.loads(compare_summary_path.read_text(encoding="utf-8"))
             label_compare = args.label_compare or compare_dir.name
             compare_report = compare_reports(
                 summary, compare_summary, label, label_compare
