@@ -61,7 +61,7 @@
 
 ## 4. 执行步骤
 
-### 4.1 环境准备
+### 4.1 环境准备 (Linux / macOS)
 
 ```bash
 # 1. 克隆脚本到压测机
@@ -79,7 +79,24 @@ vim my_config.env  # 修改 URL、账号、KB IDs
 source my_config.env
 ```
 
-### 4.2 单机执行（最简单）
+### 4.2 环境准备 (Windows)
+
+```cmd
+REM 1. 克隆脚本到压测机（或直接下载）
+git clone https://github.com/yemmmm/learning-materials.git
+cd learning-materials\ragflow-perf-test
+
+REM 2. 安装依赖
+pip install httpx
+
+REM 3. 编辑配置（用记事本或 VS Code）
+notepad config.bat
+
+REM 4. 加载配置
+config.bat
+```
+
+### 4.3 单机执行（Linux / macOS）
 
 ```bash
 # 仅压测，不监控
@@ -92,7 +109,26 @@ python3 bench_retrieval.py \
     --concurrencies 10,30,50,100,200,500
 ```
 
-### 4.3 全功能执行（推荐）
+### 4.4 单机执行（Windows）
+
+```cmd
+REM 加载配置后直接运行
+python bench_retrieval.py ^
+    --url "%RAGFLOW_URL%" ^
+    --api-key "%RAGFLOW_API_KEY%" ^
+    --kb-ids "%RAGFLOW_KB_IDS%" ^
+    --concurrencies 10,30,50,100,200,500
+
+REM 或使用一键脚本
+run_test.bat
+```
+
+> **Windows 注意**:
+> - CMD 续行符是 `^`，PowerShell 是 `` ` ``
+> - 推荐 API Token 方式，无需安装 pycryptodomex
+> - `monitor.py` 仅支持 Linux，需在服务器上手动运行
+
+### 4.5 全功能执行（推荐）
 
 ```bash
 # 先 source 配置
@@ -112,7 +148,7 @@ bash run_test.sh
 python3 analyze.py --input results/<TAG> --output results/<TAG>/report.md
 ```
 
-### 4.4 带 SSH 远程监控执行
+### 4.6 带 SSH 远程监控执行
 
 ```bash
 # 配置监控主机（在 config.env 中设置）
