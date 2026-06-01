@@ -65,6 +65,7 @@ class RoundResult:
     qps: float = 0.0
     latencies: list[float] = field(default_factory=list)
     error_dist: dict[str, int] = field(default_factory=dict)
+    requests: list[RequestResult] = field(default_factory=list)
     p50: float = 0.0
     p75: float = 0.0
     p95: float = 0.0
@@ -117,22 +118,42 @@ class RAGFlowClient:
         self.total_timeout = total_timeout
         self.connect_timeout = connect_timeout
         self.max_connections = max_connections
-        self._token: Optional[str] = api_key or None
+        # API token 需要 Bearer 前缀；登录返回的 token 自带前缀
+        self._token: Optional[str] = None
+        if api_key:
+            self._token = api_key if api_key.startswith("Bearer ") else "Bearer " + api_key
         self._client: Optional[httpx.AsyncClient] = None
 
     # ---- auth ----
 
     async def login(self) -> str:
-        """登录并获取 Authorization token。"""
+        """登录并获取 Authorization token。
+
+        RAGFlow 需要客户端对密码加密后发送。优先使用 API Token
+        (--api-key) 避免此复杂度。
+        """
         if self._token:
             return self._token
+
+        # 尝试加密密码
+        password_payload = self.password
+        try:
+            from api.utils.crypt import crypt
+            password_payload = crypt(self.password)
+        except ImportError:
+            raise RuntimeError(
+                "邮箱登录需要 pycryptodomex 库，请安装后重试，"
+                "或使用 API Token: --api-key <token>\n"
+                "  pip install pycryptodomex\n"
+                "  (API Token 可在 RAGFlow Web UI → 个人设置 → API Token 中获取)"
+            )
 
         async with httpx.AsyncClient(
             base_url=self.base_url, timeout=30.0, verify=False
         ) as client:
             resp = await client.post(
-                "/api/v1/auth/login",
-                json={"email": self.email, "password": self.password},
+                "/v1/user/login",
+                json={"email": self.email, "password": password_payload},
             )
             data = resp.json()
             if data.get("code") != 0:
@@ -217,7 +238,7 @@ class RAGFlowClient:
         """轻量健康检查：调用 /api/v1/system/version 测试 HTTP 层吞吐。"""
         t0 = time.monotonic()
         try:
-            resp = await self._client.get("/api/v1/system/version")
+            resp = await self._client.get("/v1/system/version")
             latency = time.monotonic() - t0
             ok = resp.status_code == 200
             return RequestResult(
@@ -305,12 +326,14 @@ async def run_concurrency_round(
     # 收集结果
     latencies: list[float] = []
     error_dist: dict[str, int] = {}
+    all_results: list[RequestResult] = []
     ok = 0
     fail = 0
 
     while not results.empty():
         try:
             rr = results.get_nowait()
+            all_results.append(rr)
             latencies.append(rr.latency_s)
             if rr.success:
                 ok += 1
@@ -332,6 +355,7 @@ async def run_concurrency_round(
         qps=total / elapsed if elapsed > 0 else 0.0,
         latencies=sorted_lats,
         error_dist=error_dist,
+        requests=all_results,
         p50=percentile(sorted_lats, 50),
         p75=percentile(sorted_lats, 75),
         p95=percentile(sorted_lats, 95),
@@ -369,15 +393,16 @@ def analyze_bottleneck(rounds: list[RoundResult], mode: str) -> dict:
     max_qps = max(qps_values)
     max_qps_concurrency = rounds[qps_values.index(max_qps)].concurrency
 
-    if len(rounds) >= 3:
-        mid = len(rounds) // 2
-        early = qps_values[mid] / rounds[mid].concurrency if rounds[mid].concurrency > 0 else 0
-        late = qps_values[-1] / rounds[-1].concurrency if rounds[-1].concurrency > 0 else 0
+    if len(rounds) >= 2:
+        first_qps_per_conn = qps_values[0] / rounds[0].concurrency if rounds[0].concurrency > 0 else 0
+        last_qps_per_conn = qps_values[-1] / rounds[-1].concurrency if rounds[-1].concurrency > 0 else 0
 
-        if late < early * 0.3:
+        if last_qps_per_conn < first_qps_per_conn * 0.3:
             findings.append("QPS 增长严重放缓 → 存在明确瓶颈，并发已超出系统处理能力")
-        elif late < early * 0.6:
+        elif last_qps_per_conn < first_qps_per_conn * 0.6:
             findings.append("QPS 增长放缓 → 接近系统容量上限")
+        else:
+            findings.append("QPS 随并发近似线性增长 → 系统仍有扩容空间")
 
     # 错误分析
     has_timeout = any("client_timeout" in r.error_dist for r in rounds)
@@ -396,11 +421,20 @@ def analyze_bottleneck(rounds: list[RoundResult], mode: str) -> dict:
     # P50 分析
     if rounds:
         p50_min = min(r.p50 for r in rounds)
-        if p50_min < 0.1:
-            findings.append("低并发下 P50 < 100ms → HTTP 层和 ES 检索不是瓶颈")
+        p50_max = max(r.p50 for r in rounds)
+        if p50_min < 0.05:
+            findings.append("低并发下 P50 < 50ms → HTTP 层和 ES 检索不是瓶颈")
             es_prob = "低"
-        elif p50_min > 1.0:
-            findings.append("低并发下 P50 > 1s → 单次检索延迟偏高，检查 Embedding API 和 ES 配置")
+        elif p50_min < 0.2:
+            findings.append("低并发下 P50 < 200ms → ES 检索和 Embedding 延迟均很低，系统健康")
+            es_prob = "低"
+            emb_prob = "低"
+        elif p50_min > 0.5:
+            findings.append(
+                "低并发下 P50 > 500ms → 单次检索延迟高，"
+                "大概率是 Embedding API 延迟 (400-600ms/次)"
+            )
+            emb_prob = "高"
 
     # P95/P50 比值
     for r in rounds:
@@ -600,6 +634,13 @@ async def main():
 
     # ---- 执行压测 ----
     all_rounds: list[RoundResult] = []
+    csv_path = output_dir / "requests.csv"
+
+    # CSV header
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["timestamp", "concurrency", "success", "latency_s",
+                          "status_code", "error_type"])
 
     for i, c in enumerate(concurrency_list, 1):
         prefix = "\n>>> [" + str(i) + "/" + str(len(concurrency_list)) + "] 并发=" + str(c) + "  "
@@ -609,6 +650,14 @@ async def main():
             client, c, args.duration, args.warmup,
             questions, kb_ids, args.mode,
         )
+
+        # 写入 per-request CSV
+        ts = datetime.now(timezone.utc).isoformat()
+        with open(csv_path, "a", newline="") as f:
+            writer = csv.writer(f)
+            for rr in round_result.requests:
+                writer.writerow([ts, c, rr.success, round(rr.latency_s, 4),
+                                 rr.status_code, rr.error_type])
 
         # 汇总输出
         err_items = []
