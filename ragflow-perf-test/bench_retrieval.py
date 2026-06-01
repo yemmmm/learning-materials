@@ -25,8 +25,6 @@ RAGFlow 分布式检索性能压测脚本
   RAGFLOW_KB_IDS    知识库 ID（逗号分隔）
 """
 
-from __future__ import annotations
-
 import argparse
 import asyncio
 import csv
@@ -37,7 +35,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Dict, List, Optional
 
 import httpx
 
@@ -63,9 +61,9 @@ class RoundResult:
     success: int = 0
     failure: int = 0
     qps: float = 0.0
-    latencies: list[float] = field(default_factory=list)
-    error_dist: dict[str, int] = field(default_factory=dict)
-    requests: list[RequestResult] = field(default_factory=list)
+    latencies: List[float] = field(default_factory=list)
+    error_dist: Dict[str, int] = field(default_factory=dict)
+    requests: List[RequestResult] = field(default_factory=list)
     p50: float = 0.0
     p75: float = 0.0
     p95: float = 0.0
@@ -80,7 +78,7 @@ class RoundResult:
 # ---------------------------------------------------------------------------
 
 
-def percentile(sorted_data: list[float], p: float) -> float:
+def percentile(sorted_data: List[float], p: float) -> float:
     """线性插值百分位。"""
     if not sorted_data:
         return 0.0
@@ -191,7 +189,7 @@ class RAGFlowClient:
 
     # ---- requests ----
 
-    async def retrieval(self, question: str, kb_ids: list[str]) -> RequestResult:
+    async def retrieval(self, question: str, kb_ids: List[str]) -> RequestResult:
         """单次检索请求，记录延迟与错误类型。"""
         t0 = time.monotonic()
         try:
@@ -270,8 +268,8 @@ async def run_concurrency_round(
     concurrency: int,
     duration_s: float,
     warmup_s: float,
-    questions: list[str],
-    kb_ids: list[str],
+    questions: List[str],
+    kb_ids: List[str],
     mode: str = "retrieval",
 ) -> RoundResult:
     """运行一轮固定时长的并发压测。
@@ -286,7 +284,7 @@ async def run_concurrency_round(
         mode:        "retrieval" | "health"
     """
     stop = asyncio.Event()
-    results: asyncio.Queue[RequestResult] = asyncio.Queue()
+    results: asyncio.Queue = asyncio.Queue()
     q_idx = 0
     lock = asyncio.Lock()
 
@@ -324,9 +322,9 @@ async def run_concurrency_round(
     await asyncio.gather(*tasks, return_exceptions=True)
 
     # 收集结果
-    latencies: list[float] = []
-    error_dist: dict[str, int] = {}
-    all_results: list[RequestResult] = []
+    latencies: List[float] = []
+    error_dist: Dict[str, int] = {}
+    all_results: List[RequestResult] = []
     ok = 0
     fail = 0
 
@@ -371,7 +369,7 @@ async def run_concurrency_round(
 # ---------------------------------------------------------------------------
 
 
-def analyze_bottleneck(rounds: list[RoundResult], mode: str) -> dict:
+def analyze_bottleneck(rounds: List[RoundResult], mode: str) -> Dict:
     """基于压测数据自动推测瓶颈位置。"""
     if not rounds:
         return {
@@ -633,7 +631,7 @@ async def main():
         sys.exit(1)
 
     # ---- 执行压测 ----
-    all_rounds: list[RoundResult] = []
+    all_rounds: List[RoundResult] = []
     csv_path = output_dir / "requests.csv"
 
     # CSV header

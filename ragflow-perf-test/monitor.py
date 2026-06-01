@@ -27,8 +27,6 @@ RAGFlow 服务端资源监控脚本
   CSV 文件，每分钟约 30 行（interval=2），可直接导入 Excel / Python 分析。
 """
 
-from __future__ import annotations
-
 import argparse
 import csv
 import os
@@ -37,6 +35,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +43,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 
-def _read_lines(path: str) -> list[str]:
+def _read_lines(path: str) -> List[str]:
     try:
         return Path(path).read_text().splitlines()
     except Exception:
@@ -58,7 +57,7 @@ def _read_first_line(path: str) -> str:
         return ""
 
 
-def _read_kv(path: str) -> dict[str, str]:
+def _read_kv(path: str) -> Dict[str, str]:
     """读取 key:value 格式的文件（如 /proc/meminfo）。"""
     result = {}
     for line in _read_lines(path):
@@ -79,7 +78,7 @@ class MetricsCollector:
         self.disk_mount = disk_mount
 
         # 缓存上一次采集值（用于计算速率）
-        self._prev_cpu: Optional[list[int]] = None
+        self._prev_cpu: Optional[List[int]] = None
         self._prev_net_rx: int = 0
         self._prev_net_tx: int = 0
         self._prev_disk_read: int = 0

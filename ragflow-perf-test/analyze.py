@@ -16,12 +16,11 @@ RAGFlow 压测结果分析脚本
   python analyze.py --input results/20240601_120000/ --output report.md
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -31,7 +30,7 @@ from pathlib import Path
 
 def generate_report(
     summary: dict,
-    monitor_data: dict[str, list[dict]] | None = None,
+    monitor_data: Optional[Dict[str, List[Dict]]] = None,
     label: str = "",
 ) -> str:
     """根据 summary.json 生成 Markdown 格式分析报告。"""
@@ -329,7 +328,7 @@ def main():
         print(report)
 
 
-def _load_monitor_csv(path: Path) -> list[dict]:
+def _load_monitor_csv(path: Path) -> List[Dict]:
     """加载 monitor.py 输出的 CSV 文件。"""
     import csv
     rows = []
