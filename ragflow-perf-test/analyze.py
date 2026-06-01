@@ -322,7 +322,7 @@ def main():
 
     # 输出
     if args.output:
-        Path(args.output).write_text(report)
+        Path(args.output).write_text(report, encoding="utf-8")
         print("报告已保存: " + args.output)
     else:
         print(report)
@@ -333,7 +333,7 @@ def _load_monitor_csv(path: Path) -> List[Dict]:
     import csv
     rows = []
     try:
-        with open(path, newline="") as f:
+        with open(path, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
                 for k in ("cpu_pct", "mem_pct", "net_rx_bytes_s", "net_tx_bytes_s"):
                     try:

@@ -636,7 +636,7 @@ async def main():
     csv_path = output_dir / "requests.csv"
 
     # CSV header
-    with open(csv_path, "w", newline="") as f:
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["timestamp", "concurrency", "success", "latency_s",
                           "status_code", "error_type"])
@@ -652,7 +652,7 @@ async def main():
 
         # 写入 per-request CSV
         ts = datetime.now(timezone.utc).isoformat()
-        with open(csv_path, "a", newline="") as f:
+        with open(csv_path, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             for rr in round_result.requests:
                 writer.writerow([ts, c, rr.success, round(rr.latency_s, 4),
@@ -716,7 +716,7 @@ async def main():
     summary["bottleneck_analysis"] = analyze_bottleneck(all_rounds, args.mode)
 
     summary_path = output_dir / "summary.json"
-    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
+    summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
     print("\n>>> 结果已保存: " + str(summary_path))
 
     # ---- 终端报告 ----

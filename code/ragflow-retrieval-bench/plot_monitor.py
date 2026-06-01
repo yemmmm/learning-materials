@@ -354,40 +354,37 @@ def plot_server_overview(dfs: list[pd.DataFrame], output_dir: str):
 
 
 def plot_heatmap(df: pd.DataFrame, output_dir: str):
-    """所有容器资源热力图."""
-    latest = df.groupby("container").last().reset_index()
-    if latest.empty:
+    """所有容器资源热力图，使用整个监控时段的均值（mean）."""
+    means = df.groupby("container").mean(numeric_only=True).reset_index()
+    if means.empty:
         return
-    latest = latest.sort_values("label")
+    means["label"] = means["container"].map(node_label)
+    means = means.sort_values("label")
 
     metrics = ["cpu_pct", "mem_pct", "net_in_kb", "net_out_kb"]
     labels = ["CPU %", "Mem %", "Net In (KB)", "Net Out (KB)"]
 
-    data = latest[metrics].copy()
+    data = means[metrics].copy()
     for col in metrics:
         mx = data[col].max()
-        # Use a meaningful minimum for normalization so tiny values
-        # don't appear as maximum intensity (e.g., 0.1% CPU on an idle cluster)
-        floor = 1.0 if col in ("cpu_pct", "mem_pct") else 10.0
-        mx = max(mx, floor) if mx > 0 else 0
         data[col] = data[col] / mx if mx > 0 else 0
 
     fig, ax = plt.subplots(figsize=(max(8, len(metrics) * 2.2),
-                                    max(4, len(latest) * 0.6 + 1)))
+                                    max(4, len(means) * 0.6 + 1)))
     im = ax.imshow(data.values, cmap="YlOrRd", aspect="auto")
     ax.set_xticks(range(len(metrics)))
     ax.set_xticklabels(labels)
-    ax.set_yticks(range(len(latest)))
-    ax.set_yticklabels(latest["label"].values)
+    ax.set_yticks(range(len(means)))
+    ax.set_yticklabels(means["label"].values)
 
-    for i in range(len(latest)):
+    for i in range(len(means)):
         for j in range(len(metrics)):
-            val = latest.iloc[i][metrics[j]]
+            val = means.iloc[i][metrics[j]]
             color = "white" if data.iloc[i, j] > 0.5 else "black"
             ax.text(j, i, f"{val:.1f}", ha="center", va="center",
                     color=color, fontsize=8)
 
-    ax.set_title("Container Resource Heatmap (Latest Snapshot)")
+    ax.set_title("Container Resource Heatmap (Mean Over Sampling Period)")
     fig.colorbar(im, ax=ax, shrink=0.6)
     fig.savefig(os.path.join(output_dir, "heatmap.png"))
     plt.close(fig)
