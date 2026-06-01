@@ -296,8 +296,9 @@ async def run_concurrency_round(
             else:
                 async with lock:
                     question = questions[q_idx % len(questions)]
+                    kb_id = kb_ids[q_idx % len(kb_ids)]
                     q_idx += 1
-                rr = await client.retrieval(question, kb_ids)
+                rr = await client.retrieval(question, [kb_id])
             await results.put(rr)
 
     # 启动所有 worker
@@ -615,7 +616,7 @@ async def main():
     try:
         await client.start()
         test_rr = await (
-            client.retrieval(questions[0], kb_ids)
+            client.retrieval(questions[0], [kb_ids[0]])
             if args.mode == "retrieval"
             else client.health_check()
         )
