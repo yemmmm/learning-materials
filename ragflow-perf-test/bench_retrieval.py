@@ -51,6 +51,7 @@ class RequestResult:
     status_code: int = 0
     error_type: str = ""  # timeout / 502 / 503 / 504 / api_error / connection_error
     error_msg: str = ""
+    upstream: str = ""    # X-Upstream 响应头，标识处理请求的后端服务器
 
 
 @dataclass
@@ -64,6 +65,7 @@ class RoundResult:
     latencies: List[float] = field(default_factory=list)
     error_dist: Dict[str, int] = field(default_factory=dict)
     requests: List[RequestResult] = field(default_factory=list)
+    upstream_dist: Dict[str, int] = field(default_factory=dict)
     p50: float = 0.0
     p75: float = 0.0
     p95: float = 0.0
@@ -190,7 +192,7 @@ class RAGFlowClient:
     # ---- requests ----
 
     async def retrieval(self, question: str, kb_ids: List[str]) -> RequestResult:
-        """单次检索请求，记录延迟与错误类型。"""
+        """单次检索请求，记录延迟、错误类型与上游服务器。"""
         t0 = time.monotonic()
         try:
             resp = await self._client.post(
@@ -198,24 +200,26 @@ class RAGFlowClient:
                 json={"question": question, "dataset_ids": kb_ids},
             )
             latency = time.monotonic() - t0
+            upstream = resp.headers.get("X-Upstream", "")
 
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("code") == 0:
-                    return RequestResult(True, latency, 200)
+                    return RequestResult(True, latency, 200, upstream=upstream)
                 return RequestResult(
                     False, latency, 200, "api_error",
                     "code=" + str(data.get("code", "")) + ": " + str(data.get("message", ""))[:200],
+                    upstream=upstream,
                 )
             elif resp.status_code in (502, 503, 504):
                 return RequestResult(
                     False, latency, resp.status_code,
-                    "http_" + str(resp.status_code), resp.text[:200],
+                    "http_" + str(resp.status_code), resp.text[:200], upstream,
                 )
             else:
                 return RequestResult(
                     False, latency, resp.status_code,
-                    "http_" + str(resp.status_code), resp.text[:200],
+                    "http_" + str(resp.status_code), resp.text[:200], upstream,
                 )
 
         except httpx.TimeoutException:
@@ -238,10 +242,12 @@ class RAGFlowClient:
         try:
             resp = await self._client.get("/v1/system/version")
             latency = time.monotonic() - t0
+            upstream = resp.headers.get("X-Upstream", "")
             ok = resp.status_code == 200
             return RequestResult(
                 ok, latency, resp.status_code,
                 "" if ok else "http_" + str(resp.status_code),
+                upstream=upstream,
             )
         except httpx.TimeoutException:
             return RequestResult(
@@ -325,6 +331,7 @@ async def run_concurrency_round(
     # 收集结果
     latencies: List[float] = []
     error_dist: Dict[str, int] = {}
+    upstream_dist: Dict[str, int] = {}
     all_results: List[RequestResult] = []
     ok = 0
     fail = 0
@@ -339,6 +346,8 @@ async def run_concurrency_round(
             else:
                 fail += 1
                 error_dist[rr.error_type] = error_dist.get(rr.error_type, 0) + 1
+            if rr.upstream:
+                upstream_dist[rr.upstream] = upstream_dist.get(rr.upstream, 0) + 1
         except asyncio.QueueEmpty:
             break
 
@@ -354,6 +363,7 @@ async def run_concurrency_round(
         qps=total / elapsed if elapsed > 0 else 0.0,
         latencies=sorted_lats,
         error_dist=error_dist,
+        upstream_dist=upstream_dist,
         requests=all_results,
         p50=percentile(sorted_lats, 50),
         p75=percentile(sorted_lats, 75),
@@ -639,7 +649,7 @@ async def main():
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["timestamp", "concurrency", "success", "latency_s",
-                          "status_code", "error_type"])
+                          "status_code", "error_type", "upstream"])
 
     for i, c in enumerate(concurrency_list, 1):
         prefix = "\n>>> [" + str(i) + "/" + str(len(concurrency_list)) + "] 并发=" + str(c) + "  "
@@ -656,7 +666,7 @@ async def main():
             writer = csv.writer(f)
             for rr in round_result.requests:
                 writer.writerow([ts, c, rr.success, round(rr.latency_s, 4),
-                                 rr.status_code, rr.error_type])
+                                 rr.status_code, rr.error_type, rr.upstream])
 
         # 汇总输出
         err_items = []
@@ -672,6 +682,11 @@ async def main():
         )
         if round_result.failure > 0:
             print("    错误分布: " + err_summary)
+        if round_result.upstream_dist:
+            ups_items = []
+            for k, v in round_result.upstream_dist.items():
+                ups_items.append(k + "=" + str(v))
+            print("    上游服务器: " + ", ".join(ups_items))
 
         all_rounds.append(round_result)
 
@@ -710,10 +725,18 @@ async def main():
             "min_s": round(r.min_, 3),
             "max_s": round(r.max_, 3),
             "error_distribution": r.error_dist,
+            "upstream_distribution": r.upstream_dist,
         })
 
     # 瓶颈分析
     summary["bottleneck_analysis"] = analyze_bottleneck(all_rounds, args.mode)
+
+    # 全局上游服务器汇总
+    all_upstream: Dict[str, int] = {}
+    for r in all_rounds:
+        for k, v in r.upstream_dist.items():
+            all_upstream[k] = all_upstream.get(k, 0) + v
+    summary["upstream_distribution"] = all_upstream
 
     summary_path = output_dir / "summary.json"
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -731,6 +754,10 @@ async def main():
     print("  ES 瓶颈概率:        " + ba["es_bottleneck_probability"])
     print("  推荐并发上限:       " + str(ba["recommended_max_concurrency"]))
     print("  预估最大 QPS:       " + str(ba["estimated_max_qps"]))
+    if all_upstream:
+        print("\n  上游服务器分布:")
+        for k, v in all_upstream.items():
+            print("    " + k + ": " + str(v) + " 请求")
 
     print("\n" + "=" * 60)
     print("QPS / 延迟对比表")
