@@ -1,182 +1,135 @@
-# RAGFlow Retrieval API 压力测试工具
+# RAGFlow Retrieval API 压测工具集
 
-对 RAGFlow `/api/v1/retrieval` 接口进行并发压力测试，支持多知识库同时压测。
+对 RAGFlow 检索 API 进行全维度性能测试，支持资源监控、日志分析和交互式配置。
+
+## 快速开始
+
+```bash
+# 安装依赖
+uv sync
+
+# 交互式执行（推荐）
+python run_bench.py
+```
+
+首次运行会引导你配置所有参数（API 地址、知识库、并发数、监控选项等），
+配置保存在 `bench_config.json`。再次运行时会展示当前配置，询问是否修改。
+
+## 工具概览
+
+| 脚本 | 功能 |
+|------|------|
+| `run_bench.py` | **主控脚本** — 交互式配置 + 编排所有测试阶段 |
+| `bench_retrieval.py` | 检索 API 并发压测 (`/api/v1/retrieval`) |
+| `bench_embedding.py` | Embedding 模型并发能力测试 |
+| `monitor_resources.sh` | Docker 容器 + 服务器资源监控 (CPU/内存/网络/磁盘) |
+| `plot_monitor.py` | 资源监控数据可视化（生成图表） |
+| `analyze_logs.py` | 检索管道耗时分析（从日志提取 timing 信息） |
+
+## 功能特性
+
+### 1. 交互式配置
+
+- 首次执行：逐步配置所有参数
+- 再次执行：展示当前参数，可选择修改或直接执行
+- 配置文件持久化 (`bench_config.json`)
+
+### 2. 检索 API 压测
+
+```bash
+python bench_retrieval.py \
+    --base-url http://localhost:18080 \
+    --api-key ragflow-xxxx \
+    --kb kb_id_1 --query "查询文本" \
+    --concurrency 10 --duration 30 \
+    --output-json results.json
+```
+
+- 支持多知识库同时压测
+- 精确的 P50/P95/P99 延迟统计
+- 错误分布分析
+- JSON 结果导出
+
+### 3. Embedding 模型并发测试
+
+```bash
+python bench_embedding.py \
+    --api-url https://api.openai.com/v1/embeddings \
+    --api-key sk-xxxx \
+    --model text-embedding-ada-002 \
+    --concurrency 5 --count 20
+```
+
+- 短时间少量请求，避免触发风控
+- 支持 OpenAI 兼容和 RAGFlow 内部 API 格式
+- 并发排队分析（前后半段延迟对比）
+- 高并发/高请求数时自动警告
+
+### 4. 资源监控
+
+```bash
+./monitor_resources.sh -i 2 -d 120 -o ./data
+./monitor_resources.sh -c "ha-node1-web ha-node2-web" -i 2 -d 120
+```
+
+- Docker 容器: CPU%、内存、网络 I/O、块 I/O
+- 服务器: CPU%、内存、负载、磁盘
+- CSV 输出，供可视化分析
+
+### 5. 检索管道耗时分析
+
+```bash
+python analyze_logs.py --containers ha-node1-web ha-node2-web --since 5m
+python analyze_logs.py --log-files /path/to/ragflow_server.log
+```
+
+- 解析 `[RETRIEVAL_TIMING]` 日志，按步骤聚合耗时
+- 步骤: embedding → doc_search → rerank → total
+- 自动识别最大瓶颈
+- 依赖: RAGFlow 源码需添加 timing 日志（修改 `rag/nlp/search.py`）
+
+### 6. 资源图表
+
+```bash
+python plot_monitor.py -d ./bench-data -o ./plots
+```
+
+- 所有服务 CPU/内存/网络/磁盘对比图
+- 按服务类型分组图（多节点同图）
+- 容器资源热力图、服务器总览图
+
+## 多节点支持
+
+所有工具均支持多节点部署场景：
+
+- `monitor_resources.sh` 监控多个容器
+- `analyze_logs.py` 聚合多个容器的日志
+- `plot_monitor.py` 按服务类型分组，用颜色和线型区分节点
+- `bench_retrieval.py` 通过 LB 入口压测
+
+## 推荐工作流
+
+```bash
+# 一键执行所有测试
+python run_bench.py
+
+# 或分步执行：
+# 终端1: 启动监控
+./monitor_resources.sh -i 2 -d 120 -o ./data
+
+# 终端2: 启动压测
+python bench_retrieval.py --base-url http://localhost:18080 --api-key ragflow-xxx --kb <id> --query "test" --concurrency 20 --duration 90 --output-json ./data/retrieval.json
+python bench_embedding.py --api-url https://api.openai.com/v1/embeddings --api-key sk-xxx --model text-embedding-ada-002 --concurrency 5 --count 20 --output-json ./data/embedding.json
+
+# 分析日志
+python analyze_logs.py --containers ha-node1-web ha-node2-web --since 3m --output-json ./data/analysis.json
+
+# 生成图表
+python plot_monitor.py -d ./data -o ./data
+```
 
 ## 依赖
 
 ```bash
-pip install httpx pandas matplotlib
-```
-
-或使用 uv：
-
-```bash
-uv pip install httpx pandas matplotlib
-```
-
-## 用法
-
-### 单知识库压测
-
-```bash
-python bench_retrieval.py \
-    --base-url http://localhost:18080 \
-    --api-key ragflow-xxxxxxxx \
-    --kb <dataset_id> \
-    --query "你的查询文本" \
-    --concurrency 10 \
-    --duration 30
-```
-
-### 多知识库压测
-
-每个 `--kb` 对应一个 `--query`，一一配对：
-
-```bash
-python bench_retrieval.py \
-    --base-url http://localhost:18080 \
-    --api-key ragflow-xxxxxxxx \
-    --kb kb_id_1 --query "知识库一的查询" \
-    --kb kb_id_2 --query "知识库二的查询" \
-    --kb kb_id_3 --query "知识库三的查询" \
-    --concurrency 20 \
-    --duration 60
-```
-
-并发请求会在所有知识库之间轮流分配，实现均匀压测。
-
-## 参数说明
-
-| 参数 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--base-url` | 是 | - | RAGFlow 服务地址 |
-| `--api-key` | 是 | - | API Key（`ragflow-` 前缀） |
-| `--kb` | 是 | - | 知识库 ID，可多次指定 |
-| `--query` | 是 | - | 查询文本，与 `--kb` 一一对应 |
-| `--concurrency` | 否 | 10 | 并发数 |
-| `--duration` | 否 | 30 | 压测持续时间（秒） |
-| `--top-k` | 否 | 1024 | 检索 top_k 参数 |
-| `--similarity-threshold` | 否 | 0.2 | 相似度阈值 |
-| `--vector-similarity-weight` | 否 | 0.3 | 向量相似度权重 |
-
-## 输出示例
-
-```
-============================================================
-  RAGFlow Retrieval 压测报告
-============================================================
-
-  目标:        http://localhost:18080/api/v1/retrieval
-  知识库:      abc123 (什么是机器学习?...)
-  并发数:      10
-  持续时间:    30.1s
-
-  --- 请求统计 ---
-  总请求数:    245
-  成功:        243
-  失败:        2
-  成功率:      99.2%
-  QPS:         8.14
-
-  --- 延迟统计 (秒) ---
-  最小:        0.102
-  最大:        3.456
-  平均:        1.234
-  中位数:      1.100
-  标准差:      0.456
-  P95:         2.100
-  P99:         2.890
-
-============================================================
-```
-
-## 常见场景
-
-### 测试 HA 集群负载均衡效果
-
-通过 LB 入口压测，验证请求是否被分发到多个节点：
-
-```bash
-python bench_retrieval.py \
-    --base-url http://localhost:18080 \
-    --api-key ragflow-xxxx \
-    --kb <id> --query "test query" \
-    --concurrency 50 --duration 120
-```
-
-### 对比不同并发级别的性能
-
-```bash
-for c in 1 5 10 20 50; do
-    echo "=== Concurrency: $c ==="
-    python bench_retrieval.py \
-        --base-url http://localhost:18080 \
-        --api-key ragflow-xxxx \
-        --kb <id> --query "test query" \
-        --concurrency $c --duration 30
-done
-```
-
-## 资源监控
-
-压测过程中同步采集 Docker 容器 + 服务器资源数据。
-
-### 采集数据
-
-```bash
-# 默认: 每5秒采样，持续300秒，自动检测 ha- 前缀容器
-./monitor_resources.sh
-
-# 自定义参数
-./monitor_resources.sh -i 2 -d 600 -o ./data
-
-# 指定容器
-./monitor_resources.sh -c "ha-node1-web ha-node2-web ha-node1-worker ha-node2-worker"
-```
-
-输出两个 CSV 文件：
-- `container_stats_<时间戳>.csv` — 容器 CPU、内存、网络 I/O、块 I/O
-- `server_stats_<时间戳>.csv` — 服务器 CPU、内存、负载、磁盘
-
-### 可视化
-
-自动读取目录下所有 `container_stats_*.csv` 和 `server_stats_*.csv`，按服务类型分组绘图。
-
-```bash
-# 读取当前目录所有 CSV
-python plot_monitor.py
-
-# 指定 CSV 目录和输出目录
-python plot_monitor.py -d ./bench-data -o ./plots
-```
-
-生成图表：
-
-| 图表 | 说明 |
-|------|------|
-| `all_cpu.png` | 所有服务 CPU 使用率（多节点同图，按颜色+线型区分）|
-| `all_memory.png` | 所有服务内存使用量和百分比 |
-| `all_network.png` | 所有服务网络出入流量 |
-| `all_block_io.png` | 所有服务磁盘读写 |
-| `heatmap.png` | 所有容器资源热力图（最终快照）|
-| `service_<名称>.png` | 按服务类型单独出图（如 `service_web.png` 含 node1+node2）|
-| `server_overview.png` | 服务器 CPU、内存、负载、磁盘总览（合并所有采样数据）|
-
-服务名解析规则：`ha-node1-web` → 服务类型 `web`、节点 `node1`；`ha-mysql` → 服务类型 `mysql`、节点 `infra`。多节点同类服务合并到同一张 `service_<名称>.png` 中，用不同颜色和线型区分节点。
-
-### 推荐工作流：压测 + 监控并行
-
-```bash
-# 终端1: 启动监控
-./monitor_resources.sh -i 5 -d 120 -o ./bench-data
-
-# 终端2: 启动压测
-python bench_retrieval.py \
-    --base-url http://localhost:18080 \
-    --api-key ragflow-xxxx \
-    --kb <id> --query "test" \
-    --concurrency 20 --duration 90
-
-# 压测结束后，生成图表
-python plot_monitor.py -d ./bench-data -o ./bench-data
+uv sync  # 或 pip install httpx pandas matplotlib numpy
 ```
