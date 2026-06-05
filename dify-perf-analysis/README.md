@@ -48,22 +48,273 @@
 
 ### 1. 新增文件
 
-**`api/dify_graph/graph_engine/layers/performance_timing.py`** (源码版)
-- 新增 GraphEngineLayer 子类 PerformanceTimingLayer
-- 在 node_start/node_succeeded/graph_start/graph_end 等事件中记录时间
+#### `api/dify_graph/graph_engine/layers/performance_timing.py`
 
-**容器版路径**: `/app/api/core/workflow/graph_engine/layers/performance_timing.py`
-- 适配 v1.13.0 容器的 `core.workflow.*` 命名空间
+新建 PerformanceTimingLayer，继承 GraphEngineLayer，通过 `on_graph_start` / `on_event` / `on_graph_end` / `on_node_run_start` / `on_node_run_end` 钩子记录各阶段高精度计时日志。
 
-### 2. 修改文件
+```python
+"""
+Performance timing layer for GraphEngine.
+"""
+import logging
+import time
+from typing import final
 
-| 文件 | 修改内容 |
-|------|---------|
-| `api/core/workflow/workflow_entry.py` | 导入并注册 PerformanceTimingLayer |
-| `api/tasks/app_generate/workflow_execute_task.py` | 添加 task_dequeue 日志 (记录队列出队时间) |
-| `api/services/app_generate_service.py` | 添加 task_enqueue 日志 (记录入队时间) |
-| `api/dify_graph/nodes/llm/node.py` | 添加 llm_invoke_completed 日志 (记录 LLM 计时指标) |
-| `api/dify_graph/graph_engine/layers/__init__.py` | 导出 PerformanceTimingLayer |
+from typing_extensions import override
+
+from dify_graph.graph_events import (
+    GraphEngineEvent, GraphRunFailedEvent, GraphRunPartialSucceededEvent,
+    GraphRunStartedEvent, GraphRunSucceededEvent,
+    NodeRunFailedEvent, NodeRunStartedEvent, NodeRunSucceededEvent,
+)
+from dify_graph.nodes.base.node import Node
+from .base import GraphEngineLayer
+
+logger = logging.getLogger("GraphEngine.PerformanceTiming")
+
+
+@final
+class PerformanceTimingLayer(GraphEngineLayer):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._graph_start_time: float | None = None
+        self._node_start_times: dict[str, float] = {}
+        self._node_count = 0
+
+    @override
+    def on_graph_start(self) -> None:
+        self._graph_start_time = time.perf_counter()
+        logger.info(
+            "[PERF_TIMING] event=graph_start | workflow_id=%s | timestamp=%.6f",
+            self.graph_runtime_state.workflow_id, self._graph_start_time,
+        )
+
+    @override
+    def on_event(self, event: GraphEngineEvent) -> None:
+        workflow_id = self.graph_runtime_state.workflow_id
+        ts = time.perf_counter()
+
+        if isinstance(event, GraphRunStartedEvent):
+            logger.info(
+                "[PERF_TIMING] event=graph_run_started | workflow_id=%s | timestamp=%.6f",
+                workflow_id, ts,
+            )
+        elif isinstance(event, GraphRunSucceededEvent):
+            elapsed = ts - self._graph_start_time if self._graph_start_time else 0
+            logger.info(
+                "[PERF_TIMING] event=graph_run_succeeded | workflow_id=%s | elapsed=%.6f | node_count=%d",
+                workflow_id, elapsed, self._node_count,
+            )
+        elif isinstance(event, NodeRunStartedEvent):
+            self._node_start_times[event.node_id] = ts
+            logger.info(
+                "[PERF_TIMING] event=node_start | workflow_id=%s | node_id=%s | "
+                "node_type=%s | node_title=%s | timestamp=%.6f",
+                workflow_id, event.node_id, event.node_type, event.node_title, ts,
+            )
+        elif isinstance(event, NodeRunSucceededEvent):
+            start_ts = self._node_start_times.pop(event.node_id, None)
+            elapsed = ts - start_ts if start_ts else 0
+            self._node_count += 1
+            logger.info(
+                "[PERF_TIMING] event=node_succeeded | workflow_id=%s | node_id=%s | "
+                "node_type=%s | elapsed=%.6f | timestamp=%.6f",
+                workflow_id, event.node_id, event.node_type, elapsed, ts,
+            )
+        elif isinstance(event, NodeRunFailedEvent):
+            start_ts = self._node_start_times.pop(event.node_id, None)
+            elapsed = ts - start_ts if start_ts else 0
+            logger.info(
+                "[PERF_TIMING] event=node_failed | workflow_id=%s | node_id=%s | "
+                "node_type=%s | elapsed=%.6f | error=%s",
+                workflow_id, event.node_id, event.node_type, elapsed, event.error,
+            )
+        # ... GraphRunPartialSucceededEvent / GraphRunFailedEvent 同理
+
+    @override
+    def on_graph_end(self, error: Exception | None) -> None:
+        ts = time.perf_counter()
+        total_elapsed = ts - self._graph_start_time if self._graph_start_time else 0
+        logger.info(
+            "[PERF_TIMING] event=graph_end | workflow_id=%s | total_elapsed=%.6f | "
+            "node_count=%d | has_error=%s",
+            self.graph_runtime_state.workflow_id, total_elapsed,
+            self._node_count, error is not None,
+        )
+
+    @override
+    def on_node_run_start(self, node: Node) -> None:
+        self._node_start_times[node.id] = time.perf_counter()
+
+    @override
+    def on_node_run_end(self, node, error=None, result_event=None) -> None:
+        pass  # 计时已在 on_event 中通过事件完成
+```
+
+> **容器版 (v1.13.0) 差异**: 文件路径为 `/app/api/core/workflow/graph_engine/layers/performance_timing.py`，导入路径从 `dify_graph.*` 改为 `core.workflow.*`。详见 `source-changes/performance_timing_container_v1.13.py`。
+
+---
+
+### 2. 修改文件 — 具体代码变更
+
+#### 2.1 `api/dify_graph/graph_engine/layers/__init__.py`
+
+**变更**: 新增 `PerformanceTimingLayer` 的导入和导出。
+
+```diff
+ from .base import GraphEngineLayer
+ from .debug_logging import DebugLoggingLayer
+ from .execution_limits import ExecutionLimitsLayer
++from .performance_timing import PerformanceTimingLayer
+
+ __all__ = [
+     "DebugLoggingLayer",
+     "ExecutionLimitsLayer",
+     "GraphEngineLayer",
++    "PerformanceTimingLayer",
+ ]
+```
+
+---
+
+#### 2.2 `api/core/workflow/workflow_entry.py`
+
+**变更 (1)**: 导入行追加 `PerformanceTimingLayer`。
+
+```diff
+-from dify_graph.graph_engine.layers import DebugLoggingLayer, ExecutionLimitsLayer
++from dify_graph.graph_engine.layers import (
++    DebugLoggingLayer,
++    ExecutionLimitsLayer,
++    PerformanceTimingLayer,
++)
+```
+
+**变更 (2)**: 在 `__init__` 中注册新层（位于 `LLMQuotaLayer` 之后、`ObservabilityLayer` 之前）。
+
+```diff
+         self.graph_engine.layer(LLMQuotaLayer())
+
++        # Add performance timing layer for workflow performance analysis
++        self.graph_engine.layer(PerformanceTimingLayer())
++
+         # Add observability layer when OTel is enabled
+```
+
+---
+
+#### 2.3 `api/tasks/app_generate/workflow_execute_task.py`
+
+**变更 (1)**: 新增 `import time`。
+
+```diff
+ import logging
++import time
+ import uuid
+```
+
+**变更 (2)**: 在 Celery 任务函数入口添加出队时间日志。
+
+```diff
+ @shared_task(queue=WORKFLOW_BASED_APP_EXECUTION_QUEUE)
+ def workflow_based_app_execution_task(
+     payload: str,
+ ) -> Generator[Mapping[str, Any] | str, None, None] | Mapping[str, Any] | None:
++    dequeue_ts = time.perf_counter()
+     exec_params = AppExecutionParams.model_validate_json(payload)
+
++    logger.info(
++        "[PERF_TIMING] event=task_dequeue | workflow_id=%s | workflow_run_id=%s | "
++        "app_id=%s | timestamp=%.6f",
++        exec_params.workflow_id,
++        exec_params.workflow_run_id,
++        exec_params.app_id,
++        dequeue_ts,
++    )
++
+     logger.info("workflow_based_app_execution_task run with params: %s", exec_params)
+```
+
+---
+
+#### 2.4 `api/services/app_generate_service.py`
+
+**变更 (1)**: 新增 `import time`。
+
+```diff
+ import logging
+ import threading
++import time
+ import uuid
+```
+
+**变更 (2)**: 在 Celery 任务入队前记录入队时间（仅 Workflow 模式，约第 216 行）。
+
+```diff
+                     def on_subscribe():
++                        enqueue_ts = time.perf_counter()
++                        logger.info(
++                            "[PERF_TIMING] event=task_enqueue | workflow_id=%s | "
++                            "workflow_run_id=%s | app_id=%s | timestamp=%.6f",
++                            workflow.id,
++                            payload.workflow_run_id,
++                            app_model.id,
++                            enqueue_ts,
++                        )
+                         workflow_based_app_execution_task.delay(payload_json)
+```
+
+---
+
+#### 2.5 `api/dify_graph/nodes/llm/node.py`
+
+**变更**: 在 `handle_invoke_result()` 中，LLM 调用完成后、`yield ModelInvokeCompletedEvent` 之前，插入 LLM 计时日志（约第 519 行）。LLM 的 latency / time_to_first_token / time_to_generate 在原代码中已计算，此处仅追加日志输出。
+
+```diff
+         # Calculate streaming metrics
+         end_time = time.perf_counter()
+         total_duration = end_time - start_time
+         usage.latency = round(total_duration, 3)
+         if has_content and first_token_time:
+             gen_ai_server_time_to_first_token = first_token_time - start_time
+             llm_streaming_time_to_generate = end_time - first_token_time
+             usage.time_to_first_token = round(gen_ai_server_time_to_first_token, 3)
+             usage.time_to_generate = round(llm_streaming_time_to_generate, 3)
+
++        logger.info(
++            "[PERF_TIMING] event=llm_invoke_completed | node_id=%s | node_type=%s | "
++            "model=%s | latency=%.6f | time_to_first_token=%.6f | "
++            "time_to_generate=%.6f | prompt_tokens=%d | completion_tokens=%d | "
++            "total_tokens=%d",
++            node_id,
++            node_type.value if hasattr(node_type, 'value') else str(node_type),
++            model,
++            usage.latency,
++            usage.time_to_first_token if usage.time_to_first_token else 0,
++            usage.time_to_generate if usage.time_to_generate else 0,
++            usage.prompt_tokens,
++            usage.completion_tokens,
++            usage.total_tokens,
++        )
++
+         yield ModelInvokeCompletedEvent(
+```
+
+---
+
+### 3. 变更汇总
+
+| # | 文件 | 变更类型 | 说明 |
+|---|------|---------|------|
+| 1 | `layers/performance_timing.py` | **新增** | PerformanceTimingLayer 完整实现 |
+| 2 | `layers/__init__.py` | 2 行 | 导入 + 导出新层 |
+| 3 | `core/workflow/workflow_entry.py` | 3 行 | 导入 + 注册层到 GraphEngine |
+| 4 | `tasks/.../workflow_execute_task.py` | 10 行 | import time + 出队时间日志 |
+| 5 | `services/app_generate_service.py` | 9 行 | import time + 入队时间日志 |
+| 6 | `nodes/llm/node.py` | 14 行 | LLM 调用完成后输出计时日志 |
+
+> **容器版 (v1.13.0) 适配**: 上述路径中的 `dify_graph.*` 需替换为 `core.workflow.*`，`NodeType` 导入路径不同，其余逻辑一致。详见 `source-changes/performance_timing_container_v1.13.py` 和 `scripts/deploy_to_container.py`。
 
 ## 脚本说明
 
