@@ -1,32 +1,36 @@
 # Dify 3.9.x 性能诊断命令
 
-## 当前步骤：确认 gunicorn worker 实际数量和配置
+## 当前步骤：验证 gunicorn worker 进程数和配置一致性
 
 ```bash
-# 1. 查看实际 gunicorn worker 进程数（含 master）
-ps aux | grep gunicorn | grep -v grep | wc -l
+# 1. 查看 .env 中 SERVER_WORKER_AMOUNT
+grep 'SERVER_WORKER_AMOUNT' .env
 
-# 2. 查看完整 gunicorn 启动命令和参数
-ps aux | grep gunicorn | grep -v grep | head -3
-
-# 3. 查看 Redis 连接池限制
-grep -E 'REDIS_MAX_CONNECTIONS|SERVER_WORKER|GUNICORN' .env | sort -u
+# 2. 查看 gunicorn 进程树（父子关系）
+ps -eo pid,ppid,user,args --forest | grep gunicorn | grep -v grep
 ```
 
 **目的**：
-- 验证 `SERVER_WORKER_AMOUNT` 是否真的产生了 31 个 worker
-- 确认 `SERVER_WORKER_CONNECTIONS=500` 是否传递到 gunicorn
-- 检查 `REDIS_MAX_CONNECTIONS` 是否构成连接池瓶颈
+- 确认 `--workers 11` 和实际 36 个进程之间的差异来源
+- 排除是否有多个 gunicorn 实例或僵尸进程
 
-### 分析公式
+### 已知数据汇总
 
-当前观察到：`Throughput = Workers / AvgLatency = 31 / 0.387s ≈ 80 req/s`
+| 指标 | 值 |
+|------|-----|
+| gunicorn 命令 | `--workers 11 --worker-class gevent --worker-connections 500 --timeout 360` |
+| ps 进程数 | 36 (含 master) |
+| SERVER_WORKER_CONNECTIONS | 500 |
+| REDIS_MAX_CONNECTIONS | 未设置 (无限制) |
+| gunicorn 版本 | 25.1.0 |
+| gevent 版本 | 25.9.1 |
+| redis-py 版本 | 7.3.0 |
+| patch_all() 调用 | ✓ (GeventDidPatchBuiltinModulesEvent 触发) |
+| gRPC/psycopg2 额外 patch | ✓ |
 
-这说明每个 worker 的并发度 = 1（串行处理请求）。
+### 公式分析（有待验证）
 
-### 已验证的事实
+如果 worker 数为 35：35 / 0.387s = 90 req/s ≈ 80 req/s → 每 worker 并发 ≈ 1
+如果 worker 数为 11：11 / 0.387s = 28 req/s ≠ 80 req/s → 每 worker 并发 ≈ 7
 
-- `gunicorn 25.1.0` + `--worker-class gevent` → `patch_all()` 被调用 ✓
-- `GeventDidPatchBuiltinModulesEvent` 事件触发 ✓
-- gRPC 和 psycopg2 被额外 patch ✓
-- `queue` 模块可以被正确 patch（即使预导入） ✓
+**两种情况下，gevent greenlet 并发都远低于理论最大值 500。**
