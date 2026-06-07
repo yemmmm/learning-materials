@@ -6,8 +6,16 @@
 # 查看 Celery result backend 配置
 docker compose exec api bash -c "grep -r 'CELERY_RESULT\|result_backend\|interval\|polling' /app/api/configs/ 2>/dev/null"
 
-# 查看工作流执行代码中的 Celery 调用方式
+# 查看工作流核心代码中的 Celery 调用方式
 docker compose exec api bash -c "grep -rn '\.get(\|AsyncResult\|wait(' /app/api/core/workflow/ 2>/dev/null | head -20"
+```
+
+> **结果**: core/workflow/ 中没有 AsyncResult，都是普通 dict.get()。Celery 调用在更上层。
+
+### 继续追踪：API 控制器/服务层中的 Celery 调用
+
+```bash
+docker compose exec api bash -c "grep -rn 'send_task\|apply_async\|\.delay(' /app/api/controllers/ /app/api/services/ 2>/dev/null | grep -i workflow | head -20"
 ```
 
 ## 2. 测量各阶段耗时
