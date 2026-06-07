@@ -1,36 +1,33 @@
 # Dify 3.9.x 性能诊断命令
 
-## 当前步骤：验证 gunicorn worker 进程数和配置一致性
+## 当前步骤：检查 Celery Worker 并发配置（瓶颈假设）
 
-```bash
-# 1. 查看 .env 中 SERVER_WORKER_AMOUNT
-grep 'SERVER_WORKER_AMOUNT' .env
+**关键洞察**：`SERVER_WORKER_AMOUNT` 的变化不影响 streaming 吞吐量 → 瓶颈不在 API gunicorn worker，而在 Celery worker。
 
-# 2. 查看 gunicorn 进程树（父子关系）
-ps -eo pid,ppid,user,args --forest | grep gunicorn | grep -v grep
+### streaming 模式执行链路
+```
+API (gevent) → Celery.delay() → Worker 执行 workflow → Redis pubsub publish → API 订阅接收 → SSE 推送
 ```
 
-**目的**：
-- 确认 `--workers 11` 和实际 36 个进程之间的差异来源
-- 排除是否有多个 gunicorn 实例或僵尸进程
+如果 Celery worker 池是瓶颈，增加 API worker 无济于事。
 
-### 已知数据汇总
+### 计算验证
+- Celery worker 执行时间 ~130ms
+- 假设 N 个 Celery worker：Max TPS = N / 0.130s
+- 如果 N=10：10/0.130 = 77 req/s ≈ 80 req/s ✓
 
-| 指标 | 值 |
-|------|-----|
-| gunicorn 命令 | `--workers 11 --worker-class gevent --worker-connections 500 --timeout 360` |
-| ps 进程数 | 36 (含 master) |
-| SERVER_WORKER_CONNECTIONS | 500 |
-| REDIS_MAX_CONNECTIONS | 未设置 (无限制) |
-| gunicorn 版本 | 25.1.0 |
-| gevent 版本 | 25.9.1 |
-| redis-py 版本 | 7.3.0 |
-| patch_all() 调用 | ✓ (GeventDidPatchBuiltinModulesEvent 触发) |
-| gRPC/psycopg2 额外 patch | ✓ |
+```bash
+# 1. Celery worker 相关配置
+grep -E 'CELERY_WORKER_AMOUNT|CELERY_AUTO_SCALE|CELERY_WORKER_CONCURRENCY|CELERY_MAX_WORKERS|CELERY_MIN_WORKERS' .env
 
-### 公式分析（有待验证）
+# 2. Celery worker 实际进程数和启动命令
+ps aux | grep celery | grep -v grep | head -10
 
-如果 worker 数为 35：35 / 0.387s = 90 req/s ≈ 80 req/s → 每 worker 并发 ≈ 1
-如果 worker 数为 11：11 / 0.387s = 28 req/s ≠ 80 req/s → 每 worker 并发 ≈ 7
+# 3. worker 容器日志中的并发配置
+docker compose logs worker 2>&1 | grep -i "concurrency\|autoscale\|pool\|worker\|ready" | tail -20
+```
 
-**两种情况下，gevent greenlet 并发都远低于理论最大值 500。**
+### Celery worker 并发参数优先级
+1. `CELERY_WORKER_CONCURRENCY` — 直接设置并发数（最高优先级）
+2. `CELERY_AUTO_SCALE=true` → `--autoscale=${MAX},${MIN}` (MAX 默认 = nproc=20)
+3. `CELERY_WORKER_AMOUNT` — 固定并发数（默认 1）
