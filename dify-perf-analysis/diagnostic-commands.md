@@ -1,7 +1,11 @@
 # Dify 3.9.x 性能诊断命令
 
-## 当前：追踪 RedisChannel 命令通道和 Worker 消费逻辑
+## 当前：对比 blocking vs streaming 模式吞吐量
 
 ```bash
-docker compose exec api bash -c "grep -rn 'workflow:.*:commands\|command_channel\|RedisChannel' /app/api/core/workflow/ /app/api/core/app/apps/ 2>/dev/null | head -15"
+# 测试 blocking 模式（走进程内执行，不经过 Celery/Redis pubsub）
+# 用 wrk 或 ab 压测，记录吞吐量
+
+# 测试 streaming 模式（当前模式，经过 Celery + Redis pubsub）
+# 同样压测，对比两者差异
 ```
