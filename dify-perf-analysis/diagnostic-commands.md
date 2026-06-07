@@ -1,39 +1,32 @@
 # Dify 3.9.x 性能诊断命令
 
-## 当前步骤：诊断 Redis 连接泄漏 (~29000 connections)
+## 当前步骤：决定性实验 — sync vs gevent 模式对比
 
-**关键发现**：Redis connections 29000 且持续增长 → 连接泄漏
+### 验证过的结论
 
-### Redis 连接分析
+| 检查项 | 结果 |
+|--------|------|
+| `patch_all()` 调用 | ✓ (GeventDidPatchBuiltinModulesEvent 触发) |
+| gRPC/psycopg2 patch | ✓ |
+| Redis pubsub 连接泄漏 | ✗ (正常，80个连接) |
+| Celery greenlet 利用率 | ~3% (320槽位，仅用10) |
+| API worker 并发 | ~2.4/worker (33 worker，80并发) |
+
+### 瓶颈定位：gevent 在流式路径上并发失效
+
+`--worker-connections 500` 理论上每个 worker 500 greenlet 并发，实际仅 2.4。切换 sync 模式可验证。
+
+### 实验结果：切换到 sync 模式
 
 ```bash
-# 1. 压测前连接基线
-echo "=== 压测前 ==="
-docker compose exec redis redis-cli CLIENT LIST | wc -l
-
-# 2. 压测中连接类型分布
-docker compose exec redis redis-cli CLIENT LIST | awk '{print $3}' | sort | uniq -c | sort -rn | head -10
-
-# 3. 统计 pubsub 连接数
-docker compose exec redis redis-cli CLIENT LIST | grep -c "sub=1"
-
-# 4. Redis 客户端列表（看连接存活时间）
-docker compose exec redis redis-cli CLIENT LIST | awk '{print $2, $12}' | head -20
+# 修改 .env
+SERVER_WORKER_CLASS=sync
+SERVER_WORKER_AMOUNT=128
+# 重启 API
+docker compose restart api
+# 压测 streaming 模式
 ```
 
-### 已知数据汇总 (压测期间)
-
-| 指标 | 值 | 分析 |
-|------|-----|------|
-| API TCP 连接 (/proc/net/tcp) | 406→700+→400 | 300+ 额外连接正常 |
-| API 副本数 | 3 (`--scale api=3`) | 每副本 11 worker |
-| API CPU | ~40% | 非 CPU 瓶颈 |
-| Redis connections | ~29000 持续增长 | 连接泄漏! |
-| Redis blocked | 16 | 正常（Celery BRPOP） |
-| Celery workers | 16 实例 × 20 greenlets | 320 并发槽位 |
-
-### 诊断逻辑
-
-- 正常情况: pubsub 连接 = 并发请求数 ≈ 100-300
-- 如果 pubsub 连接远大于此 → pubsub 连接未正确释放
-- 检查 `stream_topic_events()` 的 `with topic.subscribe()` 是否正确清理
+**判定逻辑**：
+- 吞吐量 > 200 req/s → gevent 流式路径有并发缺陷
+- 吞吐量 ≈ 80 req/s → 瓶颈在 Celery/Redis 环节
