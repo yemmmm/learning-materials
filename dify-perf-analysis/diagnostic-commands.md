@@ -1,40 +1,34 @@
 # Dify 3.9.x 性能诊断命令
 
-## 当前步骤：确认 Celery worker 队列消费者数量
+## 当前步骤：验证 API gunicorn worker 的实际并发连接数
 
-**关键矛盾**：Celery `-P gevent -c 20` 理论最大 154 req/s，但实际仅 80 req/s。
+**关键发现**：16 个 Celery worker × 20 greenlets = 320 并发槽位，但只用了 ~3%（~10 个）→ 瓶颈在上游 API 到 Celery 的环节。
 
-```
-理论: 20 greenlets / 0.130s = 154 req/s
-实际: 10.4 greenlets / 0.130s = 80 req/s   ← 只有约一半 greenlet 在工作
-```
+### 架构确认
 
-可能原因：
-1. workflow_based_app_execution 队列被其他类型的任务抢占了 greenlet
-2. 多个 worker 实例分散了并发，但只有部分消费 workflow 队列
-3. Celery broker (Redis) 调度延迟导致 greenlet 空闲等待
+| 组件 | 实例数 | 并发模型 | 单实例并发 | 总并发槽位 |
+|------|--------|----------|-----------|-----------|
+| API (gunicorn) | 11 workers | gevent | 500 connections | 5500 |
+| Celery | 16 instances | gevent pool | 20 greenlets | 320 |
+| Redis | 1 | - | - | - |
+
+**理论瓶颈**: 320 Celery 槽位 → 320/0.130s = 2461 req/s
+**实际吞吐量**: 80 req/s → 仅用 ~10 个 Celery 槽位
 
 ```bash
-# 1. worker 容器内的 celery 进程和完整命令
-docker compose exec worker bash -c "ps aux | grep celery | grep -v grep"
+# 1. 压测期间，查看 API 容器的 ESTABLISHED 连接数
+# 在压测同时运行，观察峰值
+docker compose exec api bash -c "ss -tnp | grep :5001 | grep ESTAB | wc -l"
 
-# 2. 宿主机所有 celery/worker 进程
-ps aux | grep -E "celery|worker" | grep -v grep | grep -v gunicorn
+# 2. 压测期间，查看 API 容器 CPU 使用率
+docker stats --no-stream | grep api
 
-# 3. workflow_based_app_execution 队列的消费者
-docker compose logs worker 2>&1 | grep -i "workflow_based_app_execution\|queues" | tail -10
-
-# 4. 检查是否有多个 worker 服务实例
-docker compose ps | grep worker
+# 3. 压测期间，查看 Redis 瞬时 OPS
+docker compose exec redis redis-cli --stat
+# (Ctrl+C 退出)
 ```
 
-### Celery 配置汇总
-
-| 参数 | 值 |
-|------|-----|
-| Pool | gevent |
-| Concurrency | 20 |
-| Prefetch Multiplier | 1 |
-| Max Tasks Per Child | 50 |
-| CELERY_WORKER_AMOUNT | 20 |
-| CELERY_AUTO_SCALE | false |
+### 诊断逻辑
+- 如果连接数 > 100 但吞吐量仍是 80 → gevent greenlet 切换有问题
+- 如果连接数 ≈ 80 且 CPU 低 → API worker 被 I/O 阻塞（gevent 未生效的表现）
+- 如果连接数 ≈ 80 且 CPU 高 → API worker 达到 CPU 瓶颈
