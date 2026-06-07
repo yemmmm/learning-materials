@@ -1,33 +1,40 @@
 # Dify 3.9.x 性能诊断命令
 
-## 当前步骤：检查 Celery Worker 并发配置（瓶颈假设）
+## 当前步骤：确认 Celery worker 队列消费者数量
 
-**关键洞察**：`SERVER_WORKER_AMOUNT` 的变化不影响 streaming 吞吐量 → 瓶颈不在 API gunicorn worker，而在 Celery worker。
+**关键矛盾**：Celery `-P gevent -c 20` 理论最大 154 req/s，但实际仅 80 req/s。
 
-### streaming 模式执行链路
 ```
-API (gevent) → Celery.delay() → Worker 执行 workflow → Redis pubsub publish → API 订阅接收 → SSE 推送
+理论: 20 greenlets / 0.130s = 154 req/s
+实际: 10.4 greenlets / 0.130s = 80 req/s   ← 只有约一半 greenlet 在工作
 ```
 
-如果 Celery worker 池是瓶颈，增加 API worker 无济于事。
-
-### 计算验证
-- Celery worker 执行时间 ~130ms
-- 假设 N 个 Celery worker：Max TPS = N / 0.130s
-- 如果 N=10：10/0.130 = 77 req/s ≈ 80 req/s ✓
+可能原因：
+1. workflow_based_app_execution 队列被其他类型的任务抢占了 greenlet
+2. 多个 worker 实例分散了并发，但只有部分消费 workflow 队列
+3. Celery broker (Redis) 调度延迟导致 greenlet 空闲等待
 
 ```bash
-# 1. Celery worker 相关配置
-grep -E 'CELERY_WORKER_AMOUNT|CELERY_AUTO_SCALE|CELERY_WORKER_CONCURRENCY|CELERY_MAX_WORKERS|CELERY_MIN_WORKERS' .env
+# 1. worker 容器内的 celery 进程和完整命令
+docker compose exec worker bash -c "ps aux | grep celery | grep -v grep"
 
-# 2. Celery worker 实际进程数和启动命令
-ps aux | grep celery | grep -v grep | head -10
+# 2. 宿主机所有 celery/worker 进程
+ps aux | grep -E "celery|worker" | grep -v grep | grep -v gunicorn
 
-# 3. worker 容器日志中的并发配置
-docker compose logs worker 2>&1 | grep -i "concurrency\|autoscale\|pool\|worker\|ready" | tail -20
+# 3. workflow_based_app_execution 队列的消费者
+docker compose logs worker 2>&1 | grep -i "workflow_based_app_execution\|queues" | tail -10
+
+# 4. 检查是否有多个 worker 服务实例
+docker compose ps | grep worker
 ```
 
-### Celery worker 并发参数优先级
-1. `CELERY_WORKER_CONCURRENCY` — 直接设置并发数（最高优先级）
-2. `CELERY_AUTO_SCALE=true` → `--autoscale=${MAX},${MIN}` (MAX 默认 = nproc=20)
-3. `CELERY_WORKER_AMOUNT` — 固定并发数（默认 1）
+### Celery 配置汇总
+
+| 参数 | 值 |
+|------|-----|
+| Pool | gevent |
+| Concurrency | 20 |
+| Prefetch Multiplier | 1 |
+| Max Tasks Per Child | 50 |
+| CELERY_WORKER_AMOUNT | 20 |
+| CELERY_AUTO_SCALE | false |
