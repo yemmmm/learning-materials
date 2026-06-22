@@ -1,0 +1,31 @@
+# Traefik 动态配置
+# 这里定义 n8n main 集群的负载均衡（与 docker labels 互为补充）
+
+http:
+  routers:
+    n8n-cluster:
+      rule: "Host(`localhost`) || Host(`n8n.local`)"
+      entryPoints:
+        - web
+      service: n8n_cluster
+      priority: 100
+
+  services:
+    n8n_cluster:
+      loadBalancer:
+        sticky:
+          cookie:
+            name: n8n_sid
+            secure: false
+            httpOnly: true
+            sameSite: lax
+        healthCheck:
+          path: /healthz
+          interval: "10s"
+          timeout: "3s"
+        servers:
+          - url: "http://n8n-main-1:5678"
+          - url: "http://n8n-main-2:5678"
+
+# 中间件复用
+# （实际使用时在 docker label 里通过 traefik.http.middlewares 引用）

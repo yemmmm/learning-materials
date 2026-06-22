@@ -1,0 +1,63 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "green"}, {"color": "red", "value": 80}]}}, "overrides": []},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "targets": [{"expr": "count(up{job=~\"n8n.*\"} == 1)", "legendFormat": "Healthy instances", "refId": "A"}],
+      "title": "Healthy Instances",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"axisLabel": "", "axisPlacement": "auto", "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1, "showPoints": "never"}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true}, "tooltip": {"mode": "multi", "sort": "none"}},
+      "targets": [{"expr": "sum(rate(n8n_workflow_failed_total[5m])) by (instance)", "legendFormat": "{{instance}}", "refId": "A"}],
+      "title": "Workflow Failures Rate (5m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "fillOpacity": 10, "lineWidth": 1}, "unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 18, "y": 0},
+      "id": 3,
+      "options": {"legend": {"calcs": ["mean", "p(95)"], "displayMode": "table", "placement": "bottom"}},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(n8n_workflow_duration_seconds_bucket[5m])) by (le, instance))", "legendFormat": "p95 {{instance}}", "refId": "A"}],
+      "title": "Workflow Duration p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+      "id": 4,
+      "options": {"legend": {"calcs": ["last"], "displayMode": "table", "placement": "bottom"}},
+      "targets": [{"expr": "n8n_active_workflow_count", "legendFormat": "{{instance}}", "refId": "A"}],
+      "title": "Active Workflows per Instance",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["n8n", "ha"],
+  "templating": {"list": []},
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "n8n HA Overview",
+  "uid": "n8n-ha-overview",
+  "version": 1,
+  "weekStart": ""
+}
