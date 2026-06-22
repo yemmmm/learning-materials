@@ -22,15 +22,42 @@ if not ok:
 
 注意：错误字符串带句号 `.`，grep 时有两个候选位置（`mcp_api.py:138`、`knowledgebase_service.py:422`），KB 创建场景下一定是后者。
 
+### 日志机制：为什么看到 `error:root:Tenant not found.`
+
+`api/utils/api_utils.py:120-127` 的 `get_data_error_result` 不仅构造错误响应，**还会主动记录日志**：
+
+```python
+def get_data_error_result(code=RetCode.DATA_ERROR, message="Sorry! Data missing!"):
+    if sys.exc_info()[0] is not None:
+        logging.exception(message)   # 有活跃异常时记完整堆栈
+    else:
+        logging.error(message)        # 无异常时只记一行
+```
+
+`logging.error(message)` 用 root logger 输出的格式就是 `error:root:<message>`，与 `Tenant not found.` 拼起来正好是 `error:root:Tenant not found.`。
+
+**判别两种情况**：
+
+| 日志形态 | 含义 | 走向 |
+|---|---|---|
+| 只有一行 `error:root:Tenant not found.`，**无堆栈** | `get_by_id()` 走 happy path 但 `get_or_none()` 返回 None → 该 id 的 tenant 行确实查不到 | 数据问题（id 不匹配 / 数据库不对） |
+| `error:root:Tenant not found.` 后**跟 Traceback** | `get_by_id()` 内部抛异常被 `except Exception: pass` 吞掉 | schema 问题（列缺失 / 类型不匹配） |
+
 ### `get_by_id` 仅按 id 过滤
 
 `api/db/services/common_service.py:288`：
 
 ```python
-obj = cls.model.get_or_none(cls.model.id == pid)
+try:
+    obj = cls.model.get_or_none(cls.model.id == pid)
+    if obj:
+        return True, obj
+except Exception:
+    pass                # 异常被吞了！
+return False, None     # → 触发 "Tenant not found"
 ```
 
-无 status、无其他过滤。所以 "not found" 等价于 **`tenant` 表中没有该 id 的行**。
+无 status、无其他过滤。但因为 `except Exception: pass` 的存在，**任何 DB 异常都会被伪装成 "Tenant not found"**，这是该函数最大的坑。
 
 ### `tenant_id` 来源
 
@@ -125,14 +152,72 @@ UserService.delete_by_id(user_id)         # 若这步也失败，user 残留
 ```sql
 SELECT u.id, u.email, u.create_time,
        (SELECT COUNT(*) FROM tenant       WHERE id = u.id)       AS tenant_exists,
-       (SELECT COUNT(*) FROM user_tenant  WHERE user_id = u.id)  AS user_tenant_exists
-FROM user u;
+       (SELECT COUNT(*) FROM user_tenant  WHERE user_id = u.id)  AS user_tenant_exists,
+       (SELECT COUNT(*) FROM api_token   WHERE tenant_id = u.id) AS api_token_count
+FROM "user" u
+ORDER BY u.create_time;
 ```
 
 判读：
 - 所有用户 `tenant_exists = 0` → **原因 1**（DB 整体不对）
 - 个别用户 `tenant_exists = 0` → **原因 2**（注册回滚异常）
 - `user_tenant_exists = 0` 但 `tenant_exists = 1` → user_tenant 关联表丢失
+- 全部 `= 1` 但仍报 "Tenant not found" → **本表下方"高级诊断"**
+
+### 1.5 高级诊断：tenant_exists = 1 仍报 "Tenant not found"
+
+如果上一步显示 tenant 行存在但仍报错，说明 `get_by_id` 内部出了状况。按以下顺序排查：
+
+**a) 看日志有没有堆栈**：在 `error:root:Tenant not found.` 这行后面
+- 有 Traceback → DB 列/类型不匹配，跳到诊断 2（检查 tenant_llm），同时检查 tenant 表 schema：
+
+  ```sql
+  -- 列出 tenant 表所有列
+  SELECT column_name, data_type, character_maximum_length, is_nullable, column_default
+  FROM information_schema.columns
+  WHERE table_schema = current_schema() AND table_name = 'tenant'
+  ORDER BY ordinal_position;
+  ```
+
+  对照 `api/db/db_models.py:736-757` 的 Tenant 模型，看是否有列缺失。
+
+- 无 Traceback → 是 `get_or_none` 真的返回 None，但行存在 → 走 b
+
+**b) 确认报错用户是谁**：
+
+```sql
+-- 当前报错用户的 tenant 行直接查
+SELECT u.id, u.email, u.is_superuser,
+       t.id AS tenant_id, t.llm_id, t.embd_id, t.rerank_id, t.parser_ids, t.status
+FROM "user" u
+LEFT JOIN tenant t ON u.id = t.id
+WHERE u.email = '<报错用户的邮箱>';
+```
+
+如果 `tenant_id` 列是 NULL → 行确实不存在（与 SQL 1 矛盾，说明 SQL 1 跑在不同的 schema/database）
+如果行存在 → 走 c
+
+**c) 抓真实请求的 tenant_id**：临时在 `api/db/services/common_service.py:288` 加日志
+
+```python
+@classmethod
+@DB.connection_context()
+def get_by_id(cls, pid):
+    try:
+        logging.warning(f"[DEBUG] TenantService.get_by_id pid={pid!r} type={type(pid)}")
+        obj = cls.model.get_or_none(cls.model.id == pid)
+        logging.warning(f"[DEBUG] TenantService.get_by_id result={obj}")
+        if obj:
+            return True, obj
+    except Exception as e:
+        logging.exception(f"[DEBUG] TenantService.get_by_id EXCEPTION: {e}")
+    return False, None
+```
+
+重启服务，触发一次创建 KB，看日志里实际传入的 `pid` 是什么。常见情况：
+- `pid=None` → `current_user.id` 为空 → 走查 token/session 路径
+- `pid='某 id'` 且 `result=None` → id 确实不匹配（**最可能：报错用户与 SQL 1 检查的用户不是同一个**）
+- `EXCEPTION` → 看 Traceback 找真正的 DB 错误
 
 ### 2. 检查 `tenant_llm` 表结构与主键迁移结果
 
@@ -336,3 +421,6 @@ OTEL_EXPORTER_OTLP_ENDPOINT=
 2. **追溯 tenant_id 来源时一定要追到头**：发现 `tenant_id == current_user.id` 这条不变量后，"Tenant not found" 等价于"数据库里 tenant 表缺这行"，问题范围立刻收窄。
 3. **注册流程的非原子回滚是潜在陷阱**：用多个独立 try/except 做补偿，单步失败就会留下半残数据。看注册代码时不能只看 happy path。
 4. **升级相关的"数据丢失"问题，先怀疑数据卷和 DB 连接，再怀疑迁移脚本**：迁移脚本通常 idempotent，DB 路径错配才是大头。
+5. **`get_data_error_result` 这类 helper 不只是构造响应**：它还顺带记日志。看到 `error:root:<message>` 格式时，grep `get_data_error_result(message=` 能反查到具体的调用点。
+6. **`except Exception: pass` 是 "Tenant not found" 类错误的放大器**：DB 异常被吞，外层看到的全是 "not found"。诊断时要先加 logging.exception 把真实异常打出来再判断。
+7. **SQL 显示行存在但仍报 not found 时，要并行查"日志有没有堆栈"和"实际传入的 pid 是什么"**：这两个信号能区分是数据问题还是 schema 问题，避免在错误方向上耗时。
