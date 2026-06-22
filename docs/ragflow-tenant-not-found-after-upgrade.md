@@ -3,6 +3,7 @@
 ## 背景
 
 - **场景**：离线服务器将 RAGFlow 从 0.23.0 升级到 0.25.4
+- **数据库**：PostgreSQL（PG 路径迁移代码在 `api/db/db_models.py:1509-1583`）
 - **症状**：创建知识库时报错 `error:root:Tenant not found.`
 - **次要现象**：日志中伴随大量 `opentelemetry.trace_exporter: failed to export span batch due to timeout`（**与本问题无关，见末尾说明**）
 
@@ -72,18 +73,25 @@ tenant = {
 
 `api/db/db_models.py:1638` 在 `migrate_db()` 里调用 `update_tenant_llm_to_id_primary_key()`。这是 commit `62cb29263 Feat/tenant model (#13072)` 引入的：给 `tenant_llm` 表加自增 `id` 主键，供 `tenant.tenant_llm_id` 等新字段引用。
 
-**MySQL 路径**（`db_models.py:1455-1506`）：
+**PostgreSQL 路径**（`db_models.py:1509-1583`，函数 `_update_tenant_llm_to_id_primary_key_postgres`）：
 
 ```sql
-1. ALTER TABLE tenant_llm ADD COLUMN temp_id INT NULL;
-2. UPDATE tenant_llm SET temp_id = (@row := @row + 1) ORDER BY tenant_id, llm_factory, llm_name;
-3. ALTER TABLE tenant_llm DROP PRIMARY KEY;                    -- 危险点
-4. ALTER TABLE tenant_llm MODIFY COLUMN temp_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY;
+0. 检查 tenant_llm 是否已有 id 列；有则直接返回（幂等）
+1. ALTER TABLE tenant_llm ADD COLUMN temp_id INTEGER NULL;
+2. WITH ordered AS (SELECT ctid, ROW_NUMBER() OVER (ORDER BY tenant_id, llm_factory, llm_name) AS rn FROM tenant_llm)
+   UPDATE tenant_llm SET temp_id = ordered.rn FROM ordered WHERE tenant_llm.ctid = ordered.ctid;
+3. ALTER TABLE tenant_llm DROP CONSTRAINT "<旧主键名>";        -- 危险点
+4. ALTER TABLE tenant_llm ALTER COLUMN temp_id SET NOT NULL;
+   CREATE SEQUENCE IF NOT EXISTS tenant_llm_id_seq;
+   SELECT setval('tenant_llm_id_seq', COALESCE((SELECT MAX(temp_id) FROM tenant_llm), 0));
+   ALTER TABLE tenant_llm ALTER COLUMN temp_id SET DEFAULT nextval('tenant_llm_id_seq');
+   ALTER SEQUENCE tenant_llm_id_seq OWNED BY tenant_llm.temp_id;
+   ALTER TABLE tenant_llm ADD PRIMARY KEY (temp_id);
 5. ALTER TABLE tenant_llm ADD CONSTRAINT uk_tenant_llm UNIQUE (tenant_id, llm_factory, llm_name);
 6. ALTER TABLE tenant_llm RENAME COLUMN temp_id TO id;
 ```
 
-**致命点**：第 3 步已经 DROP 了原主键。如果第 4 步或第 5 步失败（如升级前 `tenant_llm` 表里 `(tenant_id, llm_factory, llm_name)` 有重复行），整张表会留在"无主键"的状态。except 块只会清理 `temp_id` 列，不会恢复原 PK。
+**致命点**：第 3 步已经 DROP 了原主键约束。如果第 4 步或第 5 步失败（如升级前 `tenant_llm` 表里 `(tenant_id, llm_factory, llm_name)` 有重复行，或 sequence 创建失败），整张表会留在"无主键"的状态。except 块（`db_models.py:1572-1583`）只会检查并清理 `temp_id` 列，**不会恢复原 PK**。
 
 **对注册流程的连锁影响**（`user_account_service.py:92-140`）：
 
@@ -126,13 +134,43 @@ FROM user u;
 - 个别用户 `tenant_exists = 0` → **原因 2**（注册回滚异常）
 - `user_tenant_exists = 0` 但 `tenant_exists = 1` → user_tenant 关联表丢失
 
-### 2. 检查 `tenant_llm` 主键迁移结果
+### 2. 检查 `tenant_llm` 表结构与主键迁移结果
 
 ```sql
-DESCRIBE tenant_llm;
+-- 查询列定义
+SELECT column_name, data_type, column_default, is_nullable
+FROM information_schema.columns
+WHERE table_schema = current_schema()
+  AND table_name = 'tenant_llm'
+ORDER BY ordinal_position;
+
+-- 查主键约束（应存在，名字通常是 tenant_llm_pkey）
+SELECT con.conname AS constraint_name, con.contype
+FROM pg_constraint con
+JOIN pg_class rel ON rel.oid = con.conrelid
+JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+WHERE rel.relname = 'tenant_llm'
+  AND nsp.nspname = current_schema()
+  AND con.contype = 'p';
+
+-- 查 sequence（应该存在 tenant_llm_id_seq）
+SELECT sequence_name FROM information_schema.sequences
+WHERE sequence_schema = current_schema()
+  AND sequence_name = 'tenant_llm_id_seq';
+
+-- psql 快捷方式：\d tenant_llm
 ```
 
-正确结果应包含：`id INT NOT NULL AUTO_INCREMENT PRIMARY KEY`。
+正确结果：
+- 列里应有 `id` 列，`column_default` 类似 `nextval('tenant_llm_id_seq'::regclass)`
+- `is_nullable = NO`
+- 主键约束存在
+- `tenant_llm_id_seq` 序列存在
+
+迁移失败的典型表现：
+- 只有 `temp_id` 列、没有 `id` 列 → 第 6 步 RENAME 失败
+- 既无 `temp_id` 也无 `id` → except 块清掉了 temp_id，但原 PK 已被第 3 步 DROP
+- 主键约束查不到 → 表处于"无主键"状态
 
 ### 3. 检查升级前的 `tenant_llm` 是否有重复行
 
@@ -167,23 +205,80 @@ grep -E "Successfully updated tenant_llm|create_error|Tenant not found" \
 
 **Step A：修 `tenant_llm` 表**
 
-先清理重复行：
+先清理重复行（PG 用 `ctid`）：
 
 ```sql
-DELETE t1 FROM tenant_llm t1
-INNER JOIN tenant_llm t2
-WHERE t1.ctid < t2.ctid  -- MySQL 用：t1.id < t2.id 自连接，保留一条
-  AND t1.tenant_id = t2.tenant_id
-  AND t1.llm_factory = t2.llm_factory
-  AND t1.llm_name = t2.llm_name;
+-- 重复行先看一下
+SELECT tenant_id, llm_factory, llm_name, COUNT(*) cnt
+FROM tenant_llm
+GROUP BY tenant_id, llm_factory, llm_name
+HAVING COUNT(*) > 1;
+
+-- 用 ctid 去重，每组保留 ctid 最小的一行
+DELETE FROM tenant_llm
+WHERE ctid NOT IN (
+    SELECT MIN(ctid)
+    FROM tenant_llm
+    GROUP BY tenant_id, llm_factory, llm_name
+);
 ```
 
-再手动加自增主键：
+**视当前表状态选择修复路径**：
+
+**情况 ①：表已无主键、也无 `id`/`temp_id` 列**（最干净的失败状态）
+
+直接加 `SERIAL` 主键，PG 会自动建 sequence + NOT NULL + PK：
 
 ```sql
-ALTER TABLE tenant_llm ADD COLUMN id INT NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST;
+BEGIN;
+ALTER TABLE tenant_llm ADD COLUMN id SERIAL PRIMARY KEY;
 ALTER TABLE tenant_llm ADD CONSTRAINT uk_tenant_llm UNIQUE (tenant_id, llm_factory, llm_name);
+COMMIT;
 ```
+
+注意：`SERIAL` 按 PostgreSQL 内部顺序生成 id，不一定与原迁移脚本设定的 `(tenant_id, llm_factory, llm_name)` 排序一致。只要后续 `tenant.tenant_llm_id` 等字段都是 NULL（升级后还没填），就无所谓。
+
+**情况 ②：残留 `temp_id` 列、原 PK 已丢**
+
+```sql
+BEGIN;
+-- 回到干净状态
+ALTER TABLE tenant_llm DROP COLUMN IF EXISTS temp_id;
+
+-- 按原迁移脚本顺序重新加 id（如果想保持有序）
+ALTER TABLE tenant_llm ADD COLUMN id INTEGER;
+CREATE SEQUENCE IF NOT EXISTS tenant_llm_id_seq;
+
+WITH ordered AS (
+    SELECT ctid,
+           ROW_NUMBER() OVER (ORDER BY tenant_id, llm_factory, llm_name) AS rn
+    FROM tenant_llm
+)
+UPDATE tenant_llm t
+SET id = o.rn
+FROM ordered o
+WHERE t.ctid = o.ctid;
+
+SELECT setval('tenant_llm_id_seq',
+              COALESCE((SELECT MAX(id) FROM tenant_llm), 0));
+ALTER TABLE tenant_llm ALTER COLUMN id SET DEFAULT nextval('tenant_llm_id_seq');
+ALTER TABLE tenant_llm ALTER COLUMN id SET NOT NULL;
+ALTER TABLE tenant_llm ADD CONSTRAINT tenant_llm_pkey PRIMARY KEY (id);
+ALTER SEQUENCE tenant_llm_id_seq OWNED BY tenant_llm.id;
+ALTER TABLE tenant_llm ADD CONSTRAINT uk_tenant_llm UNIQUE (tenant_id, llm_factory, llm_name);
+
+COMMIT;
+```
+
+**情况 ③：表已经正常（有 `id`、有主键），但 sequence 没建对**
+
+```sql
+-- 修复 sequence 当前值，避免下个 INSERT 唯一冲突
+SELECT setval('tenant_llm_id_seq',
+              COALESCE((SELECT MAX(id) FROM tenant_llm), 0));
+```
+
+修完后，再次跑诊断 SQL 2 确认结构正确。
 
 **Step B：处理僵尸用户**
 
@@ -232,6 +327,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=
 | `api/db/joint_services/user_account_service.py:50-140` | 用户注册（含回滚逻辑） |
 | `api/db/db_models.py:736-757` | `Tenant` 表模型 |
 | `api/db/db_models.py:1455-1506` | MySQL 版 `tenant_llm` 主键迁移 |
+| `api/db/db_models.py:1509-1583` | **PostgreSQL 版** `tenant_llm` 主键迁移 |
 | `api/db/db_models.py:1585-1658` | `migrate_db()` 主入口 |
 
 ## 经验沉淀
