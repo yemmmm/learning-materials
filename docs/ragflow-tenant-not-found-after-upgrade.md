@@ -1,188 +1,202 @@
-# RAGFlow Tenant not Found - 本轮定位命令
+# RAGFlow Tenant not Found - 本轮定位命令（真实根因：tenant 表缺列）
 
-## 当前线索判读
+## 根因确认
 
-- Step 1 全空 → 所有用户的 tenant / user_tenant 行都存在
-- 改了 `common_service.py:get_by_id` 没看到 debug 日志 → **修改没被加载执行**
+调试日志暴露了被 `except Exception: pass` 吞掉的真实异常：
 
-最可能的原因：**容器跑的是镜像里的代码，宿主机改的文件没挂载进去**。本轮先验证这点，再决定下一步。
+```
+t1.tenant_llm_id does not exist
+```
+
+即 **`tenant` 表里缺少 v0.25.4 新增的 `tenant_llm_id` 列**（以及大概率还缺其它列）。
+
+升级 SQL 文档 section 2.1 本应加这些列，但显然没执行到位。本轮目标：把 tenant 表以及关联表（knowledgebase、dialog、memory）所有 v0.25.4 新增列一次性补齐。
 
 ---
 
-## Step 1：验证容器里的代码是不是改过
+## Step 1：检查 tenant 表当前缺哪些列
 
-```bash
-# 1.1 看容器里 get_by_id 有没有 DEBUG 字样
-docker exec -it ragflow-server grep -c "DEBUG get_by_id" /ragflow/api/db/services/common_service.py
-
-# 1.2 看容器里实际生效的函数体
-docker exec -it ragflow-server sed -n '/def get_by_id/,/return False, None/p' /ragflow/api/db/services/common_service.py
+```sql
+-- 期望返回这 8 列：rerank_id, tts_id, tenant_llm_id, tenant_embd_id,
+-- tenant_asr_id, tenant_img2txt_id, tenant_rerank_id, tenant_tts_id
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = current_schema()
+  AND table_name = 'tenant'
+ORDER BY ordinal_position;
 ```
 
-**判读**：
-- 返回 `0` 或函数体里没 `[DEBUG]` 字样 → **修改没进容器**，走 Step 2
-- 返回 `>0` 或函数体里有 `[DEBUG]` 字样 → 修改进容器了，但没执行，走 Step 3
+对比下面清单，记下缺的列名。
 
 ---
 
-## Step 2：把修改注入容器（Step 1 判读为"没进容器"时执行）
+## Step 2：一次性补齐所有 v0.25.4 新增列（事务保护）
 
-### 方式 A：宿主机 → 容器 `docker cp`（推荐）
+```sql
+BEGIN;
 
-```bash
-# 2.A.1 把宿主机改过的文件复制进容器（替换 <宿主机路径>）
-docker cp <宿主机路径>/common_service.py ragflow-server:/ragflow/api/db/services/common_service.py
+-- 2.1 tenant 表
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS rerank_id         VARCHAR(128) DEFAULT 'BAAI/bge-reranker-v2-m3';
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tts_id            VARCHAR(256);
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tenant_llm_id     INTEGER;
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tenant_embd_id    INTEGER;
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tenant_asr_id     INTEGER;
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tenant_img2txt_id INTEGER;
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tenant_rerank_id  INTEGER;
+ALTER TABLE tenant ADD COLUMN IF NOT EXISTS tenant_tts_id     INTEGER;
 
-# 2.A.2 清理 .pyc 缓存，避免 Python 加载旧字节码
-docker exec -it ragflow-server find /ragflow -name "*.pyc" -path "*common_service*" -delete
-docker exec -it ragflow-server find /ragflow -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+-- 2.2 knowledgebase 表
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS pagerank                INTEGER DEFAULT 0;
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS pipeline_id             VARCHAR(32);
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS graphrag_task_id        VARCHAR(32);
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS raptor_task_id          VARCHAR(32);
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS graphrag_task_finish_at TIMESTAMP;
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS raptor_task_finish_at   VARCHAR(1);
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS mindmap_task_id         VARCHAR(32);
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS mindmap_task_finish_at  VARCHAR(1);
+ALTER TABLE knowledgebase ADD COLUMN IF NOT EXISTS tenant_embd_id          INTEGER;
 
-# 2.A.3 重启 ragflow_server
-docker exec -it ragflow-server supervisorctl restart ragflow_server
+-- 2.3 document 表
+ALTER TABLE document ADD COLUMN IF NOT EXISTS suffix       VARCHAR(32) NOT NULL DEFAULT '';
+ALTER TABLE document ADD COLUMN IF NOT EXISTS pipeline_id  VARCHAR(32);
+ALTER TABLE document ADD COLUMN IF NOT EXISTS content_hash VARCHAR(32) DEFAULT '';
 
-# 2.A.4 等 5 秒后验证函数体
-sleep 5
-docker exec -it ragflow-server grep -c "DEBUG get_by_id" /ragflow/api/db/services/common_service.py
+-- 2.4 file 表
+ALTER TABLE file ADD COLUMN IF NOT EXISTS source_type VARCHAR(128) NOT NULL DEFAULT '';
+
+-- 2.5 dialog 表
+ALTER TABLE dialog ADD COLUMN IF NOT EXISTS rerank_id        VARCHAR(128) DEFAULT '';
+ALTER TABLE dialog ADD COLUMN IF NOT EXISTS meta_data_filter TEXT DEFAULT '{}';
+ALTER TABLE dialog ADD COLUMN IF NOT EXISTS tenant_llm_id    INTEGER;
+ALTER TABLE dialog ADD COLUMN IF NOT EXISTS tenant_rerank_id INTEGER;
+
+-- 2.6 task 表
+ALTER TABLE task ADD COLUMN IF NOT EXISTS retry_count  INTEGER DEFAULT 0;
+ALTER TABLE task ADD COLUMN IF NOT EXISTS digest       TEXT DEFAULT '';
+ALTER TABLE task ADD COLUMN IF NOT EXISTS chunk_ids    TEXT DEFAULT '';
+ALTER TABLE task ADD COLUMN IF NOT EXISTS task_type    VARCHAR(32) NOT NULL DEFAULT '';
+ALTER TABLE task ADD COLUMN IF NOT EXISTS priority     INTEGER DEFAULT 0;
+
+-- 2.7 tenant_llm 表（不含主键变更，主键变更已在 section 1 完成）
+ALTER TABLE tenant_llm ADD COLUMN IF NOT EXISTS api_key    TEXT;
+ALTER TABLE tenant_llm ADD COLUMN IF NOT EXISTS max_tokens INTEGER DEFAULT 8192;
+ALTER TABLE tenant_llm ADD COLUMN IF NOT EXISTS status     VARCHAR(1) NOT NULL DEFAULT '1';
+
+-- 2.8 api_token 表
+ALTER TABLE api_token ADD COLUMN IF NOT EXISTS source VARCHAR(16);
+ALTER TABLE api_token ADD COLUMN IF NOT EXISTS beta   VARCHAR(255);
+
+-- 2.9 api_4_conversation 表
+ALTER TABLE api_4_conversation ADD COLUMN IF NOT EXISTS source        VARCHAR(16);
+ALTER TABLE api_4_conversation ADD COLUMN IF NOT EXISTS dsl           TEXT DEFAULT '{}';
+ALTER TABLE api_4_conversation ADD COLUMN IF NOT EXISTS errors        TEXT;
+ALTER TABLE api_4_conversation ADD COLUMN IF NOT EXISTS name          VARCHAR(255);
+ALTER TABLE api_4_conversation ADD COLUMN IF NOT EXISTS exp_user_id   VARCHAR(255);
+ALTER TABLE api_4_conversation ADD COLUMN IF NOT EXISTS version_title VARCHAR(255);
+
+-- 2.10 conversation 表
+ALTER TABLE conversation ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
+
+-- 2.11 user_canvas 表
+ALTER TABLE user_canvas ADD COLUMN IF NOT EXISTS permission      VARCHAR(16)  NOT NULL DEFAULT 'me';
+ALTER TABLE user_canvas ADD COLUMN IF NOT EXISTS canvas_category VARCHAR(32)  NOT NULL DEFAULT 'agent_canvas';
+ALTER TABLE user_canvas ADD COLUMN IF NOT EXISTS tags            VARCHAR(512) NOT NULL DEFAULT '';
+ALTER TABLE user_canvas ADD COLUMN IF NOT EXISTS release         BOOLEAN      NOT NULL DEFAULT FALSE;
+
+-- 2.12 canvas_template 表
+ALTER TABLE canvas_template ADD COLUMN IF NOT EXISTS canvas_category VARCHAR(32) NOT NULL DEFAULT 'agent_canvas';
+ALTER TABLE canvas_template ADD COLUMN IF NOT EXISTS canvas_types    TEXT;
+
+-- 2.13 user_canvas_version 表
+ALTER TABLE user_canvas_version ADD COLUMN IF NOT EXISTS release BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 2.14 llm 表
+ALTER TABLE llm ADD COLUMN IF NOT EXISTS is_tools BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- 2.15 llm_factories 表
+ALTER TABLE llm_factories ADD COLUMN IF NOT EXISTS rank INTEGER DEFAULT 0;
+
+-- 2.16 mcp_server 表
+ALTER TABLE mcp_server ADD COLUMN IF NOT EXISTS variables TEXT DEFAULT '{}';
+
+-- 2.17 memory 表
+ALTER TABLE memory ADD COLUMN IF NOT EXISTS tenant_embd_id INTEGER;
+ALTER TABLE memory ADD COLUMN IF NOT EXISTS tenant_llm_id  INTEGER;
+
+-- 2.18 connector2kb 表
+ALTER TABLE connector2kb ADD COLUMN IF NOT EXISTS auto_parse VARCHAR(1) NOT NULL DEFAULT '1';
+
+-- 验证：tenant_llm_id 列现在应该存在
+SELECT column_name FROM information_schema.columns
+WHERE table_schema = current_schema() AND table_name = 'tenant' AND column_name = 'tenant_llm_id';
+
+COMMIT;
+-- 若任意一步报错：ROLLBACK;
 ```
 
-### 方式 B：直接在容器里改（不想 docker cp）
+PG 支持 DDL 事务，整段任何一条失败就 `ROLLBACK` 全部回滚。
 
-```bash
-# 2.B.1 进容器
-docker exec -it ragflow-server bash
+---
 
-# 容器内执行：
-# 2.B.2 备份原文件
-cp /ragflow/api/db/services/common_service.py /ragflow/api/db/services/common_service.py.bak
+## Step 3：列类型变更（也建议一并执行，避免后续踩坑）
 
-# 2.B.3 用 sed 在 get_by_id 函数 try: 之后插入调试日志
-python3 -c "
-import re
-p = '/ragflow/api/db/services/common_service.py'
-s = open(p).read()
-s = re.sub(
-    r'(def get_by_id\(cls, pid\):\s*\n\s*try:\s*\n)(\s*)(obj = cls\.model\.get_or_none)',
-    r'\1\2logging.warning(f\"[DEBUG] get_by_id cls={cls.__name__} pid={pid!r}\")\n\2\3',
-    s
-)
-open(p, 'w').write(s)
-print('patched')
-"
-
-# 2.B.4 清缓存、重启
-find /ragflow -name '*.pyc' -delete
-supervisorctl restart ragflow_server
-exit
+```sql
+BEGIN;
+ALTER TABLE dialog ALTER COLUMN top_k TYPE INTEGER;
+ALTER TABLE tenant_llm ALTER COLUMN api_key TYPE TEXT;
+ALTER TABLE system_settings ALTER COLUMN value TYPE TEXT;
+ALTER TABLE document ALTER COLUMN size TYPE BIGINT;
+ALTER TABLE file ALTER COLUMN size TYPE BIGINT;
+ALTER TABLE canvas_template ALTER COLUMN title TYPE TEXT;
+ALTER TABLE canvas_template ALTER COLUMN description TYPE TEXT;
+ALTER TABLE api_token ALTER COLUMN dialog_id TYPE VARCHAR(32);
+ALTER TABLE api_token ALTER COLUMN dialog_id DROP NOT NULL;
+COMMIT;
 ```
 
 ---
 
-## Step 3：修改进了容器但没执行（Step 1 判读为"已进容器"时执行）
+## Step 4：重启 ragflow_server 让模型层重新加载
 
-### 3.1 确认 ragflow_server 进程的启动时间和 PID
-
-```bash
-docker exec -it ragflow-server supervisorctl status ragflow_server
-docker exec -it ragflow-server ps -eo pid,etime,cmd | grep ragflow_server | grep -v grep
-```
-
-如果 `etime`（运行时长）显示进程是几小时前启动的，说明重启没生效。
-
-### 3.2 强杀等自动拉起
+虽然新列已经通过 SQL 加好，但 Peewee 的 model class 在内存里第一次失败后可能缓存了 schema 信息。保险起见重启一下。
 
 ```bash
-docker exec -it ragflow-server bash -c "pkill -9 -f ragflow_server && sleep 3 && supervisorctl status ragflow_server"
-```
-
-### 3.3 看启动日志有无报错（例如 import 失败导致回滚旧代码）
-
-```bash
-docker exec -it ragflow-server tail -100 /ragflow/log/ragflow_server.log
-```
-
-如果看到 `SyntaxError` / `ImportError` / 文件加载失败 → 修改的代码语法有问题，把容器里的备份还原：
-
-```bash
-docker exec -it ragflow-server cp /ragflow/api/db/services/common_service.py.bak /ragflow/api/db/services/common_service.py
-docker exec -it ragflow-server supervisorctl restart ragflow_server
+# 容器内强杀 ragflow_server，supervisord 自动拉起
+docker exec -it ragflow-server bash -c "pkill -9 -f ragflow_server && sleep 2 && while ! supervisorctl status ragflow_server | grep -q RUNNING; do sleep 1; done && supervisorctl status ragflow_server"
 ```
 
 ---
 
-## Step 4：触发并抓日志（Step 2 或 3 完成后）
+## Step 5：还原 common_service.py 调试代码（可选但推荐）
 
-```bash
-# 4.1 清空当前日志末尾位置标记
-docker exec -it ragflow-server bash -c "wc -l /ragflow/log/ragflow_server.log"
+定位完成，把之前加的 `[DEBUG] get_by_id` 日志去掉，避免后续日志噪音。
+
+文件：`api/db/services/common_service.py`，把 `get_by_id` 改回：
+
+```python
+    @classmethod
+    @DB.connection_context()
+    def get_by_id(cls, pid):
+        try:
+            obj = cls.model.get_or_none(cls.model.id == pid)
+            if obj:
+                return True, obj
+        except Exception:
+            pass
+        return False, None
 ```
 
-web UI 触发一次创建 KB。
-
-```bash
-# 4.2 抓最近的 DEBUG / 错误日志（把 <上面行号+10> 替换为 4.1 的输出 + 10）
-docker exec -it ragflow-server bash -c "tail -n +<上面行号+10> /ragflow/log/ragflow_server.log | grep -E 'DEBUG get_by_id|Tenant not found|ERROR|Traceback'"
-
-# 或者直接抓最近的 200 行
-docker exec -it ragflow-server bash -c "tail -200 /ragflow/log/ragflow_server.log | grep -E 'DEBUG get_by_id|Tenant not found|ERROR|Traceback'"
-```
-
-把这段输出贴出来。
+然后再跑一次 Step 4 的重启命令。
 
 ---
 
-## Step 5：可能用到的额外诊断 - 抓"哪个端点在打这条日志"
+## Step 6：web UI 验证
 
-如果 Step 4 仍然没有 `[DEBUG] get_by_id` 输出，说明报错压根没走 `TenantService.get_by_id`，可能是别的代码路径。在请求触发瞬间抓 stack：
+浏览器退出登录 → 重新登录 → 创建知识库。
 
-```bash
-# 5.1 触发 KB 创建后立刻抓所有 ragflow_server 的 Python 进程的 stack
-docker exec -it ragflow-server bash -c "for pid in \$(pgrep -f ragflow_server); do echo '=== PID:' \$pid ' ==='; py-spy dump --pid \$pid 2>/dev/null || cat /proc/\$pid/status | head -3; done"
-```
-
-如果容器没 `py-spy`：
+如果仍然报 `Tenant not found.`，把 Step 4 重启后到触发错误之间的完整日志贴出来：
 
 ```bash
-# 5.2 改成抓 Python 进程的当前 stack（需要安装 py-spy，离线可能没法装）
-docker exec -it ragflow-server pip install py-spy
-```
-
-或者更原始的办法：临时在 `get_data_error_result`（`api/utils/api_utils.py:120`）里加 traceback 打印：
-
-```bash
-# 5.3 在容器里改 api_utils.py
-docker exec -it ragflow-server bash -c "
-cp /ragflow/api/utils/api_utils.py /ragflow/api/utils/api_utils.py.bak
-python3 -c \"
-import re
-p = '/ragflow/api/utils/api_utils.py'
-s = open(p).read()
-s = s.replace(
-    'def get_data_error_result(code=RetCode.DATA_ERROR, message=\\\"Sorry! Data missing!\\\"):\n    if sys.exc_info()[0] is not None:',
-    'def get_data_error_result(code=RetCode.DATA_ERROR, message=\\\"Sorry! Data missing!\\\"):\n    import traceback as _tb\n    logging.warning(f\\\"[DEBUG] get_data_error_result called: {message}\\\")\n    _tb.print_stack()\n    if sys.exc_info()[0] is not None:'
-)
-open(p, 'w').write(s)
-print('patched')
-\"
-find /ragflow -name '*.pyc' -delete
-supervisorctl restart ragflow_server
-"
-```
-
-再次触发 KB 创建，日志里会打出完整调用栈，能看到 `Tenant not found.` 到底是哪一行触发的。
-
----
-
-## Step 6：还原修改（定位完成后）
-
-```bash
-# 还原 common_service.py
-docker exec -it ragflow-server cp /ragflow/api/db/services/common_service.py.bak /ragflow/api/db/services/common_service.py 2>/dev/null || \
-docker cp <宿主机备份>/common_service.py.orig ragflow-server:/ragflow/api/db/services/common_service.py
-
-# 还原 api_utils.py（如果做了 Step 5.3）
-docker exec -it ragflow-server cp /ragflow/api/utils/api_utils.py.bak /ragflow/api/utils/api_utils.py
-
-# 清缓存 + 重启
-docker exec -it ragflow-server find /ragflow -name '*.pyc' -delete
-docker exec -it ragflow-server supervisorctl restart ragflow_server
+docker exec -it ragflow-server bash -c \
+  "tail -300 /ragflow/log/ragflow_server.log | grep -E 'DEBUG get_by_id|Tenant not found|EXCEPTION|Traceback'"
 ```
