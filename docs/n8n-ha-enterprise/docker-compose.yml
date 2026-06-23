@@ -368,7 +368,7 @@ services:
         condition: service_completed_successfully
     networks: [n8n-ha-net]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q '^n8n_process_cpu' || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -426,7 +426,7 @@ services:
         condition: service_completed_successfully
     networks: [n8n-ha-net]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q '^n8n_process_cpu' || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -484,7 +484,7 @@ services:
         condition: service_completed_successfully
     networks: [n8n-ha-net]
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q '^n8n_process_cpu' || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
