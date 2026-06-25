@@ -1,78 +1,96 @@
 # n8n Enterprise HA Cluster
 
-本地 Docker Compose 部署的 n8n 企业版高可用集群（Multi-Main Queue Mode）。
+> Changed: 2026-06-25 - 全面重构，参考官方 n8n-hosting (withPostgresAndWorker)
 
-> ⚠️ Multi-main 是 n8n Self-hosted Enterprise 功能。配置按企业版标准部署；未激活 License 时实例可正常启动并运行社区版功能，激活 License 后自动启用企业版特性。
+基于 Docker Compose 的 n8n 企业版高可用集群（Queue Mode），支持多服务器部署。
 
-## 拓扑
+> **参考**: https://github.com/n8n-io/n8n-hosting/tree/main/docker-compose/withPostgresAndWorker
+
+## 架构
 
 ```
-                  ┌──────────────────┐
-   Client/LB ───▶ │  traefik :5680   │
-                  └────┬─────────────┘
-            ┌──────────┴──────────┐
-            ▼                      ▼
-    ┌──────────────┐       ┌──────────────┐
-    │ n8n-main-1   │       │ n8n-main-2   │   (leader / follower)
-    └──────┬───────┘       └──────┬───────┘
-           └──────┬────────────────┘
-              ┌───▼────┐
-              │ redis  │  (BullMQ + leader election)
-              └───┬────┘
-        ┌─────────┼──────────┐
-        ▼         ▼          ▼
-   worker-1  worker-2  worker-3
-              │
-        ┌─────▼─────┐  ┌────────┐
-        │ postgres  │  │ minio  │  (binary data S3)
-        └───────────┘  └────────┘
+                        ┌──────────────────────┐
+ Client / Webhook ───▶  │ Traefik (:80/:443)   │
+                        └──────────┬───────────┘
+                                   │ sticky cookie + healthcheck
+                                   ▼
+                        ┌──────────────────────┐
+                        │ n8n (main)           │  ← API / UI / Webhook
+                        │ + n8n-runner         │  ← Code 节点 sidecar
+                        └──────────┬───────────┘
+                                   │ push job
+                                   ▼
+                        ┌──────────────────────┐
+                        │ Redis :6379          │  ← BullMQ + Leader Election
+                        └──────────┬───────────┘
+                                   │
+                                   ▼
+                        ┌──────────────────────┐
+                        │ n8n-worker(s)        │  ← 任务执行器，可横向扩展
+                        │ + n8n-worker-runner  │  ← Code 节点 sidecar
+                        └──────────────────────┘
 
-   可观测：prometheus :9090 + grafana :3001
+   外部 PostgreSQL ←── 所有 n8n 实例共享
 ```
+
+## 多服务器部署
+
+| 服务器 | 主机名 | Compose 文件 | 角色 |
+|--------|--------|-------------|------|
+| 主 (11vm) | li19dksfai11vm.bmwgroup.net | docker-compose.yml | Traefik + Redis + n8n + worker + runners |
+| 副 (10vm) | li19dksfai10vm.bmwgroup.net | docker-compose.worker.yml | worker + runner（横向扩展执行能力） |
+
+副服务器可运行多个 worker 实例以增加任务执行吞吐量。
 
 ## 快速开始
 
+### 主服务器 (11vm)
+
 ```bash
-# 1. 初始化（生成随机密码）
+# 1. 初始化（自动生成密码）
 ./scripts/init.sh
 
-# 2. 启动
+# 2. 编辑 .env，填写外部 PostgreSQL 连接信息
+vim .env
+
+# 3. 启动
 ./scripts/start.sh
 
-# 3. 健康检查
+# 4. 健康检查
 ./scripts/healthcheck.sh
 
-# 4. 打开 http://localhost:5680 完成 n8n owner 账号注册
+# 5. 访问 https://li19dksfai11vm.bmwgroup.net 完成 owner 注册
+```
+
+### 副服务器 (10vm)
+
+```bash
+# 1. 将文件复制到副服务器: docker-compose.worker.yml + .env + config/redis/
+# 2. 修改 .env 中的 QUEUE_BULL_REDIS_HOST 指向主服务器
+# 3. 确认 N8N_ENCRYPTION_KEY 和 RUNNERS_AUTH_TOKEN 与主服务器一致
+# 4. 启动
+docker compose -f docker-compose.worker.yml up -d
+
+# 5. 扩展 worker（如扩展到 3 个）
+docker compose -f docker-compose.worker.yml up -d --scale n8n-worker=3
 ```
 
 ## 端口映射
 
-| 服务 | 端口 | 凭据 |
+| 服务 | 端口 | 说明 |
 |------|------|------|
-| Traefik HTTP | 5680 | - |
-| Traefik Dashboard | 8889 | - |
-| PostgreSQL | 5434 | 见 .env |
-| MinIO API | 9002 | 见 .env |
-| MinIO Console | 9003 | 见 .env |
-| Prometheus | 9090 | - |
-| Grafana | 3001 | 见 .env |
+| Traefik HTTP | 80 | 自动重定向到 HTTPS |
+| Traefik HTTPS | 443 | n8n UI/API |
+| Traefik Dashboard | 8889 (127.0.0.1) | 仅本机访问 |
+| Redis | 6379 | 供副服务器连接 |
 
-## 关键配置点
+## 关键配置
 
-- **`N8N_ENCRYPTION_KEY`** — 必须在所有 main/worker 间共享（已由 init.sh 写入 .env）
-- **`N8N_LICENSE_ACTIVATION_KEY`** — 拿到企业 license 后填入 .env，重启 main 即可激活
-- **`EXECUTIONS_MODE=queue`** — 启用队列模式
-- **`N8N_DEFAULT_BINARY_DATA_MODE=s3`** — 二进制数据存 MinIO，避免共享卷
-- **Traefik sticky cookie** — `n8n_sid`，保证 SSE/websocket 类请求会话粘性
-
-## 性能调优要点
-
-详见 `docs/deployment-guide.md`。核心：
-1. **PostgreSQL**：`shared_buffers=2GB`、`work_mem=32MB`、autovacuum 高频小批
-2. **Redis**：AOF + RDB 双持久化，`maxmemory-policy=noeviction`
-3. **Worker concurrency**：每个 worker `--concurrency=10`，按 CPU 限额 1.5 核
-4. **Main concurrency**：`N8N_CONCURRENCY_PRODUCTION_LIMIT=20`
-5. **Traefik**：sticky session + 健康检查，故障 main 10s 内剔除
+- **`N8N_ENCRYPTION_KEY`** — 所有实例必须一致（init.sh 自动生成）
+- **`RUNNERS_AUTH_TOKEN`** — 所有实例必须一致（init.sh 自动生成）
+- **`N8N_LICENSE_ACTIVATION_KEY`** — 企业 License，在 .env 中配置
+- **外部 PostgreSQL** — 需手动填写 DB_POSTGRESDB_* 连接信息
+- **Task Runners** — n8n 2.0+ Code 节点必需，每个 n8n 实例配一个 sidecar
 
 ## 运维操作
 
@@ -81,38 +99,35 @@
 ./scripts/stop.sh               # 停止（保留数据）
 ./scripts/status.sh             # 状态概览
 ./scripts/healthcheck.sh        # 详细健康检查
-./scripts/scale-workers.sh 5    # 扩容 worker
-docker compose logs -f n8n-main-1   # 查看日志
+./scripts/scale-workers.sh 3    # 扩容 worker（主服务器）
+docker compose logs -f n8n      # 查看 n8n main 日志
+docker compose logs -f n8n-worker  # 查看 worker 日志
 ```
 
 ## License 激活
 
 1. 获取 Enterprise license 激活码
 2. 编辑 `.env`，填入 `N8N_LICENSE_ACTIVATION_KEY=你的激活码`
-3. `docker compose up -d --force-recreate n8n-main-1 n8n-main-2`
+3. `docker compose up -d --force-recreate n8n n8n-worker`
 4. 在 UI → Settings → License 验证激活状态
 
 ## 数据备份
 
 ```bash
-# PostgreSQL
-docker exec n8n-ha-postgres pg_dump -U n8n -Fc n8n_ha > backups/n8n-$(date +%F).dump
+# PostgreSQL（外部，使用 pg_dump 备份）
+pg_dump -h <PG_HOST> -U <PG_USER> -Fc <PG_DATABASE> > backup-$(date +%F).dump
 
-# MinIO (二进制数据)
-docker run --rm --network n8n-ha-net -v $(pwd)/backups:/backup \
-  minio/mc mirror local/n8n-data /backup/minio-$(date +%F)
+# Redis 数据
+cp -r data/redis backup/redis-$(date +%F)/
 ```
 
 ## 故障排查
 
 | 现象 | 排查 |
 |------|------|
-| main 启动失败 | `docker compose logs n8n-main-1`，检查 PG/Redis 连接 |
-| Worker 拉不到任务 | 检查 Redis 队列键 `bull:*`，确认 main 推送 |
+| n8n 启动失败 | `docker compose logs n8n`，检查 PG/Redis 连接 |
+| Worker 拉不到任务 | 检查 Redis 队列键 `bull:*` |
 | 凭据无法解密 | 确认所有实例的 `N8N_ENCRYPTION_KEY` 一致 |
-| Webhook 404 | 确认 `WEBHOOK_URL` 指向 Traefik LB（5680） |
-| Traefik 5xx | 检查 `traefik.http.services.*.loadbalancer.healthcheck` |
-
-## 完整文档
-
-部署、调优、扩展指南：`docs/deployment-guide.md`
+| Webhook 404 | 确认 `WEBHOOK_URL` 指向 Traefik LB |
+| Code 节点执行失败 | 检查 task runner 是否运行: `docker compose logs n8n-runner` |
+| 副服务器连接不上 Redis | 确认主服务器防火墙放行 6379 端口 |

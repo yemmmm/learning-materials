@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# 详细健康检查 - 验证 HA 关键链路
+# =============================================================================
+# Changed: 2026-06-25 - 全面重构，移除监控服务检查
+# 详细健康检查 - 验证关键链路
+# =============================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -19,53 +22,33 @@ check() {
   fi
 }
 
-# 1. 所有容器运行
-RUNNING=$(docker compose ps --status running -q | wc -l)
-TOTAL=$(docker compose config --services | wc -l)
-if [[ "$RUNNING" -ge "$((TOTAL - 1))" ]]; then   # -1 容错 minio-init 一次性任务
-  echo "✅ 容器运行：$RUNNING/$TOTAL"
+# 1. 容器运行状态
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
 else
-  echo "❌ 容器运行：$RUNNING/$TOTAL"
-  fail=$((fail + 1))
+  COMPOSE="docker-compose"
 fi
 
-# 2. PostgreSQL 健康
-check "PostgreSQL 健康" "docker exec n8n-ha-postgres pg_isready -U n8n"
+RUNNING=$($COMPOSE ps --status running -q 2>/dev/null | wc -l)
+echo "   运行中容器: $RUNNING"
 
-# 3. Redis 健康
-REDIS_PASS=$(grep REDIS_PASSWORD .env | cut -d= -f2)
-check "Redis 健康" "docker exec n8n-ha-redis redis-cli -a $REDIS_PASS --no-auth-warning ping"
+# 2. Redis 健康
+REDIS_PASS=$(grep QUEUE_BULL_REDIS_PASSWORD .env 2>/dev/null | cut -d= -f2 || echo "")
+check "Redis 健康" "docker exec n8n-redis redis-cli -a '$REDIS_PASS' --no-auth-warning ping 2>/dev/null | grep -q PONG"
 
-# 4. MinIO 健康
-check "MinIO 健康" "curl -sf http://localhost:9002/minio/health/live"
+# 3. n8n main 健康
+check "n8n main 健康" "docker exec n8n-main wget -qO- http://localhost:5678/healthz 2>/dev/null"
 
-# 5. n8n main 实例健康（直连）
-check "n8n-main-1 健康" "docker exec n8n-ha-main-1 wget -qO- http://localhost:5678/healthz"
-check "n8n-main-2 健康" "docker exec n8n-ha-main-2 wget -qO- http://localhost:5678/healthz"
+# 4. n8n worker 健康
+check "n8n worker 运行" "docker ps --filter name=n8n-worker --filter status=running -q | grep -q ."
 
-# 6. Traefik LB 健康且能转发
-check "Traefik 健康" "curl -sf http://localhost:8889/ping"
-check "Traefik → n8n 路由" "curl -sf http://localhost:5680/healthz"
+# 5. Traefik 健康 + 路由
+check "Traefik 健康" "curl -sf --max-time 3 http://localhost:8889/ping"
+check "Traefik → n8n 路由" "curl -sf --max-time 3 http://localhost:80/healthz"
 
-# 7. Worker 节点运行
-for w in worker-1 worker-2 worker-3; do
-  check "n8n-$w 运行" "docker ps --filter name=n8n-ha-$w --filter status=running -q | grep -q ."
-done
-
-# 8. Prometheus 抓取目标
-check "Prometheus 健康" "curl -sf http://localhost:9090/-/healthy"
-echo ""
-echo "  Prometheus 抓取目标状态："
-curl -sf http://localhost:9090/api/v1/targets 2>/dev/null | \
-  python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    for t in data.get('data', {}).get('activeTargets', []):
-        status = '✅' if t['health'] == 'up' else '❌'
-        print(f\"    {status} {t['labels'].get('job', '?')}: {t['scrapeUrl']}\")
-except: print('    (无法解析)')
-" 2>/dev/null || echo "    (无法获取)"
+# 6. Task Runners
+check "n8n-main-runner 运行" "docker ps --filter name=n8n-main-runner --filter status=running -q | grep -q ."
+check "n8n-worker-runner 运行" "docker ps --filter name=n8n-worker-runner --filter status=running -q | grep -q ."
 
 echo ""
 if [[ $fail -eq 0 ]]; then

@@ -2,29 +2,30 @@
 
 ## [未发布]
 
-### 变更
-- 2026-06-25: Traefik 对外端口从 5680/5681 改为标准 80/443（适配严格端口策略，仅开放 80/443 的服务器）
-- 2026-06-25: Traefik Dashboard 端口 8889 改为绑 127.0.0.1，外部访问通过 SSH 隧道
-- 2026-06-25: n8n 主机名从 `n8n.local` 改为正式域名 `li19dksfai11vm.bmwgroup.net`
-- 2026-06-25: n8n 协议从 `http` 改为 `https`，WEBHOOK_URL / EDITOR_BASE_URL 同步更新
-- 2026-06-25: 开启 `N8N_SECURE_COOKIE=true`（HTTPS 下必须）
-- 2026-06-25: Grafana 端口 3001 改为绑 127.0.0.1，外部访问通过 Traefik `/grafana` 子路径
-- 2026-06-25: Grafana 增加 `GF_SERVER_ROOT_URL` / `GF_SERVER_SERVE_FROM_SUB_PATH` 子路径配置
-- 2026-06-25: Traefik dynamic.yml 增加 Grafana 子路径路由（PathPrefix + StripPrefix + priority）
-- 2026-06-25: Traefik 增加 TLS 配置块和 certs 目录挂载（需手动放置 cert.pem / key.pem）
-
 ### 新增
-- 2026-06-25: CHANGELOG.md 文件
+- 2026-06-25: **全面重构** - 参考官方 n8n-hosting (withPostgresAndWorker) 重新编写部署架构
+  - 采用 YAML Anchors (`&shared`, `&runner`) 消除配置重复
+  - 引入 Task Runner sidecar 容器（n8n 2.0+ Code 节点必需）
+  - 新增 `docker-compose.worker.yml` 支持副服务器 (10vm) 横向扩展
+  - 外部 PostgreSQL 支持（移除容器化 PG，由外部管理）
 
-### 部署后必须做的事
-1. 在 `./config/traefik/certs/` 下放置企业 CA 签发的 `cert.pem` 和 `key.pem`（HTTPS 必需）
-2. 确保服务器防火墙已开放 80 和 443 端口
-3. 确保 DNS 已将 `li19dksfai11vm.bmwgroup.net` 解析到本机
-4. 重启 Traefik 与 Grafana 容器：
-   ```bash
-   docker compose up -d --force-recreate traefik grafana
-   ```
-5. 验证访问：
-   - n8n: `https://li19dksfai11vm.bmwgroup.net/`
-   - Grafana: `https://li19dksfai11vm.bmwgroup.net/grafana/`
-   - Traefik Dashboard（仅本机）: `http://localhost:8889/` 或 SSH 隧道访问
+### 删除
+- 2026-06-25: 移除 PostgreSQL 容器服务（改用外部 PG）
+- 2026-06-25: 移除 MinIO 容器服务（简化架构，需要时再添加 S3 配置）
+- 2026-06-25: 移除 Prometheus + Grafana 监控服务（后续版本单独部署）
+- 2026-06-25: 移除 config/postgres/、config/prometheus/、config/grafana/ 目录
+
+### 变更
+- 2026-06-25: docker-compose.yml 从 11 容器简化为 7 容器 (Traefik + Redis + n8n + runner + worker + worker-runner)
+- 2026-06-25: .env.example 重构 - 移除 MinIO/Grafana 变量，新增外部 PG 连接变量、RUNNERS_AUTH_TOKEN
+- 2026-06-25: Traefik 配置简化 - 移除 Grafana 子路径路由、Prometheus metrics，增加 HTTP→HTTPS 自动重定向
+- 2026-06-25: Redis 配置移除硬编码密码，密码通过 .env 中的 QUEUE_BULL_REDIS_PASSWORD 传入
+- 2026-06-25: 所有数据路径改为挂载到 compose 文件同目录下 (`./data/...`)
+- 2026-06-25: 所有脚本全面重构，适配新架构
+- 2026-06-25: CLAUDE.md 更新架构说明和关键配置规则
+
+### 多服务器部署架构
+- **主服务器 (11vm)**: docker-compose.yml → Traefik + Redis + n8n + worker + runners
+- **副服务器 (10vm)**: docker-compose.worker.yml → worker + runner（连接主服务器 Redis）
+- 共享组件: 外部 PostgreSQL（需手动配置连接信息）
+- 关键约束: N8N_ENCRYPTION_KEY 和 RUNNERS_AUTH_TOKEN 必须在所有服务器上保持一致

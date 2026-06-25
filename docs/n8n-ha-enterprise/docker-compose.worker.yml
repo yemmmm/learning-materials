@@ -1,0 +1,124 @@
+# =============================================================================
+# n8n Enterprise HA - 副服务器 Worker (li19dksfai10vm)
+# =============================================================================
+# 用法:
+#   1. 将此文件 + .env + config/redis/ 复制到副服务器同一目录
+#   2. 修改 .env 中 QUEUE_BULL_REDIS_HOST 指向主服务器: li19dksfai11vm.bmwgroup.net
+#   3. 启动: docker compose -f docker-compose.worker.yml up -d
+#   4. 横向扩展 worker 数量:
+#      docker compose -f docker-compose.worker.yml up -d --scale n8n-worker=3
+#
+# 前置条件:
+#   - 主服务器 (11vm) 上的 Redis 已启动并可从此服务器访问
+#   - 外部 PostgreSQL 已配置并可从此服务器访问
+#   - .env 中 N8N_ENCRYPTION_KEY 必须与主服务器相同
+#   - .env 中 RUNNERS_AUTH_TOKEN 必须与主服务器相同
+# =============================================================================
+
+volumes:
+  n8n_worker_storage:
+
+# ---------------------------------------------------------------------------
+# YAML Anchors
+# ---------------------------------------------------------------------------
+x-shared: &shared
+  restart: always
+  image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-stable}
+  env_file: [.env]
+  environment:
+    # --- 数据库 (外部 PostgreSQL) ---
+    - DB_TYPE=postgresdb
+    - DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+    - DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT:-5432}
+    - DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+    - DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
+    - DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+    - DB_POSTGRESDB_SCHEMA=${DB_POSTGRESDB_SCHEMA:-public}
+    # --- Queue Mode ---
+    - EXECUTIONS_MODE=queue
+    - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST}
+    - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT:-6379}
+    - QUEUE_BULL_REDIS_PASSWORD=${QUEUE_BULL_REDIS_PASSWORD}
+    - QUEUE_BULL_REDIS_DB=${QUEUE_BULL_REDIS_DB:-0}
+    - QUEUE_HEALTH_CHECK_ACTIVE=true
+    # --- 加密 ---
+    - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
+    # --- Task Runners ---
+    - N8N_RUNNERS_MODE=external
+    - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+    - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
+    # --- Host ---
+    - N8N_HOST=${N8N_HOST}
+    - N8N_PORT=5678
+    - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
+    - WEBHOOK_URL=${WEBHOOK_URL}
+    - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL}
+    - N8N_SECURE_COOKIE=true
+    # --- License ---
+    - N8N_LICENSE_ACTIVATION_KEY=${N8N_LICENSE_ACTIVATION_KEY:-}
+    # --- 日志 ---
+    - N8N_LOG_LEVEL=${N8N_LOG_LEVEL:-info}
+    - N8N_LOG_OUTPUT=console
+    - N8N_DIAGNOSTICS_ENABLED=false
+    - N8N_PERSONALIZATION_ENABLED=false
+    # --- 时区 ---
+    - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Asia/Shanghai}
+    - TZ=${TZ:-Asia/Shanghai}
+    - NODE_ENV=production
+  networks: [n8n-worker-net]
+
+x-runner: &runner
+  restart: always
+  image: n8nio/runners:${N8N_VERSION:-stable}
+  environment:
+    - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+
+# =============================================================================
+# Services
+# =============================================================================
+services:
+
+  # ---------------------------------------------------------------------------
+  # n8n Worker - 任务执行器（可横向扩展）
+  # ---------------------------------------------------------------------------
+  n8n-worker:
+    <<: *shared
+    # 使用 container_name 时不能 scale，如需 scale 请注释掉 container_name
+    # container_name: n8n-worker-10vm
+    hostname: n8n-worker-10vm
+    command: worker
+    volumes:
+      - ./data/n8n-worker:/home/node/.n8n
+      - /local-files:/local-files:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q 'n8n_' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1500m
+
+  # ---------------------------------------------------------------------------
+  # n8n Worker Task Runner - Code 节点执行 sidecar
+  # 注意: 每个 worker 需要一个 runner，scale 时 runner 不会自动扩
+  # 如需多 worker，当前官方推荐方案是创建多个 compose service 定义
+  # ---------------------------------------------------------------------------
+  n8n-worker-runner:
+    <<: *runner
+    # container_name: n8n-worker-runner-10vm
+    hostname: n8n-worker-runner-10vm
+    environment:
+      - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker:5679
+    depends_on:
+      - n8n-worker
+    networks: [n8n-worker-net]
+
+networks:
+  n8n-worker-net:
+    driver: bridge
+    name: n8n-worker-net

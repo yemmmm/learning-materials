@@ -1,54 +1,34 @@
 # =============================================================================
-# Traefik 动态配置
-# Changed: 2026-06-25 - 增加 Grafana 子路径路由 / HTTPS 入口 / TLS 配置
+# Changed: 2026-06-25 - 全面重构，参考官方 n8n-hosting
+# Traefik 动态配置 - n8n 路由
 # =============================================================================
-# 包含：
-#   - n8n main 集群负载均衡（sticky session + 健康检查）
-#   - Grafana 子路径路由（/grafana），与 n8n 共用 80/443 端口
-#   - TLS 证书引用（离线/企业内网：需手动放置 cert.pem / key.pem）
+# 包含:
+#   - n8n main 实例负载均衡（sticky session + 健康检查）
+#   - TLS 证书配置
+#
+# 多服务器部署:
+#   如需将副服务器的 n8n 实例也加入负载均衡，在 servers 列表追加即可:
+#     - url: "http://li19dksfai10vm.bmwgroup.net:5678"
 # =============================================================================
 
 http:
   routers:
-    # --- n8n 主路由：根路径走 n8n_cluster -----------------------------
-    n8n-cluster:
+    n8n:
       rule: "Host(`li19dksfai11vm.bmwgroup.net`)"
       entryPoints:
         - web
         - websecure
-      service: n8n_cluster
+      service: n8n_backend
       priority: 100
       tls: true
 
-    # --- Grafana 子路径路由 -------------------------------------------
-    # 访问 https://li19dksfai11vm.bmwgroup.net/grafana/ 进 Grafana
-    grafana:
-      rule: "Host(`li19dksfai11vm.bmwgroup.net`) && PathPrefix(`/grafana`)"
-      entryPoints:
-        - web
-        - websecure
-      service: grafana
-      middlewares:
-        - grafana-stripprefix
-      priority: 200    # 必须高于 n8n-cluster，否则会被先吃掉
-      tls: true
-
-  middlewares:
-    # 剥前缀 /grafana，让 Grafana 收到的还是根路径请求
-    grafana-stripprefix:
-      stripPrefix:
-        prefixes:
-          - "/grafana"
-        forceSlash: true    # 末尾补斜杠，避免 Grafana 302 到根路径
-
   services:
-    # --- n8n 集群（2 个 main，sticky + 健康检查） ---------------------
-    n8n_cluster:
+    n8n_backend:
       loadBalancer:
         sticky:
           cookie:
             name: n8n_sid
-            secure: false      # 已全站 HTTPS 时可改 true
+            secure: true
             httpOnly: true
             sameSite: lax
         healthCheck:
@@ -56,22 +36,17 @@ http:
           interval: "10s"
           timeout: "3s"
         servers:
-          - url: "http://n8n-main-1:5678"
-          - url: "http://n8n-main-2:5678"
-
-    # --- Grafana 服务 --------------------------------------------------
-    grafana:
-      loadBalancer:
-        servers:
-          - url: "http://grafana:3000"
+          - url: "http://n8n:5678"
+          # 副服务器 n8n 实例（如需 API HA）:
+          # - url: "http://li19dksfai10vm.bmwgroup.net:5678"
 
 # =============================================================================
-# TLS 配置（HTTPS 入口需要证书）
+# TLS 配置
 # =============================================================================
-# 离线/企业内网：手动将公司 CA 签发的证书（或自签证书）放置到：
+# 离线/企业内网：手动将公司 CA 签发的证书放置到:
 #   ./config/traefik/certs/cert.pem
 #   ./config/traefik/certs/key.pem
-# 若未放置，Traefik 会使用内置默认自签证书启动（浏览器会警告，但功能正常）
+# 如果未放置证书文件，Traefik 使用内置默认自签证书启动
 # =============================================================================
 tls:
   certificates:

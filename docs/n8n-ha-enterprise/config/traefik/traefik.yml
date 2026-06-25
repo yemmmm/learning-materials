@@ -1,4 +1,6 @@
+# Changed: 2026-06-25 - 全面重构，参考官方 n8n-hosting，简化配置
 # Traefik v3 静态配置
+
 global:
   checkNewVersion: false
   sendAnonymousUsage: false
@@ -7,6 +9,12 @@ global:
 entryPoints:
   web:
     address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
   websecure:
     address: ":443"
   traefik:
@@ -26,17 +34,10 @@ providers:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
     watch: true
-    network: "n8n-ha-net"
+    network: "n8n-net"
   file:
     directory: "/etc/traefik/dynamic"
     watch: true
-
-# Metrics
-metrics:
-  prometheus:
-    addEntryPointsLabels: true
-    addServicesLabels: true
-    entryPoint: traefik
 
 # 日志
 log:

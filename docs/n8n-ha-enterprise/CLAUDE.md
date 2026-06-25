@@ -4,39 +4,48 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a documentation and reference-configuration repo for an n8n Enterprise HA cluster deployed via Docker Compose (Multi-Main Queue Mode). It lives inside `~/learning-materials/` and tracks the configuration, architecture docs, and deployment guides for a real deployment at `/home/yangxiang/deployed-services/n8n-ha-enterprise/`.
+This is a documentation and reference-configuration repo for an n8n Enterprise HA cluster deployed via Docker Compose (Queue Mode). It lives inside `~/learning-materials/` and tracks the configuration, architecture docs, and deployment guides.
 
 This is NOT an application — there is no build, test, or lint step. It's documentation, shell scripts, and Docker/infra configuration.
 
 ## Key Files
 
-- `docker-compose.yml` — Full 11-container topology (Traefik, 2× n8n-main, 3× n8n-worker, PostgreSQL, Redis, MinIO, Prometheus, Grafana)
-- `docs/architecture.md` — C4 architecture, data flows, leader election, storage model, ADRs
-- `docs/deployment-guide.md` — Deployment steps, tuning, backup, security hardening, troubleshooting
-- `.env.example` — Template for required environment variables (encryption keys, DB/Redis/MinIO passwords)
-- `config/` — Per-service config files: PostgreSQL conf, Redis conf, Traefik dynamic/file config, Prometheus scrape targets, Grafana provisioning
+- `docker-compose.yml` — Main server (11vm): Traefik, n8n main, n8n worker, Redis, task runners
+- `docker-compose.worker.yml` — Worker server (10vm): n8n worker + runner only (connects to shared Redis + external PG)
+- `.env.example` — Template for required environment variables
+- `config/` — Per-service config files: Traefik (static + dynamic), Redis
 - `scripts/` — init.sh, start.sh, stop.sh, status.sh, healthcheck.sh, scale-workers.sh
 
 ## Architecture Quick Reference
 
-- **Traefik** (5680) is the LB — uses file provider (not docker labels) to define the `n8n_cluster` service with sticky cookie `n8n_sid`
-- **2× n8n-main** (leader/follower) — elected via Redis SET NX lock with 5s TTL. Leader handles at-most-once tasks (cron, polling). Both handle API/UI/webhook
-- **3× n8n-worker** (`--concurrency=10`) — stateless; pull jobs from BullMQ in Redis; horizontal scale-out is the primary scaling lever
-- **PostgreSQL 15** — single instance (user-accepted SPOF). Stores workflows, credentials, executions, users
-- **Redis 7** — BullMQ queue + leader election lock. AOF+RDB persistence enabled; `maxmemory-policy=noeviction`
-- **MinIO** — S3-compatible binary data storage (requires Enterprise license to activate; defaults to filesystem mode otherwise)
-- **Prometheus + Grafana** — auto-provisioned dashboards for n8n metrics
+- **Traefik** (80/443) — LB with sticky cookie `n8n_sid`, TLS termination, auto HTTP→HTTPS redirect
+- **n8n main** — API/UI/Webhook, queue mode
+- **n8n worker** — Stateless executors, pull jobs from BullMQ in Redis
+- **Redis 7** — BullMQ queue + leader election. Accessible from worker server via host network
+- **Task Runners** — Sidecar containers (`n8nio/runners`) for Code node execution (n8n 2.0+ requirement)
+- **PostgreSQL** — External, not managed by these compose files
+
+## Multi-Server Deployment
+
+| Server | Hostname | Compose File | Services |
+|--------|----------|-------------|----------|
+| Main (11vm) | li19dksfai11vm.bmwgroup.net | docker-compose.yml | Traefik, Redis, n8n, n8n-worker, runners |
+| Worker (10vm) | li19dksfai10vm.bmwgroup.net | docker-compose.worker.yml | n8n-worker, runner (connects to 11vm Redis) |
 
 ## Critical Configuration Rules
 
-1. `N8N_ENCRYPTION_KEY` MUST be identical across all main and worker instances
-2. `WEBHOOK_URL` MUST point to the Traefik LB (not individual main instances)
-3. Traefik's `n8n_cluster` service uses the file provider (`config/traefik/dynamic/dynamic.yml`), not docker labels — adding a main requires updating both docker-compose.yml AND dynamic.yml
-4. Redis `maxmemory-policy=noeviction` — queue jobs must never be evicted
-5. Worker `--concurrency` should scale with allocated CPU (~10 per 1.5 CPU cores)
+1. `N8N_ENCRYPTION_KEY` MUST be identical across ALL instances (main + workers, both servers)
+2. `RUNNERS_AUTH_TOKEN` MUST be identical across ALL instances
+3. `WEBHOOK_URL` MUST point to the Traefik LB
+4. Worker server (10vm) MUST set `QUEUE_BULL_REDIS_HOST=li19dksfai11vm.bmwgroup.net`
+5. Redis `maxmemory-policy=noeviction` — queue jobs must never be evicted
+6. Each n8n instance MUST have a paired task runner sidecar for Code node execution
 
 ## Enterprise License Dependency
 
-- Multi-main mode works only with an active Enterprise license
-- S3 binary data mode (N8N_DEFAULT_BINARY_DATA_MODE=s3) requires Enterprise license
-- Without license: cluster still starts and runs community features; architecture is "license-ready"
+- Queue mode (multi-main) works only with an active Enterprise license
+- Without license: cluster starts and runs community features; architecture is "license-ready"
+
+## Reference
+
+Based on official n8n-hosting: https://github.com/n8n-io/n8n-hosting/tree/main/docker-compose/withPostgresAndWorker
