@@ -8,13 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
-# 检测 compose 命令
-if docker compose version >/dev/null 2>&1; then
-  COMPOSE="docker compose"
-elif command -v docker-compose >/dev/null 2>&1; then
+# 检测 docker-compose 命令
+if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
 else
-  echo "❌ 未找到 docker compose 或 docker-compose"
+  echo "❌ 未找到 docker-compose 命令"
   exit 1
 fi
 
@@ -47,6 +45,13 @@ if [[ -f .env ]]; then
       echo "   ❌ Redis"
     fi
   fi
+fi
+
+# MinIO
+if docker exec n8n-minio curl -sf http://localhost:9000/minio/health/live >/dev/null 2>&1; then
+  echo "   ✅ MinIO"
+else
+  echo "   ❌ MinIO"
 fi
 
 echo ""

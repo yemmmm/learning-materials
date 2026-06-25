@@ -36,7 +36,8 @@ http:
           interval: "10s"
           timeout: "3s"
         servers:
-          - url: "http://n8n:5678"
+          - url: "http://n8n-main-1:5678"
+          - url: "http://n8n-main-2:5678"
           # 副服务器 n8n 实例（如需 API HA）:
           # - url: "http://li19dksfai10vm.bmwgroup.net:5678"
 

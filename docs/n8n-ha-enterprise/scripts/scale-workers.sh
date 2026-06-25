@@ -4,9 +4,8 @@
 # 扩缩容 n8n worker
 #
 # 用法:
-#   主服务器:  ./scripts/scale-workers.sh 3
-#   副服务器:  在 docker-compose.worker.yml 目录下:
-#             docker compose -f docker-compose.worker.yml up -d --scale n8n-worker=3
+#   主服务器:  ./scripts/scale-workers.sh 2
+#   副服务器:  docker-compose -f docker-compose.worker.yml up -d n8n-worker-1 n8n-worker-1-runner
 # =============================================================================
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,15 +13,17 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
 TARGET="${1:-1}"
-if [[ "$TARGET" -lt 1 || "$TARGET" -gt 20 ]]; then
-  echo "❌ 目标 worker 数应在 1-20 之间"
+if [[ "$TARGET" -lt 1 || "$TARGET" -gt 2 ]]; then
+  echo "❌ 当前 compose 显式定义了 2 组 worker/runner，目标 worker 数应在 1-2 之间"
+  echo "   如需更多，请复制 n8n-worker-N 与 n8n-worker-N-runner 成对服务定义。"
   exit 1
 fi
 
-if docker compose version >/dev/null 2>&1; then
-  COMPOSE="docker compose"
-else
+if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
+else
+  echo "❌ 未找到 docker-compose 命令"
+  exit 1
 fi
 
 echo "🔢 调整 worker 数量为 $TARGET ..."
@@ -38,15 +39,14 @@ else
   exit 1
 fi
 
-echo "⚠️  注意: 由于 worker 配有 task_runner sidecar，"
-echo "   docker compose --scale 不会自动扩 runner。"
-echo ""
-echo "   推荐做法："
-echo "   1. 在 compose 文件中手动复制 n8n-worker / n8n-worker-runner 服务定义"
-echo "   2. 或接受多个 worker 共用同一个 runner（Code 节点可能有排队）"
-echo ""
-echo "   当前使用 scale 方式启动（仅 worker 扩容，runner 不变）:"
-$COMPOSE -f "$COMPOSE_FILE" up -d --scale n8n-worker="$TARGET"
+if [[ "$TARGET" -eq 1 ]]; then
+  $COMPOSE -f "$COMPOSE_FILE" up -d n8n-worker-1 n8n-worker-1-runner
+  $COMPOSE -f "$COMPOSE_FILE" stop n8n-worker-2 n8n-worker-2-runner >/dev/null 2>&1 || true
+else
+  $COMPOSE -f "$COMPOSE_FILE" up -d \
+    n8n-worker-1 n8n-worker-1-runner \
+    n8n-worker-2 n8n-worker-2-runner
+fi
 
 echo ""
 echo "📊 容器状态："

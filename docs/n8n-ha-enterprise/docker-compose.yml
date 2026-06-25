@@ -8,13 +8,13 @@
 #   Client / Webhook ───▶ Traefik (:80/:443)
 #                              │
 #                              ▼
-#                         n8n (main)         ← API/UI/Webhook
+#                         n8n-main-{1,2}     ← API/UI/Webhook
 #                              │
 #                              ▼
 #                         Redis              ← BullMQ Queue + Leader Election
 #                              │
 #                              ▼
-#                         n8n-worker(s)      ← 执行器，可横向扩展
+#                         n8n-worker-{1,2}   ← 执行器，可横向扩展
 #
 #   外部依赖:
 #     PostgreSQL  → 外部 PG 数据库（不在本 compose 中管理）
@@ -27,17 +27,19 @@
 # =============================================================================
 
 volumes:
-  n8n_main_storage:
-  n8n_worker_storage:
+  n8n_main_1_storage:
+  n8n_main_2_storage:
+  n8n_worker_1_storage:
+  n8n_worker_2_storage:
   redis_storage:
+  minio_storage:
 
 # ---------------------------------------------------------------------------
 # YAML Anchors (参考官方 n8n-hosting 模式)
 # ---------------------------------------------------------------------------
 x-shared: &shared
   restart: always
-  # Changed: 2026-06-25 - 使用 docker.n8n.io 官方 registry；如不可用可改为 n8nio/n8n:latest
-  image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-stable}
+  image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-2.26.8}
   env_file: [.env]
   environment:
     # --- 数据库 (外部 PostgreSQL) ---
@@ -58,6 +60,7 @@ x-shared: &shared
     # --- 加密 ---
     - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
     # --- Task Runners (n8n 2.0+ Code 节点必需) ---
+    - N8N_RUNNERS_ENABLED=true
     - N8N_RUNNERS_MODE=external
     - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
     - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
@@ -69,7 +72,18 @@ x-shared: &shared
     - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
     - WEBHOOK_URL=${WEBHOOK_URL}
     - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL}
+    - N8N_PROXY_HOPS=${N8N_PROXY_HOPS:-1}
     - N8N_SECURE_COOKIE=true
+    # --- Binary data external storage (MinIO / S3-compatible) ---
+    - N8N_AVAILABLE_BINARY_DATA_MODES=${N8N_AVAILABLE_BINARY_DATA_MODES:-filesystem,s3}
+    - N8N_DEFAULT_BINARY_DATA_MODE=${N8N_DEFAULT_BINARY_DATA_MODE:-s3}
+    - N8N_EXTERNAL_STORAGE_S3_HOST=${N8N_EXTERNAL_STORAGE_S3_HOST:-http://minio:9000}
+    - N8N_EXTERNAL_STORAGE_S3_PROTOCOL=${N8N_EXTERNAL_STORAGE_S3_PROTOCOL:-http}
+    - N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME=${N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME:-n8n-binary-data}
+    - N8N_EXTERNAL_STORAGE_S3_BUCKET_REGION=${N8N_EXTERNAL_STORAGE_S3_BUCKET_REGION:-auto}
+    - N8N_EXTERNAL_STORAGE_S3_ACCESS_KEY=${N8N_EXTERNAL_STORAGE_S3_ACCESS_KEY}
+    - N8N_EXTERNAL_STORAGE_S3_ACCESS_SECRET=${N8N_EXTERNAL_STORAGE_S3_ACCESS_SECRET}
+    - N8N_EXTERNAL_STORAGE_S3_FORCE_PATH_STYLE=${N8N_EXTERNAL_STORAGE_S3_FORCE_PATH_STYLE:-true}
     # --- License ---
     - N8N_LICENSE_ACTIVATION_KEY=${N8N_LICENSE_ACTIVATION_KEY:-}
     # --- 日志 ---
@@ -85,7 +99,7 @@ x-shared: &shared
 
 x-runner: &runner
   restart: always
-  image: n8nio/runners:${N8N_VERSION:-stable}
+  image: n8nio/runners:${N8N_VERSION:-2.26.8}
   environment:
     - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
 
@@ -129,14 +143,15 @@ services:
   # 副服务器通过主机网络访问（端口在 redis.conf 中配置）
   # ---------------------------------------------------------------------------
   redis:
-    image: redis:7-alpine
+    image: redis:7.2-alpine
     container_name: n8n-redis
     hostname: redis
     restart: always
+    env_file: [.env]
     ports:
       # Changed: 2026-06-25 - 暴露 Redis 端口给副服务器访问
       - "${REDIS_BIND_PORT:-6379}:6379"
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: ["sh", "-c", "redis-server /usr/local/etc/redis/redis.conf --requirepass \"${QUEUE_BULL_REDIS_PASSWORD}\""]
     volumes:
       - ./data/redis:/data
       - ./config/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
@@ -148,19 +163,60 @@ services:
     networks: [n8n-net]
 
   # ---------------------------------------------------------------------------
-  # n8n Main - API / UI / Webhook
+  # MinIO - S3-compatible binary data storage
   # ---------------------------------------------------------------------------
-  n8n:
-    <<: *shared
-    container_name: n8n-main
-    hostname: n8n-main
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    container_name: n8n-minio
+    hostname: minio
+    restart: always
+    env_file: [.env]
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
     volumes:
-      # Changed: 2026-06-25 - 数据路径挂载到 compose 文件同目录下
-      - ./data/n8n-main:/home/node/.n8n
+      - ./data/minio:/data
+    ports:
+      - "${MINIO_API_BIND_PORT:-9000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [n8n-net]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    container_name: n8n-minio-init
+    env_file: [.env]
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 \"${MINIO_ROOT_USER}\" \"${MINIO_ROOT_PASSWORD}\" &&
+      mc mb --ignore-existing local/\"${N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME}\" &&
+      mc anonymous set none local/\"${N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME}\"
+      "
+    networks: [n8n-net]
+
+  # ---------------------------------------------------------------------------
+  # n8n Main #1 - API / UI / Webhook
+  # ---------------------------------------------------------------------------
+  n8n-main-1:
+    <<: *shared
+    container_name: n8n-main-1
+    hostname: n8n-main-1
+    volumes:
+      - ./data/n8n-main-1:/home/node/.n8n
       - /local-files:/local-files:ro
     depends_on:
       redis:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz | grep -q '\"status\":\"ok\"' || exit 1"]
       interval: 15s
@@ -174,32 +230,71 @@ services:
           memory: 2g
 
   # ---------------------------------------------------------------------------
-  # n8n Main Task Runner - Code 节点执行 sidecar
+  # n8n Main #2 - API / UI / Webhook
   # ---------------------------------------------------------------------------
-  n8n-runner:
+  n8n-main-2:
+    <<: *shared
+    container_name: n8n-main-2
+    hostname: n8n-main-2
+    volumes:
+      - ./data/n8n-main-2:/home/node/.n8n
+      - /local-files:/local-files:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/healthz | grep -q '\"status\":\"ok\"' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+  # ---------------------------------------------------------------------------
+  # n8n Main Task Runners - Code 节点执行 sidecar
+  # ---------------------------------------------------------------------------
+  n8n-main-1-runner:
     <<: *runner
-    container_name: n8n-main-runner
-    hostname: n8n-main-runner
+    container_name: n8n-main-1-runner
+    hostname: n8n-main-1-runner
     environment:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
-      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n:5679
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-main-1:5679
     depends_on:
-      - n8n
+      - n8n-main-1
+    networks: [n8n-net]
+
+  n8n-main-2-runner:
+    <<: *runner
+    container_name: n8n-main-2-runner
+    hostname: n8n-main-2-runner
+    environment:
+      - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-main-2:5679
+    depends_on:
+      - n8n-main-2
     networks: [n8n-net]
 
   # ---------------------------------------------------------------------------
-  # n8n Worker - 任务执行器
+  # n8n Worker #1 - 任务执行器
   # ---------------------------------------------------------------------------
-  n8n-worker:
+  n8n-worker-1:
     <<: *shared
-    container_name: n8n-worker
-    hostname: n8n-worker
-    command: worker
+    container_name: n8n-worker-1
+    hostname: n8n-worker-1
+    command: worker --concurrency=${N8N_WORKER_CONCURRENCY:-10}
     volumes:
-      - ./data/n8n-worker:/home/node/.n8n
+      - ./data/n8n-worker-1:/home/node/.n8n
       - /local-files:/local-files:ro
     depends_on:
-      - n8n
+      - n8n-main-1
+      - n8n-main-2
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q 'n8n_' || exit 1"]
       interval: 30s
@@ -213,17 +308,54 @@ services:
           memory: 1500m
 
   # ---------------------------------------------------------------------------
-  # n8n Worker Task Runner - Code 节点执行 sidecar
+  # n8n Worker #2 - 任务执行器
   # ---------------------------------------------------------------------------
-  n8n-worker-runner:
+  n8n-worker-2:
+    <<: *shared
+    container_name: n8n-worker-2
+    hostname: n8n-worker-2
+    command: worker --concurrency=${N8N_WORKER_CONCURRENCY:-10}
+    volumes:
+      - ./data/n8n-worker-2:/home/node/.n8n
+      - /local-files:/local-files:ro
+    depends_on:
+      - n8n-main-1
+      - n8n-main-2
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q 'n8n_' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1500m
+
+  # ---------------------------------------------------------------------------
+  # n8n Worker Task Runners - Code 节点执行 sidecar
+  # ---------------------------------------------------------------------------
+  n8n-worker-1-runner:
     <<: *runner
-    container_name: n8n-worker-runner
-    hostname: n8n-worker-runner
+    container_name: n8n-worker-1-runner
+    hostname: n8n-worker-1-runner
     environment:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
-      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker:5679
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker-1:5679
     depends_on:
-      - n8n-worker
+      - n8n-worker-1
+    networks: [n8n-net]
+
+  n8n-worker-2-runner:
+    <<: *runner
+    container_name: n8n-worker-2-runner
+    hostname: n8n-worker-2-runner
+    environment:
+      - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker-2:5679
+    depends_on:
+      - n8n-worker-2
     networks: [n8n-net]
 
 networks:

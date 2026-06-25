@@ -21,13 +21,11 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-# 检查 compose 子命令
-if docker compose version >/dev/null 2>&1; then
-  COMPOSE="docker compose"
-elif command -v docker-compose >/dev/null 2>&1; then
+# 检查 docker-compose
+if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
 else
-  echo "❌ 未找到 docker compose 或 docker-compose"
+  echo "❌ 未找到 docker-compose 命令"
   exit 1
 fi
 
@@ -35,7 +33,7 @@ echo "🚀 启动 n8n HA 集群（主服务器）..."
 echo ""
 
 # 创建数据目录
-mkdir -p data/{redis,n8n-main,n8n-worker} config/traefik/{certs,logs}
+mkdir -p data/{redis,minio,n8n-main-1,n8n-main-2,n8n-worker-1,n8n-worker-2} config/traefik/{certs,logs}
 
 # 拉镜像并启动
 $COMPOSE pull

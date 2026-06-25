@@ -6,7 +6,7 @@
 #   2. 修改 .env 中 QUEUE_BULL_REDIS_HOST 指向主服务器: li19dksfai11vm.bmwgroup.net
 #   3. 启动: docker compose -f docker-compose.worker.yml up -d
 #   4. 横向扩展 worker 数量:
-#      docker compose -f docker-compose.worker.yml up -d --scale n8n-worker=3
+#      复制 n8n-worker-N / n8n-worker-N-runner 成对服务定义
 #
 # 前置条件:
 #   - 主服务器 (11vm) 上的 Redis 已启动并可从此服务器访问
@@ -16,14 +16,15 @@
 # =============================================================================
 
 volumes:
-  n8n_worker_storage:
+  n8n_worker_1_storage:
+  n8n_worker_2_storage:
 
 # ---------------------------------------------------------------------------
 # YAML Anchors
 # ---------------------------------------------------------------------------
 x-shared: &shared
   restart: always
-  image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-stable}
+  image: docker.n8n.io/n8nio/n8n:${N8N_VERSION:-2.26.8}
   env_file: [.env]
   environment:
     # --- 数据库 (外部 PostgreSQL) ---
@@ -44,6 +45,7 @@ x-shared: &shared
     # --- 加密 ---
     - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY}
     # --- Task Runners ---
+    - N8N_RUNNERS_ENABLED=true
     - N8N_RUNNERS_MODE=external
     - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
     - N8N_RUNNERS_BROKER_LISTEN_ADDRESS=0.0.0.0
@@ -53,7 +55,18 @@ x-shared: &shared
     - N8N_PROTOCOL=${N8N_PROTOCOL:-https}
     - WEBHOOK_URL=${WEBHOOK_URL}
     - N8N_EDITOR_BASE_URL=${N8N_EDITOR_BASE_URL}
+    - N8N_PROXY_HOPS=${N8N_PROXY_HOPS:-1}
     - N8N_SECURE_COOKIE=true
+    # --- Binary data external storage (MinIO / S3-compatible) ---
+    - N8N_AVAILABLE_BINARY_DATA_MODES=${N8N_AVAILABLE_BINARY_DATA_MODES:-filesystem,s3}
+    - N8N_DEFAULT_BINARY_DATA_MODE=${N8N_DEFAULT_BINARY_DATA_MODE:-s3}
+    - N8N_EXTERNAL_STORAGE_S3_HOST=${N8N_EXTERNAL_STORAGE_S3_HOST}
+    - N8N_EXTERNAL_STORAGE_S3_PROTOCOL=${N8N_EXTERNAL_STORAGE_S3_PROTOCOL:-http}
+    - N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME=${N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME:-n8n-binary-data}
+    - N8N_EXTERNAL_STORAGE_S3_BUCKET_REGION=${N8N_EXTERNAL_STORAGE_S3_BUCKET_REGION:-auto}
+    - N8N_EXTERNAL_STORAGE_S3_ACCESS_KEY=${N8N_EXTERNAL_STORAGE_S3_ACCESS_KEY}
+    - N8N_EXTERNAL_STORAGE_S3_ACCESS_SECRET=${N8N_EXTERNAL_STORAGE_S3_ACCESS_SECRET}
+    - N8N_EXTERNAL_STORAGE_S3_FORCE_PATH_STYLE=${N8N_EXTERNAL_STORAGE_S3_FORCE_PATH_STYLE:-true}
     # --- License ---
     - N8N_LICENSE_ACTIVATION_KEY=${N8N_LICENSE_ACTIVATION_KEY:-}
     # --- 日志 ---
@@ -69,7 +82,7 @@ x-shared: &shared
 
 x-runner: &runner
   restart: always
-  image: n8nio/runners:${N8N_VERSION:-stable}
+  image: n8nio/runners:${N8N_VERSION:-2.26.8}
   environment:
     - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
 
@@ -81,14 +94,13 @@ services:
   # ---------------------------------------------------------------------------
   # n8n Worker - 任务执行器（可横向扩展）
   # ---------------------------------------------------------------------------
-  n8n-worker:
+  n8n-worker-1:
     <<: *shared
-    # 使用 container_name 时不能 scale，如需 scale 请注释掉 container_name
-    # container_name: n8n-worker-10vm
-    hostname: n8n-worker-10vm
-    command: worker
+    container_name: n8n-worker-10vm-1
+    hostname: n8n-worker-10vm-1
+    command: worker --concurrency=${N8N_WORKER_CONCURRENCY:-10}
     volumes:
-      - ./data/n8n-worker:/home/node/.n8n
+      - ./data/n8n-worker-1:/home/node/.n8n
       - /local-files:/local-files:ro
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q 'n8n_' || exit 1"]
@@ -103,19 +115,49 @@ services:
           memory: 1500m
 
   # ---------------------------------------------------------------------------
-  # n8n Worker Task Runner - Code 节点执行 sidecar
-  # 注意: 每个 worker 需要一个 runner，scale 时 runner 不会自动扩
-  # 如需多 worker，当前官方推荐方案是创建多个 compose service 定义
+  n8n-worker-2:
+    <<: *shared
+    container_name: n8n-worker-10vm-2
+    hostname: n8n-worker-10vm-2
+    command: worker --concurrency=${N8N_WORKER_CONCURRENCY:-10}
+    volumes:
+      - ./data/n8n-worker-2:/home/node/.n8n
+      - /local-files:/local-files:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5678/metrics | grep -q 'n8n_' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 1500m
+
   # ---------------------------------------------------------------------------
-  n8n-worker-runner:
+  # n8n Worker Task Runners - Code 节点执行 sidecar
+  # ---------------------------------------------------------------------------
+  n8n-worker-1-runner:
     <<: *runner
-    # container_name: n8n-worker-runner-10vm
-    hostname: n8n-worker-runner-10vm
+    container_name: n8n-worker-runner-10vm-1
+    hostname: n8n-worker-runner-10vm-1
     environment:
       - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
-      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker:5679
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker-1:5679
     depends_on:
-      - n8n-worker
+      - n8n-worker-1
+    networks: [n8n-worker-net]
+
+  n8n-worker-2-runner:
+    <<: *runner
+    container_name: n8n-worker-runner-10vm-2
+    hostname: n8n-worker-runner-10vm-2
+    environment:
+      - N8N_RUNNERS_AUTH_TOKEN=${RUNNERS_AUTH_TOKEN}
+      - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker-2:5679
+    depends_on:
+      - n8n-worker-2
     networks: [n8n-worker-net]
 
 networks:

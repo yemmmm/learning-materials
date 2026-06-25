@@ -23,10 +23,11 @@ check() {
 }
 
 # 1. 容器运行状态
-if docker compose version >/dev/null 2>&1; then
-  COMPOSE="docker compose"
-else
+if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
+else
+  echo "❌ 未找到 docker-compose 命令"
+  exit 1
 fi
 
 RUNNING=$($COMPOSE ps --status running -q 2>/dev/null | wc -l)
@@ -36,19 +37,26 @@ echo "   运行中容器: $RUNNING"
 REDIS_PASS=$(grep QUEUE_BULL_REDIS_PASSWORD .env 2>/dev/null | cut -d= -f2 || echo "")
 check "Redis 健康" "docker exec n8n-redis redis-cli -a '$REDIS_PASS' --no-auth-warning ping 2>/dev/null | grep -q PONG"
 
-# 3. n8n main 健康
-check "n8n main 健康" "docker exec n8n-main wget -qO- http://localhost:5678/healthz 2>/dev/null"
+# 3. MinIO 健康
+check "MinIO 健康" "docker exec n8n-minio curl -sf http://localhost:9000/minio/health/live"
 
-# 4. n8n worker 健康
-check "n8n worker 运行" "docker ps --filter name=n8n-worker --filter status=running -q | grep -q ."
+# 4. n8n main 健康
+check "n8n main-1 健康" "docker exec n8n-main-1 wget -qO- http://localhost:5678/healthz 2>/dev/null"
+check "n8n main-2 健康" "docker exec n8n-main-2 wget -qO- http://localhost:5678/healthz 2>/dev/null"
 
-# 5. Traefik 健康 + 路由
+# 5. n8n worker 健康
+check "n8n worker-1 运行" "docker ps --filter name=n8n-worker-1 --filter status=running -q | grep -q ."
+check "n8n worker-2 运行" "docker ps --filter name=n8n-worker-2 --filter status=running -q | grep -q ."
+
+# 6. Traefik 健康 + 路由
 check "Traefik 健康" "curl -sf --max-time 3 http://localhost:8889/ping"
 check "Traefik → n8n 路由" "curl -sf --max-time 3 http://localhost:80/healthz"
 
-# 6. Task Runners
-check "n8n-main-runner 运行" "docker ps --filter name=n8n-main-runner --filter status=running -q | grep -q ."
-check "n8n-worker-runner 运行" "docker ps --filter name=n8n-worker-runner --filter status=running -q | grep -q ."
+# 7. Task Runners
+check "n8n-main-1-runner 运行" "docker ps --filter name=n8n-main-1-runner --filter status=running -q | grep -q ."
+check "n8n-main-2-runner 运行" "docker ps --filter name=n8n-main-2-runner --filter status=running -q | grep -q ."
+check "n8n-worker-1-runner 运行" "docker ps --filter name=n8n-worker-1-runner --filter status=running -q | grep -q ."
+check "n8n-worker-2-runner 运行" "docker ps --filter name=n8n-worker-2-runner --filter status=running -q | grep -q ."
 
 echo ""
 if [[ $fail -eq 0 ]]; then
