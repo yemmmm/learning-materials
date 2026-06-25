@@ -50,13 +50,16 @@ services:
     restart: unless-stopped
     environment:
       - DOCKER_API_VERSION=1.41
+    # Changed: 2026-06-25 - 对外端口改为标准 80/443；Dashboard 绑 127.0.0.1 走 SSH 隧道
     ports:
-      - "5680:80"      # HTTP 入口
-      - "5681:443"     # HTTPS 入口（自签证书或后续配置）
-      - "8889:8080"    # Traefik Dashboard
+      - "80:80"                    # HTTP 入口
+      - "443:443"                  # HTTPS 入口
+      - "127.0.0.1:8889:8080"      # Traefik Dashboard 仅本机访问
     volumes:
       - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./config/traefik/dynamic:/etc/traefik/dynamic:ro
+      # Changed: 2026-06-25 - 挂载 TLS 证书目录（HTTPS 入口必需，企业 CA 或自签证书）
+      - ./config/traefik/certs:/etc/traefik/certs:ro
       - ./config/traefik/logs:/var/log/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
@@ -172,11 +175,12 @@ services:
     restart: unless-stopped
     env_file: [.env]
     environment:
-      - N8N_HOST=n8n.local
+      # Changed: 2026-06-25 - 改用正式域名 + HTTPS，配合严格端口策略
+      - N8N_HOST=li19dksfai11vm.bmwgroup.net
       - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://localhost:5680/
-      - N8N_EDITOR_BASE_URL=http://localhost:5680/
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://li19dksfai11vm.bmwgroup.net/
+      - N8N_EDITOR_BASE_URL=https://li19dksfai11vm.bmwgroup.net/
       # Queue mode + multi-main (Enterprise)
       - EXECUTIONS_MODE=queue
       - N8N_CONCURRENCY_PRODUCTION_LIMIT=20
@@ -212,7 +216,8 @@ services:
       - N8N_LOG_OUTPUT=console
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_PERSONALIZATION_ENABLED=false
-      - N8N_SECURE_COOKIE=false
+      # Changed: 2026-06-25 - HTTPS 下开启 secure cookie
+      - N8N_SECURE_COOKIE=true
       - GENERIC_TIMEZONE=Asia/Shanghai
       - TZ=Asia/Shanghai
       - NODE_ENV=production
@@ -254,11 +259,12 @@ services:
     restart: unless-stopped
     env_file: [.env]
     environment:
-      - N8N_HOST=n8n.local
+      # Changed: 2026-06-25 - 改用正式域名 + HTTPS，配合严格端口策略
+      - N8N_HOST=li19dksfai11vm.bmwgroup.net
       - N8N_PORT=5678
-      - N8N_PROTOCOL=http
-      - WEBHOOK_URL=http://localhost:5680/
-      - N8N_EDITOR_BASE_URL=http://localhost:5680/
+      - N8N_PROTOCOL=https
+      - WEBHOOK_URL=https://li19dksfai11vm.bmwgroup.net/
+      - N8N_EDITOR_BASE_URL=https://li19dksfai11vm.bmwgroup.net/
       - EXECUTIONS_MODE=queue
       - N8N_CONCURRENCY_PRODUCTION_LIMIT=20
       - QUEUE_HEALTH_CHECK_ACTIVE=true
@@ -287,7 +293,8 @@ services:
       - N8N_LOG_OUTPUT=console
       - N8N_DIAGNOSTICS_ENABLED=false
       - N8N_PERSONALIZATION_ENABLED=false
-      - N8N_SECURE_COOKIE=false
+      # Changed: 2026-06-25 - HTTPS 下开启 secure cookie
+      - N8N_SECURE_COOKIE=true
       - GENERIC_TIMEZONE=Asia/Shanghai
       - TZ=Asia/Shanghai
       - NODE_ENV=production
@@ -522,13 +529,18 @@ services:
     container_name: n8n-ha-grafana
     hostname: grafana
     restart: unless-stopped
+    # Changed: 2026-06-25 - 端口绑 127.0.0.1；外部访问走 Traefik /grafana 子路径
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
+      # Changed: 2026-06-25 - 子路径配置，配合 Traefik PathPrefix(`/grafana`) + StripPrefix
+      - GF_SERVER_DOMAIN=li19dksfai11vm.bmwgroup.net
+      - GF_SERVER_ROOT_URL=https://li19dksfai11vm.bmwgroup.net/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
     volumes:
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro

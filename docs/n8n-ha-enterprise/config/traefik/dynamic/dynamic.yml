@@ -1,22 +1,54 @@
+# =============================================================================
 # Traefik 动态配置
-# 这里定义 n8n main 集群的负载均衡（与 docker labels 互为补充）
+# Changed: 2026-06-25 - 增加 Grafana 子路径路由 / HTTPS 入口 / TLS 配置
+# =============================================================================
+# 包含：
+#   - n8n main 集群负载均衡（sticky session + 健康检查）
+#   - Grafana 子路径路由（/grafana），与 n8n 共用 80/443 端口
+#   - TLS 证书引用（离线/企业内网：需手动放置 cert.pem / key.pem）
+# =============================================================================
 
 http:
   routers:
+    # --- n8n 主路由：根路径走 n8n_cluster -----------------------------
     n8n-cluster:
-      rule: "Host(`localhost`) || Host(`n8n.local`)"
+      rule: "Host(`li19dksfai11vm.bmwgroup.net`)"
       entryPoints:
         - web
+        - websecure
       service: n8n_cluster
       priority: 100
+      tls: true
+
+    # --- Grafana 子路径路由 -------------------------------------------
+    # 访问 https://li19dksfai11vm.bmwgroup.net/grafana/ 进 Grafana
+    grafana:
+      rule: "Host(`li19dksfai11vm.bmwgroup.net`) && PathPrefix(`/grafana`)"
+      entryPoints:
+        - web
+        - websecure
+      service: grafana
+      middlewares:
+        - grafana-stripprefix
+      priority: 200    # 必须高于 n8n-cluster，否则会被先吃掉
+      tls: true
+
+  middlewares:
+    # 剥前缀 /grafana，让 Grafana 收到的还是根路径请求
+    grafana-stripprefix:
+      stripPrefix:
+        prefixes:
+          - "/grafana"
+        forceSlash: true    # 末尾补斜杠，避免 Grafana 302 到根路径
 
   services:
+    # --- n8n 集群（2 个 main，sticky + 健康检查） ---------------------
     n8n_cluster:
       loadBalancer:
         sticky:
           cookie:
             name: n8n_sid
-            secure: false
+            secure: false      # 已全站 HTTPS 时可改 true
             httpOnly: true
             sameSite: lax
         healthCheck:
@@ -27,5 +59,26 @@ http:
           - url: "http://n8n-main-1:5678"
           - url: "http://n8n-main-2:5678"
 
-# 中间件复用
-# （实际使用时在 docker label 里通过 traefik.http.middlewares 引用）
+    # --- Grafana 服务 --------------------------------------------------
+    grafana:
+      loadBalancer:
+        servers:
+          - url: "http://grafana:3000"
+
+# =============================================================================
+# TLS 配置（HTTPS 入口需要证书）
+# =============================================================================
+# 离线/企业内网：手动将公司 CA 签发的证书（或自签证书）放置到：
+#   ./config/traefik/certs/cert.pem
+#   ./config/traefik/certs/key.pem
+# 若未放置，Traefik 会使用内置默认自签证书启动（浏览器会警告，但功能正常）
+# =============================================================================
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/cert.pem
+      keyFile: /etc/traefik/certs/key.pem
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/traefik/certs/cert.pem
+        keyFile: /etc/traefik/certs/key.pem
