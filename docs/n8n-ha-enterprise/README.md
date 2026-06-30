@@ -8,6 +8,8 @@
 
 ## 架构
 
+> 团队分享会讲解稿见 [docs/internal-sharing-notes.md](./docs/internal-sharing-notes.md)。
+
 ```
                         ┌──────────────────────┐
  Client / Webhook ───▶  │ Traefik (:80/:443)   │
