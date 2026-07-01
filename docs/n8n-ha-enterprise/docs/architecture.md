@@ -207,10 +207,10 @@
 
 **注意**：S3 模式需要 Enterprise license；未激活时降级为 filesystem 模式。
 
-### 4.7 Prometheus + Grafana（可观测性）
+### 4.7 Prometheus + Grafana（可选可观测性扩展）
 
-- **Prometheus**：pull 模式抓取所有 n8n/Traefik 的 `/metrics`
-- **Grafana**：通过 provisioning 自动加载 Prometheus 数据源和看板
+- **Prometheus**：pull 模式抓取所有 n8n/Traefik 的 `/metrics`，建议仅本机或容器网络访问
+- **Grafana**：通过 provisioning 自动加载 Prometheus 数据源和看板，使用当前可用的宿主机 `3001` 端口
 
 ---
 
@@ -450,8 +450,8 @@ T+90s   Traefik 重新加入 main-1 到负载均衡池
 | 5435 | TCP | PostgreSQL | 数据库（生产应移除外部映射） |
 | 9002 | HTTP | MinIO API | S3 接口（生产应内网） |
 | 9003 | HTTP | MinIO Console | Web 管理（生产应限制） |
-| 9090 | HTTP | Prometheus | 指标查询（生产应限制） |
-| 3001 | HTTP | Grafana | 可视化（生产应启用 HTTPS） |
+| 9090 | HTTP | Prometheus | 指标查询，建议仅绑定本机或内网 |
+| 3001 | HTTP | Grafana | 监控看板，当前预留给监控服务 |
 
 ### 8.2 容器内部通信（n8n-ha-net）
 
@@ -465,7 +465,7 @@ T+90s   Traefik 重新加入 main-1 到负载均衡池
 | minio | n8n-ha-net:minio | 9000, 9001 |
 | n8n-main-1 | n8n-ha-net:n8n-main-1 | 5678, 5679（Task Broker） |
 | n8n-main-2 | n8n-ha-net:n8n-main-2 | 5678, 5679 |
-| workers | n8n-ha-net:n8n-worker-{1,2,3} | 5678（metrics only） |
+| workers | n8n-ha-net:n8n-worker-{1,2} | 5678（metrics only） |
 | prometheus | n8n-ha-net:prometheus | 9090 |
 | grafana | n8n-ha-net:grafana | 3000 |
 
@@ -538,14 +538,13 @@ T+90s   Traefik 重新加入 main-1 到负载均衡池
 | n8n-main-2 | 2.0 | 2 GB | API/UI/Webhook |
 | n8n-worker-1 | 1.5 | 1.5 GB | 工作流执行 |
 | n8n-worker-2 | 1.5 | 1.5 GB | 工作流执行 |
-| n8n-worker-3 | 1.5 | 1.5 GB | 工作流执行 |
 | PostgreSQL | - | - | shared_buffers=2GB（内部管理） |
 | Redis | - | - | maxmemory=512MB |
 | Traefik | - | - | 默认（约 100MB） |
 | MinIO | - | - | 默认 |
-| Prometheus | - | - | TSDB 15d 保留 |
-| Grafana | - | - | 默认 |
-| **总计（n8n 部分）** | **8.5 核** | **8.5 GB** | - |
+| Prometheus | - | - | 可选监控扩展，TSDB 保留策略按磁盘容量设置 |
+| Grafana | - | - | 可选监控扩展，宿主机端口 3001 |
+| **总计（n8n 部分）** | **7.0 核** | **7.0 GB** | 不含可选监控组件 |
 
 ### 10.2 容量规划公式
 
@@ -690,7 +689,7 @@ worker 总并发 = worker 数 × 单 worker concurrency = 3 × 10 = 30 并发工
 - [ ] 移除 PG/Redis/MinIO 的外部端口映射
 - [ ] Traefik 启用 HTTPS + 自动证书
 - [ ] 启用 `N8N_SECURE_COOKIE=true`
-- [ ] 限制 8889/9090/3001 端口的访问源
+- [ ] 限制 8889/9090/3001 端口的访问源；Grafana 使用 3001，Prometheus 9090 优先仅本机访问
 - [ ] 使用 Docker Secrets 替代 `.env`
 - [ ] 集成外部密钥管理（HashiCorp Vault）
 - [ ] 启用审计日志（n8n Enterprise Log Streaming）

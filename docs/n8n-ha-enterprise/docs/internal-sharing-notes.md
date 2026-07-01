@@ -352,7 +352,7 @@ flowchart LR
 - 对 `/metrics`、Traefik Dashboard、MinIO Console 加访问控制。
 - 对外 webhook 域名统一收敛到 HTTPS。
 
-## 7. 监控服务待实现
+## 7. 监控服务接入方案
 
 当前 compose 中还没有 Prometheus / Grafana / Alertmanager 服务。n8n 官方 `/metrics` 端点默认关闭，需要显式设置：
 
@@ -363,7 +363,12 @@ N8N_METRICS_INCLUDE_QUEUE_METRICS=true
 
 现有 worker healthcheck 已经访问 `/metrics`，但 `.env.example` 还没有显式配置 `N8N_METRICS=true`。实现监控时应同步补齐环境变量，避免健康检查与实际指标暴露配置不一致。
 
-建议分阶段实现。
+建议分阶段实现。端口暴露策略如下：
+
+- Grafana 使用当前可用的 `3001` 端口，作为监控看板入口。
+- Prometheus 不作为用户入口，建议只绑定 `127.0.0.1:9090` 或仅保留在 Docker 网络内。
+- Traefik Dashboard、MinIO Console、Prometheus 查询界面都应限制为本机或内网访问。
+- 如需把 Grafana 走统一 HTTPS 域名，应通过 Traefik 增加带认证的 router，而不是直接公网暴露 Prometheus。
 
 ```mermaid
 flowchart TB
@@ -417,10 +422,66 @@ flowchart TB
 
 需要新增：
 
-- Prometheus service。
-- Grafana service。
-- Prometheus scrape 配置。
-- Grafana dashboard provisioning。
+- Prometheus service，建议使用 `monitoring` profile，并将 `9090` 绑定到 `127.0.0.1`。
+- Grafana service，使用宿主机 `3001` 端口，并设置 `GRAFANA_ADMIN_PASSWORD`。
+- Prometheus scrape 配置，覆盖 `n8n-main-1/2`、`n8n-worker-1/2`、Traefik；副服务器 worker 视网络可达性单独加入。
+- Grafana datasource / dashboard provisioning。
+
+推荐 compose 形态：
+
+```yaml
+prometheus:
+  image: prom/prometheus:v2.55.1
+  container_name: n8n-prometheus
+  restart: unless-stopped
+  profiles: ["monitoring"]
+  volumes:
+    - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    - ./data/prometheus:/prometheus
+  ports:
+    - "127.0.0.1:9090:9090"
+  networks: [n8n-net]
+
+grafana:
+  image: grafana/grafana:11.3.0
+  container_name: n8n-grafana
+  restart: unless-stopped
+  profiles: ["monitoring"]
+  environment:
+    - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+  volumes:
+    - ./data/grafana:/var/lib/grafana
+  ports:
+    - "3001:3000"
+  networks: [n8n-net]
+```
+
+Prometheus 抓取配置示例：
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: n8n-main
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - n8n-main-1:5678
+          - n8n-main-2:5678
+
+  - job_name: n8n-worker-main-host
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - n8n-worker-1:5678
+          - n8n-worker-2:5678
+
+  - job_name: traefik
+    static_configs:
+      - targets:
+          - traefik:8080
+```
 
 重点指标：
 

@@ -67,7 +67,7 @@
                        │ PG  │           │MinIO │   ← 共享存储
                        └─────┘           └──────┘
 
-       可观测：Prometheus :9090 + Grafana :3001
+       可观测：Prometheus 内部采集 + Grafana :3001（可选监控扩展）
 ```
 
 ### 1.3 模拟"多节点"的方式
@@ -126,8 +126,8 @@ openssl version
 | 5435 | PostgreSQL | 数据库 |
 | 9002 | MinIO API | S3 接口 |
 | 9003 | MinIO Console | Web 管理 |
-| 9090 | Prometheus | 指标采集 |
-| 3001 | Grafana | 可视化 |
+| 9090 | Prometheus | 指标采集；建议仅本机或容器网络访问 |
+| 3001 | Grafana | 监控看板；当前可用端口 |
 
 ---
 
@@ -155,8 +155,8 @@ cd /home/yangxiang/deployed-services/n8n-ha-enterprise
 | n8n UI | http://localhost:5680 | 首次访问注册 owner 账号 |
 | Traefik Dashboard | http://localhost:8889 | 无 |
 | MinIO Console | http://localhost:9003 | 见 `.env` |
-| Prometheus | http://localhost:9090 | 无 |
-| Grafana | http://localhost:3001 | 见 `.env` |
+| Prometheus | http://localhost:9090 | 无；建议只在本机排查时访问 |
+| Grafana | http://localhost:3001 | 见 `.env`，使用服务器已预留的 3001 端口 |
 
 ### 3.3 停止与清理
 
@@ -182,9 +182,8 @@ docker compose down -v             # ⚠️ 删除容器和数据卷
 | n8n Main #2 | n8n-ha-main-2 | leader/follower | 2 CPU / 2GB | concurrency=20 |
 | n8n Worker #1 | n8n-ha-worker-1 | 执行节点 | 1.5 CPU / 1.5GB | concurrency=10 |
 | n8n Worker #2 | n8n-ha-worker-2 | 执行节点 | 1.5 CPU / 1.5GB | concurrency=10 |
-| n8n Worker #3 | n8n-ha-worker-3 | 执行节点 | 1.5 CPU / 1.5GB | concurrency=10 |
-| Prometheus | n8n-ha-prometheus | 指标采集 | 默认 | 保留 15 天 |
-| Grafana | n8n-ha-grafana | 可视化 | 默认 | 自动 provisioning |
+| Prometheus | n8n-prometheus | 可选指标采集 | 默认 | 建议通过 `monitoring` profile 启用，9090 仅本机/内网 |
+| Grafana | n8n-grafana | 可选监控看板 | 默认 | 使用 3001 端口，建议配置管理员密码 |
 
 ### 4.2 Leader / Follower 选举机制
 
@@ -417,7 +416,7 @@ hey -n 10000 -c 50 -m POST \
 # - 错误率 < 0.1%
 ```
 
-观察 Prometheus 指标：
+启用监控扩展后观察 Prometheus 指标：
 - `n8n_workflow_duration_seconds` — 工作流执行时长分布
 - `n8n_workflow_failed_total` — 失败数
 - `n8n_active_workflow_count` — 每实例活跃数
@@ -426,16 +425,26 @@ hey -n 10000 -c 50 -m POST \
 
 ## 7. 监控与可观测性
 
+当前 `docker-compose.yml` 尚未内置 Prometheus / Grafana 服务。本节描述推荐接入方案：Prometheus 负责内部抓取，Grafana 使用已预留的 `3001` 端口作为监控入口。
+
+启用 n8n metrics 时，需要在所有 main/worker 共享环境变量中设置：
+
+```env
+N8N_METRICS=true
+N8N_METRICS_INCLUDE_QUEUE_METRICS=true
+```
+
 ### 7.1 抓取目标
 
-Prometheus 自动抓取（见 `config/prometheus/prometheus.yml`）：
+Prometheus 建议抓取（建议新增 `config/prometheus/prometheus.yml`）：
 
 | Job | 目标 | 说明 |
 |-----|------|------|
 | `traefik` | traefik:8080 | LB 指标（QPS、延迟、后端健康） |
 | `n8n_main_1` | n8n-main-1:5678 | n8n 主进程 #1 |
 | `n8n_main_2` | n8n-main-2:5678 | n8n 主进程 #2 |
-| `n8n_workers` | n8n-worker-{1,2,3}:5678 | 3 个 worker |
+| `n8n_workers` | n8n-worker-{1,2}:5678 | 主服务器 2 个 worker |
+| `n8n_workers_remote` | li19dksfai10vm.bmwgroup.net:5678 | 副服务器 worker，需网络可达后再启用 |
 | `prometheus` | localhost:9090 | 自身 |
 
 ### 7.2 关键 n8n 指标
@@ -451,7 +460,7 @@ Prometheus 自动抓取（见 `config/prometheus/prometheus.yml`）：
 
 ### 7.3 Grafana Dashboard
 
-自动 provisioning 的看板：`config/grafana/dashboards/n8n-ha-overview.json`
+建议通过 provisioning 管理看板：`config/grafana/dashboards/n8n-ha-overview.json`
 
 包含：
 - 健康实例数
@@ -459,7 +468,7 @@ Prometheus 自动抓取（见 `config/prometheus/prometheus.yml`）：
 - 工作流执行时长 p95
 - 每实例活跃工作流数
 
-访问 http://localhost:3001，凭据见 `.env`。
+访问 `http://<主服务器>:3001` 或 `http://localhost:3001`，凭据见 `.env`。Prometheus 查询端口不建议对公网开放；如需远程排查，优先使用 SSH 隧道或内网访问。
 
 ### 7.4 日志
 
@@ -840,7 +849,7 @@ environment:
 - [ ] PostgreSQL/Redis/MinIO 端口**未**暴露公网（移除 `ports:` 映射）
 - [ ] 仅 Traefik 暴露 80/443
 - [ ] HTTPS 配置完成，证书自动续期
-- [ ] 防火墙限制管理端口（8889/9090/3001）只允许内网
+- [ ] 防火墙限制管理端口（8889/9090/3001），其中 Grafana 使用 3001，Prometheus 9090 优先仅本机访问
 
 ### 13.3 数据
 
@@ -851,8 +860,8 @@ environment:
 
 ### 13.4 监控
 
-- [ ] Prometheus 抓取所有 n8n 实例 + Traefik
-- [ ] Grafana 看板可访问
+- [ ] Prometheus 抓取所有主服务器 n8n 实例 + Traefik；副服务器 worker 已按网络策略纳入或明确排除
+- [ ] Grafana 看板通过 3001 可访问，且已有管理员密码
 - [ ] 关键指标告警已配置（失败率、p95 延迟、实例下线）
 - [ ] 日志聚合到外部系统（ELK / Loki / CloudWatch）
 
