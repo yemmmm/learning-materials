@@ -21,11 +21,13 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-# 检查 docker-compose
+# 检查 docker compose
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
+elif docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
 else
-  echo "❌ 未找到 docker-compose 命令"
+  echo "❌ 未找到 docker compose 命令"
   exit 1
 fi
 
@@ -54,6 +56,7 @@ echo ""
 echo "🌐 访问地址："
 echo "   n8n UI:        https://li19dksfai11vm.bmwgroup.net"
 echo "   Traefik Dash:  http://localhost:8889  (仅本机)"
+echo "   Monitoring:    ./scripts/start-monitoring.sh"
 echo ""
 echo "📊 容器状态："
 $COMPOSE ps

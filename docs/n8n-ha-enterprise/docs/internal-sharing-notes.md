@@ -354,14 +354,14 @@ flowchart LR
 
 ## 7. 监控服务接入方案
 
-当前 compose 中还没有 Prometheus / Grafana / Alertmanager 服务。n8n 官方 `/metrics` 端点默认关闭，需要显式设置：
+当前 compose 已接入 Prometheus / Grafana 作为可选 `monitoring` profile，Alertmanager 仍可作为后续扩展。n8n 官方 `/metrics` 端点默认关闭，需要显式设置：
 
 ```env
 N8N_METRICS=true
 N8N_METRICS_INCLUDE_QUEUE_METRICS=true
 ```
 
-现有 worker healthcheck 已经访问 `/metrics`，但 `.env.example` 还没有显式配置 `N8N_METRICS=true`。实现监控时应同步补齐环境变量，避免健康检查与实际指标暴露配置不一致。
+现有 worker healthcheck 已经访问 `/metrics`，`.env.example` 也已显式配置 `N8N_METRICS=true`，避免健康检查与实际指标暴露配置不一致。
 
 建议分阶段实现。端口暴露策略如下：
 
@@ -420,7 +420,7 @@ flowchart TB
 
 目标：看到执行吞吐和队列积压。
 
-需要新增：
+已新增：
 
 - Prometheus service，建议使用 `monitoring` profile，并将 `9090` 绑定到 `127.0.0.1`。
 - Grafana service，使用宿主机 `3001` 端口，并设置 `GRAFANA_ADMIN_PASSWORD`。

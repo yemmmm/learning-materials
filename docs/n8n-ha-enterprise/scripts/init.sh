@@ -42,12 +42,14 @@ N8N_KEY=$(gen_hex 64)
 RUNNER_TOKEN=$(gen_hex 64)
 REDIS_PASS=$(gen_pass)
 MINIO_PASS=$(gen_pass)
+GRAFANA_PASS=$(gen_pass)
 
 sed -i \
   -e "s|CHANGE_ME_USE_openssl_rand_hex_32|$N8N_KEY|" \
   -e "s|CHANGE_ME_RUNNER_AUTH_TOKEN|$RUNNER_TOKEN|" \
   -e "s|CHANGE_ME_REDIS_PASSWORD|$REDIS_PASS|" \
   -e "s|CHANGE_ME_MINIO_ROOT_PASSWORD|$MINIO_PASS|g" \
+  -e "s|CHANGE_ME_GRAFANA_ADMIN_PASSWORD|$GRAFANA_PASS|" \
   "$ENV_FILE"
 
 echo "✅ .env 已生成"
@@ -57,6 +59,7 @@ echo "   N8N_ENCRYPTION_KEY:  $N8N_KEY"
 echo "   RUNNERS_AUTH_TOKEN:  $RUNNER_TOKEN"
 echo "   REDIS_PASSWORD:      $REDIS_PASS"
 echo "   MINIO_ROOT_PASSWORD: $MINIO_PASS"
+echo "   GRAFANA_PASSWORD:    $GRAFANA_PASS"
 echo ""
 echo "⚠️  还需要手动配置以下外部 PostgreSQL 连接信息："
 echo "   DB_POSTGRESDB_HOST"

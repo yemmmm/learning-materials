@@ -33,6 +33,8 @@ volumes:
   n8n_worker_2_storage:
   redis_storage:
   minio_storage:
+  prometheus_storage:
+  grafana_storage:
 
 # ---------------------------------------------------------------------------
 # YAML Anchors (参考官方 n8n-hosting 模式)
@@ -91,6 +93,9 @@ x-shared: &shared
     - N8N_LOG_OUTPUT=console
     - N8N_DIAGNOSTICS_ENABLED=false
     - N8N_PERSONALIZATION_ENABLED=false
+    # --- Metrics (Prometheus) ---
+    - N8N_METRICS=${N8N_METRICS:-true}
+    - N8N_METRICS_INCLUDE_QUEUE_METRICS=${N8N_METRICS_INCLUDE_QUEUE_METRICS:-true}
     # --- 时区 ---
     - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Asia/Shanghai}
     - TZ=${TZ:-Asia/Shanghai}
@@ -356,6 +361,57 @@ services:
       - N8N_RUNNERS_TASK_BROKER_URI=http://n8n-worker-2:5679
     depends_on:
       - n8n-worker-2
+    networks: [n8n-net]
+
+  # ---------------------------------------------------------------------------
+  # Prometheus - 可选监控扩展，通过 profile 启用
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: n8n-prometheus
+    hostname: prometheus
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}
+      - --web.enable-lifecycle
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./data/prometheus:/prometheus
+    ports:
+      - "${PROMETHEUS_BIND_ADDRESS:-127.0.0.1}:${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - traefik
+      - n8n-main-1
+      - n8n-main-2
+      - n8n-worker-1
+      - n8n-worker-2
+    networks: [n8n-net]
+
+  # ---------------------------------------------------------------------------
+  # Grafana - 可选监控看板，通过 profile 启用
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: n8n-grafana
+    hostname: grafana
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_HTTP_PORT=3000
+    volumes:
+      - ./data/grafana:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      - prometheus
     networks: [n8n-net]
 
 networks:

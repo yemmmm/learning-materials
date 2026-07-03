@@ -74,6 +74,9 @@ x-shared: &shared
     - N8N_LOG_OUTPUT=console
     - N8N_DIAGNOSTICS_ENABLED=false
     - N8N_PERSONALIZATION_ENABLED=false
+    # --- Metrics (Prometheus) ---
+    - N8N_METRICS=${N8N_METRICS:-true}
+    - N8N_METRICS_INCLUDE_QUEUE_METRICS=${N8N_METRICS_INCLUDE_QUEUE_METRICS:-true}
     # --- 时区 ---
     - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-Asia/Shanghai}
     - TZ=${TZ:-Asia/Shanghai}

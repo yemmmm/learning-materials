@@ -425,7 +425,7 @@ hey -n 10000 -c 50 -m POST \
 
 ## 7. 监控与可观测性
 
-当前 `docker-compose.yml` 尚未内置 Prometheus / Grafana 服务。本节描述推荐接入方案：Prometheus 负责内部抓取，Grafana 使用已预留的 `3001` 端口作为监控入口。
+当前 `docker-compose.yml` 已内置 Prometheus / Grafana 作为可选 `monitoring` profile。Prometheus 负责内部抓取，Grafana 使用已预留的 `3001` 端口作为监控入口。
 
 启用 n8n metrics 时，需要在所有 main/worker 共享环境变量中设置：
 
@@ -436,15 +436,14 @@ N8N_METRICS_INCLUDE_QUEUE_METRICS=true
 
 ### 7.1 抓取目标
 
-Prometheus 建议抓取（建议新增 `config/prometheus/prometheus.yml`）：
+Prometheus 抓取配置位于 `config/prometheus/prometheus.yml`：
 
 | Job | 目标 | 说明 |
 |-----|------|------|
 | `traefik` | traefik:8080 | LB 指标（QPS、延迟、后端健康） |
-| `n8n_main_1` | n8n-main-1:5678 | n8n 主进程 #1 |
-| `n8n_main_2` | n8n-main-2:5678 | n8n 主进程 #2 |
-| `n8n_workers` | n8n-worker-{1,2}:5678 | 主服务器 2 个 worker |
-| `n8n_workers_remote` | li19dksfai10vm.bmwgroup.net:5678 | 副服务器 worker，需网络可达后再启用 |
+| `n8n-main` | n8n-main-1:5678, n8n-main-2:5678 | n8n 主进程 |
+| `n8n-worker-main-host` | n8n-worker-{1,2}:5678 | 主服务器 2 个 worker |
+| `n8n-worker-remote` | li19dksfai10vm.bmwgroup.net:5678 | 副服务器 worker，需网络可达后再启用 |
 | `prometheus` | localhost:9090 | 自身 |
 
 ### 7.2 关键 n8n 指标
@@ -460,7 +459,7 @@ Prometheus 建议抓取（建议新增 `config/prometheus/prometheus.yml`）：
 
 ### 7.3 Grafana Dashboard
 
-建议通过 provisioning 管理看板：`config/grafana/dashboards/n8n-ha-overview.json`
+Grafana 通过 provisioning 管理 Prometheus 数据源和看板：`config/grafana/dashboards/n8n-ha-overview.json`
 
 包含：
 - 健康实例数
@@ -469,6 +468,14 @@ Prometheus 建议抓取（建议新增 `config/prometheus/prometheus.yml`）：
 - 每实例活跃工作流数
 
 访问 `http://<主服务器>:3001` 或 `http://localhost:3001`，凭据见 `.env`。Prometheus 查询端口不建议对公网开放；如需远程排查，优先使用 SSH 隧道或内网访问。
+
+启动监控服务：
+
+```bash
+./scripts/start-monitoring.sh
+# 或
+docker compose --profile monitoring up -d prometheus grafana
+```
 
 ### 7.4 日志
 

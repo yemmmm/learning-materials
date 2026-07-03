@@ -28,6 +28,14 @@ api:
 ping:
   entryPoint: "traefik"
 
+# Prometheus metrics
+metrics:
+  prometheus:
+    entryPoint: "traefik"
+    addEntryPointsLabels: true
+    addRoutersLabels: true
+    addServicesLabels: true
+
 # Providers
 providers:
   docker:

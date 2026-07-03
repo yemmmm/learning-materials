@@ -11,8 +11,10 @@ cd "$PROJECT_DIR"
 # 检测 docker-compose 命令
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
+elif docker compose version >/dev/null 2>&1; then
+  COMPOSE="docker compose"
 else
-  echo "❌ 未找到 docker-compose 命令"
+  echo "❌ 未找到 docker compose 命令"
   exit 1
 fi
 
@@ -52,6 +54,23 @@ if docker exec n8n-minio curl -sf http://localhost:9000/minio/health/live >/dev/
   echo "   ✅ MinIO"
 else
   echo "   ❌ MinIO"
+fi
+
+# Monitoring profile（如果已启用）
+if docker ps --filter name=n8n-prometheus --filter status=running -q | grep -q .; then
+  if curl -sf --max-time 3 http://localhost:9090/-/healthy >/dev/null 2>&1; then
+    echo "   ✅ Prometheus"
+  else
+    echo "   ❌ Prometheus"
+  fi
+fi
+
+if docker ps --filter name=n8n-grafana --filter status=running -q | grep -q .; then
+  if curl -sf --max-time 3 http://localhost:3001/api/health >/dev/null 2>&1; then
+    echo "   ✅ Grafana"
+  else
+    echo "   ❌ Grafana"
+  fi
 fi
 
 echo ""
