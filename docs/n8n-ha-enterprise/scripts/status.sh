@@ -8,6 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_DIR"
 
+GRAFANA_HOST=$(awk -F= '$1 == "N8N_HOST" {print $2; exit}' .env 2>/dev/null | sed 's/[[:space:]]#.*$//')
+GRAFANA_HOST=${GRAFANA_HOST:-localhost}
+GRAFANA_PORT=$(awk -F= '$1 == "GRAFANA_PORT" {print $2; exit}' .env 2>/dev/null | sed 's/[[:space:]]#.*$//')
+GRAFANA_PORT=${GRAFANA_PORT:-3001}
+
 # 检测 docker-compose 命令
 if command -v docker-compose >/dev/null 2>&1; then
   COMPOSE="docker-compose"
@@ -66,7 +71,7 @@ if docker ps --filter name=n8n-prometheus --filter status=running -q | grep -q .
 fi
 
 if docker ps --filter name=n8n-grafana --filter status=running -q | grep -q .; then
-  if curl -sf --max-time 3 http://localhost:3001/api/health >/dev/null 2>&1; then
+  if curl -skf --max-time 3 -H "Host: ${GRAFANA_HOST}" "https://localhost:${GRAFANA_PORT}/api/health" >/dev/null 2>&1; then
     echo "   ✅ Grafana"
   else
     echo "   ❌ Grafana"

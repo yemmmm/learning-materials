@@ -451,7 +451,7 @@ T+90s   Traefik 重新加入 main-1 到负载均衡池
 | 9002 | HTTP | MinIO API | S3 接口（生产应内网） |
 | 9003 | HTTP | MinIO Console | Web 管理（生产应限制） |
 | 9090 | HTTP | Prometheus | 指标查询，建议仅绑定本机或内网 |
-| 3001 | HTTP | Grafana | 监控看板，当前预留给监控服务 |
+| 3001 | HTTPS | Traefik → Grafana | 监控看板，Traefik TLS 终结 |
 
 ### 8.2 容器内部通信（n8n-ha-net）
 

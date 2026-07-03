@@ -4,6 +4,7 @@
 # =============================================================================
 # 包含:
 #   - n8n main 实例负载均衡（sticky session + 健康检查）
+#   - Grafana HTTPS 入口（宿主机 3001，经 Traefik TLS 终结）
 #   - TLS 证书配置
 #
 # 多服务器部署:
@@ -19,6 +20,13 @@ http:
         - web
         - websecure
       service: n8n_backend
+      priority: 100
+      tls: true
+    grafana:
+      rule: "Host(`li19dksfai11vm.bmwgroup.net`)"
+      entryPoints:
+        - grafana
+      service: grafana_backend
       priority: 100
       tls: true
 
@@ -40,6 +48,14 @@ http:
           - url: "http://n8n-main-2:5678"
           # 副服务器 n8n 实例（如需 API HA）:
           # - url: "http://li19dksfai10vm.bmwgroup.net:5678"
+    grafana_backend:
+      loadBalancer:
+        healthCheck:
+          path: /api/health
+          interval: "10s"
+          timeout: "3s"
+        servers:
+          - url: "http://grafana:3000"
 
 # =============================================================================
 # TLS 配置

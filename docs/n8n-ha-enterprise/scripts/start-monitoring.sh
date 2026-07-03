@@ -27,9 +27,12 @@ mkdir -p data/{prometheus,grafana}
 echo "📈 启动监控服务..."
 $COMPOSE --profile monitoring up -d prometheus grafana
 
+GRAFANA_HOST=$(awk -F= '$1 == "N8N_HOST" {print $2; exit}' .env 2>/dev/null | sed 's/[[:space:]]#.*$//')
+GRAFANA_HOST=${GRAFANA_HOST:-localhost}
+
 echo ""
 echo "🌐 访问地址："
-echo "   Grafana:    http://localhost:${GRAFANA_PORT:-3001}"
+echo "   Grafana:    https://${GRAFANA_HOST}:${GRAFANA_PORT:-3001}"
 echo "   Prometheus: http://localhost:${PROMETHEUS_PORT:-9090}  (默认仅本机绑定)"
 echo ""
 $COMPOSE --profile monitoring ps prometheus grafana

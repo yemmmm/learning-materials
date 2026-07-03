@@ -11,6 +11,11 @@ cd "$PROJECT_DIR"
 echo "🔍 n8n HA 关键链路检查"
 echo "========================"
 
+GRAFANA_HOST=$(awk -F= '$1 == "N8N_HOST" {print $2; exit}' .env 2>/dev/null | sed 's/[[:space:]]#.*$//')
+GRAFANA_HOST=${GRAFANA_HOST:-localhost}
+GRAFANA_PORT=$(awk -F= '$1 == "GRAFANA_PORT" {print $2; exit}' .env 2>/dev/null | sed 's/[[:space:]]#.*$//')
+GRAFANA_PORT=${GRAFANA_PORT:-3001}
+
 fail=0
 check() {
   local name="$1" cmd="$2"
@@ -66,7 +71,7 @@ if docker ps --filter name=n8n-prometheus --filter status=running -q | grep -q .
 fi
 
 if docker ps --filter name=n8n-grafana --filter status=running -q | grep -q .; then
-  check "Grafana 健康" "curl -sf --max-time 3 http://localhost:3001/api/health"
+  check "Grafana 健康" "curl -skf --max-time 3 -H 'Host: ${GRAFANA_HOST}' 'https://localhost:${GRAFANA_PORT}/api/health'"
 fi
 
 echo ""

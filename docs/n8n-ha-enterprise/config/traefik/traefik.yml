@@ -17,6 +17,8 @@ entryPoints:
           permanent: true
   websecure:
     address: ":443"
+  grafana:
+    address: ":3001"
   traefik:
     address: ":8080"
 

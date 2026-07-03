@@ -124,6 +124,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "${GRAFANA_PORT:-3001}:3001"
       - "127.0.0.1:8889:8080"    # Dashboard 仅本机访问
     volumes:
       - ./config/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -408,8 +409,8 @@ services:
       - ./data/grafana:/var/lib/grafana
       - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    ports:
-      - "${GRAFANA_PORT:-3001}:3000"
+    expose:
+      - "3000"
     depends_on:
       - prometheus
     networks: [n8n-net]

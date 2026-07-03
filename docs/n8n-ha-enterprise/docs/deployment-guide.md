@@ -156,7 +156,7 @@ cd /home/yangxiang/deployed-services/n8n-ha-enterprise
 | Traefik Dashboard | http://localhost:8889 | 无 |
 | MinIO Console | http://localhost:9003 | 见 `.env` |
 | Prometheus | http://localhost:9090 | 无；建议只在本机排查时访问 |
-| Grafana | http://localhost:3001 | 见 `.env`，使用服务器已预留的 3001 端口 |
+| Grafana | https://localhost:3001 | 见 `.env`，3001 端口由 Traefik TLS 终结 |
 
 ### 3.3 停止与清理
 
@@ -467,7 +467,7 @@ Grafana 通过 provisioning 管理 Prometheus 数据源和看板：`config/grafa
 - 工作流执行时长 p95
 - 每实例活跃工作流数
 
-访问 `http://<主服务器>:3001` 或 `http://localhost:3001`，凭据见 `.env`。Prometheus 查询端口不建议对公网开放；如需远程排查，优先使用 SSH 隧道或内网访问。
+访问 `https://<主服务器>:3001`，凭据见 `.env`。3001 由 Traefik 终止 TLS 后转发到 Grafana；Prometheus 查询端口不建议对公网开放，如需远程排查，优先使用 SSH 隧道或内网访问。
 
 启动监控服务：
 

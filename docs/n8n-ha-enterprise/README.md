@@ -91,7 +91,7 @@ docker-compose -f docker-compose.worker.yml up -d n8n-worker-1 n8n-worker-1-runn
 | Redis | 6379 | 供副服务器连接 |
 | MinIO API | 9000 | 供 n8n / 副服务器 worker 访问 S3 binary data |
 | MinIO Console | 9001 (127.0.0.1) | 仅本机访问 |
-| Grafana | 3001 | 监控看板；建议仅内网或经 Traefik 受控访问 |
+| Grafana HTTPS | 3001 | 监控看板；经 Traefik TLS 终结后转发到 Grafana |
 | Prometheus | 9090 (127.0.0.1) | 指标查询；不建议直接对外暴露 |
 
 ## 关键配置
@@ -111,7 +111,7 @@ docker-compose -f docker-compose.worker.yml up -d n8n-worker-1 n8n-worker-1-runn
 
 当前运行 compose 以 n8n HA 核心链路为主，Prometheus / Grafana 已作为可选 `monitoring` profile 接入：
 
-- Grafana 使用服务器已预留的 `3001` 端口，可通过 `http://<主服务器>:3001` 访问。
+- Grafana 使用服务器已预留的 `3001` 端口，经 Traefik TLS 终结，可通过 `https://<主服务器>:3001` 访问。
 - Prometheus 用于内部抓取和查询，建议绑定 `127.0.0.1:9090` 或仅容器网络访问。
 - Prometheus 抓取 `n8n-main-1:5678/metrics`、`n8n-main-2:5678/metrics`、`n8n-worker-1:5678/metrics`、`n8n-worker-2:5678/metrics` 和 Traefik metrics。
 - 副服务器 worker 如需纳入集中监控，需要让主服务器 Prometheus 能访问副服务器 worker 的 metrics 端口，或在副服务器部署本地 exporter/Prometheus 后再汇聚。
