@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-07 15:10
-# Context: Grafana 日志暴露根因：provisioning.datasources / dashboards 目录 permission denied，导致 prometheus.yml 没被加载、Grafana 里没建 Prometheus 数据源。本轮验证权限链路（宿主机权限 + 容器内权限 + Grafana 用户 uid）
+# Time: 2026-07-07 15:20
+# Context: 根因已锁定 —— config/grafana/provisioning/ 下目录权限 750 owner=qqaiuto group=docker，容器内 grafana uid=472 gid=0 既不是 owner 也不在 group，走 others 权限完全读不到。修复权限并重启 grafana，看 provisioning 日志确认
 # Cmds: 3 条
 
-# 1. 看 Grafana provisioning 完整错误（不截断关键消息，特别是 datasource provisioning 的完整错误）
-docker-compose logs --tail=200 grafana 2>&1 | grep -iE 'provisioning\.datasources|provisioning\.dashboard|permission denied|can.t read|failed to read' | head -20
+# 1. 修复权限：给 provisioning 和 dashboards 目录及其下文件加 others 可读+目录可执行（a+rX 大写 X 表示只对目录加 x，文件不加）
+chmod -R a+rX config/grafana/provisioning/ config/grafana/dashboards/ && ls -la config/grafana/provisioning/
 
-# 2. 看宿主机上 provisioning 相关目录和文件的所有者 + 权限（重点：目录是否可被 grafana 容器内 uid 472 读取）
-ls -la config/grafana/provisioning/ config/grafana/provisioning/dashboards/ config/grafana/provisioning/datasources/ 2>&1
+# 2. 重启 grafana 让 provisioning 重新加载配置
+docker-compose restart grafana
 
-# 3. 看容器内 grafana 进程的 uid + 它视角下 provisioning 文件的权限（最关键 —— 这是实际报错路径）
-docker exec n8n-grafana sh -c 'id; ls -la /etc/grafana/provisioning/ /etc/grafana/provisioning/datasources/ /etc/grafana/provisioning/dashboards/' 2>&1 | head -25
+# 3. 看 provisioning 日志，应出现 "saved datasource" / "inserted dashboard" 类消息，且无 "permission denied"
+docker-compose logs --tail=80 grafana 2>&1 | grep -iE 'provisioning|datasource|dashboard|error|permission' | tail -25
