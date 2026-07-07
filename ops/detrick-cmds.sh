@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-07 11:39
-# Context: 上轮确认 Grafana→Prometheus 网络通、有数据流入；本轮精确验证 dashboard 依赖的 n8n_workflow_* 业务指标是否真的被 n8n 暴露并被 Prometheus 抓到（高度怀疑这些指标默认没开）
+# Time: 2026-07-07 14:59
+# Context: dashboard PromQL 已修，但用户重启 grafana 后仍无数据。本轮验证三层：(1) grafana 容器是否真的读到了新 JSON、(2) provisioning 是否加载成功、(3) Grafana → Prometheus 数据源 proxy 是否真的能查到数据
 # Cmds: 3 条
 
-# 1. 完整列出 n8n-main-1 /metrics 暴露的所有指标名（不 head，看是否有 n8n_workflow_* 系列；如果输出里完全没有 n8n_workflow，那 dashboard 大部分 panel 必然无数据）
-docker exec n8n-main-1 wget -qO- http://localhost:5678/metrics 2>&1 | grep -oE '^n8n_[a-z_]+' | sort -u
+# 1. 看 Grafana 日志（找 dashboard provisioning 错误、数据源健康错误、PromQL 查询错误；每行带时间戳）
+docker-compose logs --tail=120 grafana 2>&1 | grep -iE 'error|warn|provision|dashboard|datasource|fail|migration' | tail -30
 
-# 2. 从 Prometheus 侧反查：查所有 n8n_workflow 开头的 metric 名（直接在 Prometheus 数据层确认 workflow 指标是否存在）
-docker exec n8n-prometheus wget -qO- 'http://localhost:9090/api/v1/label/__name__/values' 2>&1 | tr ',' '\n' | grep -E 'n8n_workflow|traefik_service' | head -20
+# 2. 验证 grafana 容器内 dashboard JSON 是否真的包含修复后的 PromQL（grep 出现 execution_duration 说明文件是新版；若仍是 workflow_duration/failed_total 说明 git pull 没生效或挂载有问题）
+docker exec n8n-grafana grep -oE 'n8n_workflow_(execution_)?(duration_seconds|failed_total)' /var/lib/grafana/dashboards/n8n-ha-overview.json 2>&1 | head -5
 
-# 3. 看 n8n-main-1 容器内实际生效的 N8N_METRICS* 环境变量（确认 compose 配置是否真的传进容器、是否漏开 workflow 指标开关）
-docker exec n8n-main-1 env 2>&1 | grep -i '^N8N_METRICS' | head -10
+# 3. 通过 Grafana 数据源代理调用 Prometheus（这是 Grafana UI 查询走的真实路径；如果这条返回 401/403，说明默认 admin/admin 改过；如果返回 Prometheus 数据，说明数据源完全 OK）
+docker exec n8n-grafana wget -qO- --user=admin --password=admin 'http://localhost:3000/api/datasources/proxy/uid/Prometheus/api/v1/query?query=up' 2>&1 | head -c 400
