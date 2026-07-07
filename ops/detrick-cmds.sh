@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-07 10:55
-# Context: webhook-receiver 容器反复重启，定位是否为 OOM 或健康检查失败
+# Time: 2026-07-07 11:15
+# Context: Grafana dashboards 无数据，从数据链路 Prometheus → n8n /metrics 着手，确认是抓取失败还是 n8n 没开 metrics
 # Cmds: 3 条
 
-# 1. 所有容器状态概览（名称 + 当前状态 + 启动时长，定位 webhook-receiver 是否在频繁重启）
-docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.RunningFor}}" 2>&1 | head -20
+# 1. 查 Prometheus 各 scrape target 的健康状态和最近一次错误信息（最关键，一眼看出哪些 target 是 DOWN、为什么 DOWN）
+docker exec n8n-prometheus wget -qO- 'http://localhost:9090/api/v1/targets' 2>&1 | grep -oE '"scrapeUrl":"[^"]*"|"health":"[^"]*"|"lastError":"[^"]*"' | head -40
 
-# 2. webhook-receiver 的重启次数 / 退出码 / OOM 标记（核心判断：是 OOM kill 还是应用退出）
-docker inspect --format '{{.Name}} restart={{.RestartCount}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} health={{.State.Health.Status}}' $(docker-compose ps -q webhook-receiver) 2>&1 | head -10
+# 2. 直连 n8n 主节点 /metrics，确认 n8n 是否真的暴露了 n8n_ 指标（输出空或 404 说明 metrics 端点没数据）
+docker exec n8n-main-1 wget -qO- http://localhost:5678/metrics 2>&1 | head -5
 
-# 3. 最近 200 行日志中的 error/fatal/oom/panic（应用层错误线索）
-docker-compose logs --tail=200 webhook-receiver 2>&1 | grep -iE 'error|fatal|oom|panic|exception' | tail -15
+# 3. 看 Grafana / Prometheus / n8n 相关容器状态（确认服务都在跑、没在重启）
+docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.RunningFor}}" 2>&1 | grep -iE 'grafana|prometheus|n8n|traefik|redis' | head -15
