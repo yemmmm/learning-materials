@@ -177,13 +177,13 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (instance) (rate(n8n_workflow_failed_total[5m]))",
+          "expr": "sum by (instance) (rate(n8n_workflow_execution_duration_seconds_count[5m]))",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Workflow Failure Rate",
+      "title": "Workflow Execution Rate",
       "type": "timeseries"
     },
     {
@@ -268,7 +268,7 @@
             "uid": "Prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(n8n_workflow_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, instance) (rate(n8n_workflow_execution_duration_seconds_bucket[5m])))",
           "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A"
