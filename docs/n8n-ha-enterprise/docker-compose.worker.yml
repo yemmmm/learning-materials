@@ -163,6 +163,26 @@ services:
       - n8n-worker-2
     networks: [n8n-worker-net]
 
+  # ---------------------------------------------------------------------------
+  # Node Exporter - 宿主机资源监控
+  # 暴露 9100 端口给主服务器 Prometheus 跨主机抓取（与 Redis 端口暴露方式一致）
+  # ---------------------------------------------------------------------------
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: n8n-worker-node-exporter
+    hostname: node-exporter
+    restart: unless-stopped
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    ports:
+      - "${NODE_EXPORTER_PORT:-9100}:9100"
+    networks: [n8n-worker-net]
+
 networks:
   n8n-worker-net:
     driver: bridge

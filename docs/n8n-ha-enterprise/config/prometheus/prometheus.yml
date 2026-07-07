@@ -28,6 +28,25 @@ scrape_configs:
           - n8n-worker-1:5678
           - n8n-worker-2:5678
 
+  # --- 宿主机资源监控 (node_exporter) ---
+  # 主服务器 11vm：走容器网络访问
+  - job_name: node-main
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - node-exporter:9100
+        labels:
+          host: '11vm-main'
+
+  # 副服务器 10vm：跨主机走 9100 端口抓取（与 Redis 跨主机访问方式一致）
+  - job_name: node-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - li19dksfai10vm.bmwgroup.net:9100
+        labels:
+          host: '10vm-worker'
+
   # Remote workers on li19dksfai10vm can be added once their metrics ports are
   # reachable from this host, for example:
   #

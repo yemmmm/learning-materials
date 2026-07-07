@@ -415,6 +415,27 @@ services:
       - prometheus
     networks: [n8n-net]
 
+  # ---------------------------------------------------------------------------
+  # Node Exporter - 宿主机资源监控 (CPU/内存/磁盘/网络)
+  # 仅在容器网络内被 Prometheus 抓取，不暴露宿主机端口
+  # ---------------------------------------------------------------------------
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: n8n-node-exporter
+    hostname: node-exporter
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro,rslave
+    expose:
+      - "9100"
+    networks: [n8n-net]
+
 networks:
   n8n-net:
     driver: bridge
