@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-07 15:20
-# Context: 根因已锁定 —— config/grafana/provisioning/ 下目录权限 750 owner=qqaiuto group=docker，容器内 grafana uid=472 gid=0 既不是 owner 也不在 group，走 others 权限完全读不到。修复权限并重启 grafana，看 provisioning 日志确认
+# Time: 2026-07-09 14:00
+# Context: minio 数据被误删后 api 报"租户找不到 privkey"，用户手动在 difyai/privkeys/ 下放了一个 xxxxx.pem 但 api 仍报同样错。本轮要确认三件事：① 报错日志原文 + 涉及的具体 tenant_id；② minio 里 privkeys 目录下实际的文件名（是否和 tenant_id 一致）；③ api 的存储配置（bucket 名/endpoint/路径前缀）
 # Cmds: 3 条
 
-# 1. 修复权限：给 provisioning 和 dashboards 目录及其下文件加 others 可读+目录可执行（a+rX 大写 X 表示只对目录加 x，文件不加）
-chmod -R a+rX config/grafana/provisioning/ config/grafana/dashboards/ && ls -la config/grafana/provisioning/
+# 1. 抓 api 最近 300 行日志中和 privkey/tenant 相关的报错原文 —— 重点看 "tenant_id=xxx" 和 "xxx.pem" 这两个关键信息
+docker-compose logs --tail=300 api 2>&1 | grep -iE 'privkey|private.*key|tenant|decrypt|rsa|\.pem|not.*found|no such' | tail -30
 
-# 2. 重启 grafana 让 provisioning 重新加载配置
-docker-compose restart grafana
+# 2. 列出 minio 宿主机卷里 difyai/privkeys/ 下实际有哪些文件 —— 文件名必须严格等于 <tenant_id>.pem，多了下划线/UUID 后缀都会让 api 找不到
+ls -la volumes/minio/data/difyai/privkeys/ 2>&1 | head -20
 
-# 3. 看 provisioning 日志，应出现 "saved datasource" / "inserted dashboard" 类消息，且无 "permission denied"
-docker-compose logs --tail=80 grafana 2>&1 | grep -iE 'provisioning|datasource|dashboard|error|permission' | tail -25
+# 3. 看 api 的存储配置（STORAGE_TYPE / S3 bucket / endpoint / 路径前缀 PATH）—— 确认 api 真的是去 difyai/privkeys/ 找而不是别的 bucket
+docker-compose exec -T api env 2>&1 | grep -iE 'STORAGE_TYPE|S3_|MINIO_|BUCKET|STORAGE_LOCAL_PATH|CONSOLE_API_URL' | head -20
