@@ -1,28 +1,28 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-09 14:50
-# Context: 用户选路径 B 执行修复：① api 容器内调 Dify storage 模块生成 2048 位新 RSA 密钥对，privkey 写入 minio 覆盖 AI 假密钥 ② 打印新公钥 ③ 清 redis 的 privkey 缓存 ④ 把新公钥 UPDATE 到 tenants.encrypt_public_key + 清空 tool_*_providers 所有加密字段 ⑤ 重启 api/worker。完成后到控制台"工具"页重配每个工具的凭证
-# Cmds: 5 条（必须按 1a→1b→2→3→4 顺序执行，命令 3 执行前手动把命令 1b 输出的公钥粘到 SQL 占位符里）
-# 替换占位符：<TENANT_ID> = privkeys/<TENANT_ID>/private.pem 里的目录名；<PASTE_NEW_PUBKEY> = 命令 1b 打印的整段公钥（含 BEGIN/END PUBLIC KEY 两个头尾标记行）
-# 前提：regren_privkey.py 与本文件同级（都从 GitHub 拉下的 ops/ 目录）
+# Time: 2026-07-09
+# Context: 上一轮已重生密钥对+清空 tool_* 表加密字段+重启，但仍有接口报"incorrect decryption"。核心怀疑：数据库中还有其他表/字段存着旧密钥加密的数据未被清理。本轮目标：找出所有仍含加密数据的表和字段。
+# Cmds: 4 条（广撒网：找加密字段 + 查 enterprise/api 日志 + 检查密钥文件一致性）
 
-# 1a. 把 Python 脚本拷贝到 api 容器内 /tmp/
-docker cp ops/regen_privkey.py $(docker-compose ps -q api):/tmp/
+# 1. 搜索 dify 库中所有可能包含加密数据的字段（查找列名含 encrypt/cipher/secret/credential/key 的表）
+docker-compose exec -T db_postgres psql -U postgres -d dify -c "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema='public' AND (column_name LIKE '%encrypt%' OR column_name LIKE '%cipher%' OR column_name LIKE '%secret%' OR column_name LIKE '%credential%') ORDER BY table_name, column_name;" 2>&1
 
-# 1b. 在 api 容器内执行脚本，传入 tenant_id。新 privkey 写入 minio，公钥打印到屏幕。复制 ===NEW PUBKEY BEGIN=== 到 ===NEW PUBKEY END=== 之间的整段（含 ----- BEGIN/END PUBLIC KEY -----）
-docker-compose exec -T api python /tmp/regen_privkey.py <TENANT_ID> 2>&1 | grep -A 30 'NEW PUBKEY BEGIN' | head -30
-
-# 2. 清 redis 里 privkey 缓存（rsa.py 第 56 行 setex 120s 缓存私钥，不清的话 api 进程还用着旧私钥）
-docker-compose exec -T redis sh -c "redis-cli --scan --pattern 'tenant_privkey:*' | xargs -r redis-cli DEL" 2>&1 | tail -5
-
-# 3. 用新公钥 UPDATE tenants.encrypt_public_key（让加密/解密用同一对密钥），同时清空 tool_*_providers 所有加密字段（先手动编辑本条命令，把 <TENANT_ID> 和 <PASTE_NEW_PUBKEY> 替换好；公钥含换行没问题，psql heredoc 支持）
-docker-compose exec -T db_postgres psql -U postgres -d dify 2>&1 <<SQL | tail -30
-UPDATE tenants SET encrypt_public_key = '<PASTE_NEW_PUBKEY>' WHERE id = '<TENANT_ID>';
-UPDATE tool_builtin_providers SET encrypted_credentials = '' WHERE tenant_id = '<TENANT_ID>';
-UPDATE tool_api_providers SET credentials_str = '' WHERE tenant_id = '<TENANT_ID>';
-UPDATE tool_mcp_providers SET encrypted_credentials = '', encrypted_headers = '' WHERE tenant_id = '<TENANT_ID>';
-UPDATE tool_oauth_tenant_clients SET encrypted_oauth_params = '' WHERE tenant_id = '<TENANT_ID>';
+# 2. 逐个检查可疑表是否有非空加密数据（看哪些表还残留旧密钥加密的字段值）
+docker-compose exec -T db_postgres psql -U postgres -d dify 2>&1 <<'SQL' | head -50
+SELECT 'tenant_accounts' as tbl, count(*) as encrypted_rows FROM tenant_accounts WHERE encrypted_credentials IS NOT NULL AND encrypted_credentials != ''
+UNION ALL SELECT 'tenant_custom_configs', count(*) FROM tenant_custom_configs WHERE encrypted_value IS NOT NULL AND encrypted_value != ''
+UNION ALL SELECT 'tenant_secrets', count(*) FROM tenant_secrets WHERE encrypted_secret IS NOT NULL AND encrypted_secret != ''
+UNION ALL SELECT 'tool_builtin_providers', count(*) FROM tool_builtin_providers WHERE encrypted_credentials IS NOT NULL AND encrypted_credentials != ''
+UNION ALL SELECT 'tool_api_providers', count(*) FROM tool_api_providers WHERE credentials_str IS NOT NULL AND credentials_str != ''
+UNION ALL SELECT 'tool_mcp_providers', count(*) FROM tool_mcp_providers WHERE encrypted_credentials IS NOT NULL AND encrypted_credentials != ''
+UNION ALL SELECT 'tool_oauth_tenant_clients', count(*) FROM tool_oauth_tenant_clients WHERE encrypted_oauth_params IS NOT NULL AND encrypted_oauth_params != ''
+UNION ALL SELECT 'datasource', count(*) FROM datasource WHERE encrypted_credentials IS NOT NULL AND encrypted_credentials != ''
+UNION ALL SELECT 'provider_models', count(*) FROM provider_models WHERE encrypted_config IS NOT NULL AND encrypted_config != ''
+UNION ALL SELECT 'provider_tenants', count(*) FROM provider_tenants WHERE encrypted_config IS NOT NULL AND encrypted_config != '';
 SQL
 
-# 4. 重启 api 和 worker，让进程内任何 RSA key 缓存失效（命令 2 清的是 redis，命令 4 清的是进程内存）
-docker-compose restart api worker 2>&1 | tail -10
+# 3. 检查 tenants 表中的 encrypt_public_key 是否与 minio 中私钥匹配（验证密钥对一致性）
+docker-compose exec -T db_postgres psql -U postgres -d dify -c "SELECT id, encrypt_public_key FROM tenants WHERE id = '<TENANT_ID>';" 2>&1 | head -20
+
+# 4. 查看 api 容器中实际调用的解密相关日志（用 --since 只看最近30分钟的）
+docker-compose logs --since 30m api 2>&1 | grep -iE 'decrypt|encrypt|incorrect|rsa|private.*key|public.*key|cipher|bad' | tail -30
