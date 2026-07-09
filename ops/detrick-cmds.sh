@@ -1,14 +1,36 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-09 14:26
-# Context: 上轮确认 minio 中 <tenant_id>.pem 文件名与 tenant_id 匹配，但 api 仍报"找不到 privkey"。本轮转向数据库——Dify 3.x 的 privkey 是双份存储（minio 文件 + tenants 表里的加密字段），需要确认 DB 这份是否还在/非空，同时区分 api 当前报错属于哪种：① 文件 not found ② decrypt/rsa failed（内容不对）③ DB 字段为 null
-# Cmds: 3 条
+# Time: 2026-07-09 14:50
+# Context: 用户选路径 B 执行修复：① api 容器内调 Dify storage 模块生成 2048 位新 RSA 密钥对，privkey 写入 minio 覆盖 AI 假密钥 ② 打印新公钥 ③ 清 redis 的 privkey 缓存 ④ 把新公钥 UPDATE 到 tenants.encrypt_public_key + 清空 tool_*_providers 所有加密字段 ⑤ 重启 api/worker。完成后到控制台"工具"页重配每个工具的凭证
+# Cmds: 4 条（必须按 1→2→3→4 顺序执行，命令 3 执行前手动把命令 1 输出的公钥粘到 SQL 占位符里）
+# 替换占位符：<TENANT_ID> = privkeys/<TENANT_ID>/private.pem 里的目录名；<PASTE_NEW_PUBKEY> = 命令 1 打印的整段公钥（含 BEGIN/END PUBLIC KEY 两个头尾标记行）
 
-# 1. tenants 表里所有与 privkey/加密相关的字段名（Dify 各版本字段名不一样，先拿到实际字段名，3.8.0 可能是 encrypt_key_pair/encrypted_privkey/privkey 之一）
-docker-compose exec -T db_postgres psql -U postgres -d dify -c "SELECT column_name, data_type FROM information_schema.columns WHERE table_name='tenants' AND (column_name ILIKE '%priv%' OR column_name ILIKE '%key%' OR column_name ILIKE '%encrypt%' OR column_name ILIKE '%rsa%')" 2>&1 | head -20
+# 1. api 容器内通过 Dify 的 app context 加载 storage 模块，生成新 RSA 2048 密钥对：privkey 写入 minio 覆盖现有文件（AI 生成的假密钥作废），公钥打印到屏幕。复制 ===NEW PUBKEY BEGIN=== 到 ===NEW PUBKEY END=== 之间的整段（含 ----- BEGIN/END PUBLIC KEY -----）
+docker-compose exec -T api python -c "
+from app import app
+with app.app_context():
+    from extensions.ext_storage import storage
+    from Crypto.PublicKey import RSA
+    key = RSA.generate(2048)
+    priv = key.export_key()
+    pub = key.publickey().export_key().decode()
+    storage.save('privkeys/<TENANT_ID>/private.pem', priv)
+    print('===NEW PUBKEY BEGIN===')
+    print(pub)
+    print('===NEW PUBKEY END===')
+" 2>&1 | grep -A 30 'NEW PUBKEY BEGIN' | head -30
 
-# 2. 列出所有租户的 id/name/status —— 拿 DB 里实际 tenant_id 再和 minio 里那个 .pem 文件名做最终核对（注意大小写/连字符/UUID 完整性）
-docker-compose exec -T db_postgres psql -U postgres -d dify -c "SELECT id, name, status, created_at FROM tenants ORDER BY created_at DESC" 2>&1 | head -20
+# 2. 清 redis 里 privkey 缓存（rsa.py 第 56 行 setex 120s 缓存私钥，不清的话 api 进程还用着旧私钥）
+docker-compose exec -T redis sh -c "redis-cli --scan --pattern 'tenant_privkey:*' | xargs -r redis-cli DEL" 2>&1 | tail -5
 
-# 3. api 最近 30 分钟的报错原文 —— 重点区分错误类型："privkey.*not.*found"=api 没读到 minio 文件；"decrypt|rsa|invalid.*key"=读到文件但内容不对（用 AI 重生成的密钥≠原始密钥，加密过的数据无法解密）；"is null|no.*privkey"=DB 字段空
-docker-compose logs --since 30m api 2>&1 | grep -iE 'priv|decrypt|rsa|pem|invalid|fail|not.*found|null' | tail -30
+# 3. 用新公钥 UPDATE tenants.encrypt_public_key（让加密/解密用同一对密钥），同时清空 tool_*_providers 所有加密字段（先手动编辑本条命令，把 <TENANT_ID> 和 <PASTE_NEW_PUBKEY> 替换好；公钥含换行没问题，psql heredoc 支持）
+docker-compose exec -T db_postgres psql -U postgres -d dify 2>&1 <<SQL | tail -30
+UPDATE tenants SET encrypt_public_key = '<PASTE_NEW_PUBKEY>' WHERE id = '<TENANT_ID>';
+UPDATE tool_builtin_providers SET encrypted_credentials = '' WHERE tenant_id = '<TENANT_ID>';
+UPDATE tool_api_providers SET credentials_str = '' WHERE tenant_id = '<TENANT_ID>';
+UPDATE tool_mcp_providers SET encrypted_credentials = '', encrypted_headers = '' WHERE tenant_id = '<TENANT_ID>';
+UPDATE tool_oauth_tenant_clients SET encrypted_oauth_params = '' WHERE tenant_id = '<TENANT_ID>';
+SQL
+
+# 4. 重启 api 和 worker，让进程内任何 RSA key 缓存失效（命令 2 清的是 redis，命令 4 清的是进程内存）
+docker-compose restart api worker 2>&1 | tail -10
