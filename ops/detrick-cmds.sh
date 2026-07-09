@@ -2,23 +2,15 @@
 # === Detrick Troubleshoot Round ===
 # Time: 2026-07-09 14:50
 # Context: 用户选路径 B 执行修复：① api 容器内调 Dify storage 模块生成 2048 位新 RSA 密钥对，privkey 写入 minio 覆盖 AI 假密钥 ② 打印新公钥 ③ 清 redis 的 privkey 缓存 ④ 把新公钥 UPDATE 到 tenants.encrypt_public_key + 清空 tool_*_providers 所有加密字段 ⑤ 重启 api/worker。完成后到控制台"工具"页重配每个工具的凭证
-# Cmds: 4 条（必须按 1→2→3→4 顺序执行，命令 3 执行前手动把命令 1 输出的公钥粘到 SQL 占位符里）
-# 替换占位符：<TENANT_ID> = privkeys/<TENANT_ID>/private.pem 里的目录名；<PASTE_NEW_PUBKEY> = 命令 1 打印的整段公钥（含 BEGIN/END PUBLIC KEY 两个头尾标记行）
+# Cmds: 5 条（必须按 1a→1b→2→3→4 顺序执行，命令 3 执行前手动把命令 1b 输出的公钥粘到 SQL 占位符里）
+# 替换占位符：<TENANT_ID> = privkeys/<TENANT_ID>/private.pem 里的目录名；<PASTE_NEW_PUBKEY> = 命令 1b 打印的整段公钥（含 BEGIN/END PUBLIC KEY 两个头尾标记行）
+# 前提：regren_privkey.py 与本文件同级（都从 GitHub 拉下的 ops/ 目录）
 
-# 1. api 容器内通过 Dify 的 app context 加载 storage 模块，生成新 RSA 2048 密钥对：privkey 写入 minio 覆盖现有文件（AI 生成的假密钥作废），公钥打印到屏幕。复制 ===NEW PUBKEY BEGIN=== 到 ===NEW PUBKEY END=== 之间的整段（含 ----- BEGIN/END PUBLIC KEY -----）
-docker-compose exec -T api python -c "
-from app import app
-with app.app_context():
-    from extensions.ext_storage import storage
-    from Crypto.PublicKey import RSA
-    key = RSA.generate(2048)
-    priv = key.export_key()
-    pub = key.publickey().export_key().decode()
-    storage.save('privkeys/<TENANT_ID>/private.pem', priv)
-    print('===NEW PUBKEY BEGIN===')
-    print(pub)
-    print('===NEW PUBKEY END===')
-" 2>&1 | grep -A 30 'NEW PUBKEY BEGIN' | head -30
+# 1a. 把 Python 脚本拷贝到 api 容器内 /tmp/
+docker cp ops/regen_privkey.py $(docker-compose ps -q api):/tmp/
+
+# 1b. 在 api 容器内执行脚本，传入 tenant_id。新 privkey 写入 minio，公钥打印到屏幕。复制 ===NEW PUBKEY BEGIN=== 到 ===NEW PUBKEY END=== 之间的整段（含 ----- BEGIN/END PUBLIC KEY -----）
+docker-compose exec -T api python /tmp/regen_privkey.py <TENANT_ID> 2>&1 | grep -A 30 'NEW PUBKEY BEGIN' | head -30
 
 # 2. 清 redis 里 privkey 缓存（rsa.py 第 56 行 setex 120s 缓存私钥，不清的话 api 进程还用着旧私钥）
 docker-compose exec -T redis sh -c "redis-cli --scan --pattern 'tenant_privkey:*' | xargs -r redis-cli DEL" 2>&1 | tail -5
