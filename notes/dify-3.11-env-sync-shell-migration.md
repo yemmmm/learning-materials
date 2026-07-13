@@ -5,6 +5,12 @@
 ## 脚本位置
 
 ```text
+notes/dify-env-sync.sh
+```
+
+部署包中的已验证副本位于：
+
+```text
 /home/yangxiang/deployed-services/dify-enterprise-3.11.0/dify-env-sync.sh
 ```
 
