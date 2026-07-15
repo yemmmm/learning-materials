@@ -25,8 +25,8 @@
 
 三方模式只把“旧版官方基线到旧版生产配置”的改动列为候选项。没有旧版
 官方基线时，工具进入保守双文件模式，仅候选端口、挂载、extra_hosts、
-healthcheck 等常见运维字段。每个候选项都要求用户逐项确认；默认生成
-docker-compose.migrated.yaml，不覆盖目标文件。
+healthcheck 等常见运维字段。每个候选项默认展示完整的脱敏详情并要求
+用户逐项确认；默认生成 docker-compose.migrated.yaml，不覆盖目标文件。
 """
 
 from __future__ import annotations
@@ -135,7 +135,7 @@ USAGE_EPILOG = """使用示例：
     --in-place
 
 交互按键：
-  y 迁移当前项；n 或回车跳过；d 查看脱敏详情；q 退出且不写文件。
+  直接回车或 y 迁移当前项；n 跳过；u 返回上一项；q 退出且不写文件。
 
 边界：
   本工具不迁移 .env、Caddy/Nginx 配置或数据文件。生成结果仍需通过
@@ -440,27 +440,38 @@ def show_detail(change: Change, yaml: YAML) -> None:
     print(dump_fragment(yaml, change.target_value, change.path), end="")
 
 
-def prompt_changes(changes: list[Change], yaml: YAML) -> list[Change]:
-    accepted: list[Change] = []
+def prompt_changes(
+    changes: list[Change],
+    yaml: YAML,
+    start_index: int = 0,
+) -> list[Change]:
     total = len(changes)
-    for index, change in enumerate(changes, start=1):
+    index = start_index
+    while index < total:
+        change = changes[index]
         while True:
-            show_change(change, index, total)
-            answer = input("  迁移此项？[y]是 [n]否 [d]详情 [q]退出: ").strip().lower()
-            if answer in {"y", "yes"}:
+            show_change(change, index + 1, total)
+            show_detail(change, yaml)
+            answer = input("  迁移此项？[Y/回车]是 [n]否 [u]上一项 [q]退出: ").strip().lower()
+            if answer in {"", "y", "yes"}:
                 change.accepted = True
-                accepted.append(change)
+                index += 1
                 break
-            if answer in {"n", "no", ""}:
+            if answer in {"n", "no"}:
                 change.accepted = False
+                index += 1
                 break
-            if answer in {"d", "detail"}:
-                show_detail(change, yaml)
-                continue
+            if answer in {"u", "undo"}:
+                if index == 0:
+                    print("  当前已是第一项，无法继续回退。")
+                    continue
+                index -= 1
+                changes[index].accepted = None
+                break
             if answer in {"q", "quit"}:
                 raise KeyboardInterrupt
-            print("  请输入 y、n、d 或 q。")
-    return accepted
+            print("  请输入回车/y、n、u 或 q。")
+    return [change for change in changes if change.accepted]
 
 
 def ensure_parent_mapping(root: Any, path: Sequence[Any]) -> tuple[Any, Any]:
@@ -621,24 +632,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         print("没有发现可迁移项。")
         return 0
 
-    try:
-        accepted = prompt_changes(changes, yaml)
-    except (KeyboardInterrupt, EOFError):
-        print("\n已取消，未写入任何文件。")
-        return 130
+    start_index = 0
+    while True:
+        try:
+            accepted = prompt_changes(changes, yaml, start_index=start_index)
+        except (KeyboardInterrupt, EOFError):
+            print("\n已取消，未写入任何文件。")
+            return 130
 
-    if not accepted:
-        print("未选择任何迁移项，未生成候选 Compose。")
-        return 0
-
-    print()
-    print(f"已选择 {len(accepted)} 项，跳过 {len(changes) - len(accepted)} 项。")
-    try:
-        final_answer = input("确认写入候选文件？[y/N]: ").strip().lower()
-    except (KeyboardInterrupt, EOFError):
-        print("\n已取消，未写入任何文件。")
-        return 130
-    if final_answer not in {"y", "yes"}:
+        print()
+        print(f"已选择 {len(accepted)} 项，跳过 {len(changes) - len(accepted)} 项。")
+        try:
+            final_answer = input(
+                "确认写入候选文件？[Y/回车]写入 [n]取消 [u]返回上一项: "
+            ).strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            print("\n已取消，未写入任何文件。")
+            return 130
+        if final_answer in {"", "y", "yes"}:
+            if not accepted:
+                print("未选择任何迁移项，未生成候选 Compose。")
+                return 0
+            break
+        if final_answer in {"u", "undo"}:
+            start_index = len(changes) - 1
+            changes[start_index].accepted = None
+            continue
         print("已取消，未写入任何文件。")
         return 0
 
