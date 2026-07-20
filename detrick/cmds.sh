@@ -1,20 +1,19 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-20 14:30
-# Context: 上轮 langfuse-minio 标记 unhealthy 但 docker logs 无错误（正常，healthcheck 失败输出在 docker inspect 里、不在容器主进程 stdout）。其它命令无有效返回说明 Dify 侧 grep 关键词没匹配上，需换关键词。本轮重点：定位 MinIO unhealthy 根因 + 验证它是否就是 Langfuse 同步滞后的元凶。
+# Time: 2026-07-20 15:00
+# Context: 上轮两个关键发现 ①MinIO unhealthy 是 healthcheck 用了 curl 但镜像无 curl 导致的假性告警（磁盘 44%、无 S3 报错、可忽略）；②之前在 langfuse 目录下执行 docker-compose 命令查的是 Langfuse 自己的服务（api/worker/minio），没查到 Dify 容器——所以"Dify 无 Langfuse 日志"是查错地方。本轮重点：用 docker 原生命令绕过目录限制，定位 Dify→Langfuse 对接方式 + 检查 Langfuse 内部消费链路。
 # Cmds: 4 条
 
-# 1. MinIO 最近 5 次健康检查的退出码和输出（unhealthy 的直接证据：超时/错误码/命令失败）
-docker ps --filter "name=minio" --format "{{.Names}}: {{.Status}}" 2>&1 | head -3
-docker inspect $(docker ps -q --filter "name=minio") --format '{{range .State.Health.Log}}exit={{.ExitCode}} out={{.Output}}{{"\n"}}{{end}}' 2>&1 | tail -15
+# 1. 列出所有运行中 docker 容器（定位 Dify api 容器名 + Langfuse web/worker/clickhouse/redis 各自容器名）
+docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" 2>&1 | head -40
 
-# 2. 直接探测 MinIO 健康端点响应时间 + 容器内磁盘空间（区分：endpoint 响应慢 vs 配置错 vs 磁盘满）
-docker exec $(docker ps -q --filter "name=minio" | head -1) sh -c 'curl -s -o /dev/null -w "live=%{http_code} time=%{time_total}s\nready=" http://localhost:9000/minio/health/live; curl -s -o /dev/null -w "%{http_code} time=%{time_total}s\n" http://localhost:9000/minio/health/ready; df -h 2>&1 | head -5' 2>&1 | head -20
+# 2. 进 Dify api 容器查 Langfuse/OTel 环境变量（确认对接方式：OTel HTTP Exporter？应用内 SDK？batch 间隔？endpoint 是否正确？）
+docker exec $(docker ps -q --filter "name=api" | head -1) env 2>&1 | grep -iE 'langfuse|otel|otlp|trace|exporter|telemetry' | head -25
 
-# 3. Langfuse 所有服务最近 1 小时日志中关于 S3/MinIO 的报错（验证 MinIO unhealthy 是否已影响 trace 写入链路）
-docker-compose logs --since 1h 2>&1 | grep -iE 'minio|s3|bucket|blob|storage|object' | grep -iE 'error|fail|timeout|refused|exception|503|500|429' | tail -20
+# 3. Langfuse 各容器状态（web/worker/clickhouse/redis/db）+ 最近 30 分钟日志中 worker/clickhouse/queue 相关报错（找消费滞后证据）
+docker ps -a --filter "name=langfuse" --format "{{.Names}}: {{.Status}}" 2>&1 | head -10
+docker-compose logs --since 30m 2>&1 | grep -iE 'worker|clickhouse|queue|lag|delay|backlog|redis' | grep -iE 'error|warn|slow|timeout|refused|process' | tail -15
 
-# 4. 验证 Dify 是否真在发 trace（用更宽关键词：OTel/Public ingestion/v1/traces）+ Langfuse 接收端最近 1 小时 POST 请求量
-docker-compose logs --tail=2000 api 2>&1 | grep -iE 'otel|/api/public|/v1/traces|ingestion|trace_id|langfuse' | tail -15
-echo "=== Langfuse ingestion 请求量 ==="
-docker-compose logs --since 1h 2>&1 | grep -ciE 'POST /api/public|/api/public/otel|/api/public/ingestion'
+# 4. 直接看 Redis 队列堆积情况 + ClickHouse 表清单（Redis DBSIZE 异常大说明 worker 消费跟不上；ClickHouse 是 Langfuse v3 的实际存储后端）
+docker exec $(docker ps -q --filter "name=redis" | head -1) redis-cli DBSIZE 2>&1 | head -3
+docker exec $(docker ps -q --filter "name=clickhouse" | head -1) clickhouse-client -q "SHOW TABLES" 2>&1 | head -15
