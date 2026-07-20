@@ -1,19 +1,18 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-20 16:30
-# Context: 上轮重大发现：①命令1 无输出；②命令2 ClickHouse traces/observations/scores 三表 max 时间均为 1970-01-01（**三表全部为空，从未有 trace 写入过**）；③命令4 确认无 langfuse-web 容器。推断：德勤 langfuse web/worker 应用容器没在运行 → Dify 即使发 trace 也连不上 → 表里永远没数据。但用户描述"压测时日志慢同步 1-2 小时" → 与现状矛盾，可能 web/worker 之前在跑、后来挂了，或者用户记忆有误。本轮重点：彻底搞清楚 langfuse web/worker 容器状态（停止了？从未启动？启动失败？）+ 端口监听情况。
+# Time: 2026-07-20 17:00
+# Context: 上轮澄清！容器名是 langfuse-langfuse-1（不是 langfuse-web-1）和 langfuse-langfuse-worker-1，**web 和 worker 都已 Up 11 天正常运行**。端口 3000/3001/8123 都在监听。之前命令1、4 无输出是因为过滤器 name=langfuse-web 不匹配（容器名里没有 web 字样）。但 ClickHouse traces/observations/scores 三表为空（max=1970）—— 怀疑德勤 Langfuse v3.183 把数据写到了 events_core/event_log 等其它表（v3 新事件存储模型），或根本没写入。本轮重点：用正确容器名重查 ingestion 参数 + 找 trace 实际存储表（所有非空表）+ web 接收日志 + Dify 应用层 Langfuse 配置。
 # Cmds: 4 条
 
-# 1. langfuse docker-compose 项目下所有服务状态（包括停止的，确认 web/worker 是否存在但被停了）
-docker-compose ps -a 2>&1 | head -25
+# 1. langfuse-langfuse-1 容器中 ingestion 调优参数（**LANGFUSE_INGESTION_QUEUE_DELAY_MS / WRITE_INTERVAL_MS 被设大就是滞后直接原因**）+ 关键 URL 配置
+docker exec langfuse-langfuse-1 env 2>&1 | grep -iE 'INGESTION|QUEUE_DELAY|WRITE_INTERVAL|REDIS_AUTH|CLICKHOUSE_URL|NEXTAUTH_URL|S3_EVENT' | head -20
 
-# 2. langfuse docker-compose.yaml 定义的服务清单 + 所有 langfuse 容器（按名字匹配，看 web/worker 是否有但镜像不同名）
-docker-compose config --services 2>&1 | head -20
-docker ps -a --format "{{.Names}}\t{{.Image}}\t{{.Status}}" 2>&1 | grep -iE 'langfuse' | head -20
+# 2. ClickHouse 所有非空表的行数+大小（找 trace 实际写到哪张表，v3.183 可能用 events_core 而非 traces；本地已验证查询语法 OK）
+docker exec langfuse-clickhouse-1 clickhouse-client --query "SELECT name, total_rows, formatReadableSize(total_bytes) AS size FROM system.tables WHERE database='default' AND total_rows > 0 ORDER BY total_rows DESC LIMIT 25 FORMAT PrettyCompact" 2>&1 | head -35
 
-# 3. 所有 langfuse 容器（含停止的）详细状态：退出码/错误/启动时间/结束时间（定位 web/worker 为何不在）
-docker inspect $(docker ps -aq --filter "name=langfuse") --format '{{.Name}} state={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}' 2>&1 | head -15
+# 3. langfuse-langfuse-1（web）容器最近 30 分钟日志（看 trace 接收处理情况、ClickHouse 写入错误、Redis 队列堆积）
+docker logs --tail=300 --since 30m langfuse-langfuse-1 2>&1 | tail -30
 
-# 4. langfuse web 端口（3001/3000/3030）监听情况 + langfuse docker 网络列表（确认 web/worker 是否在某个网络里跑着）
-ss -tlnp 2>&1 | grep -E ':(3001|3000|3030|8123)' | head -10
-docker network ls 2>&1 | grep -iE 'langfuse' | head -5
+# 4. Dify 应用层 Langfuse 配置表（前端页面配置存在数据库哪张表，分别查 dify 和 enterprise 库）
+docker exec $(docker ps -q --filter "name=db_postgres" | head -1) psql -U postgres -d dify -c "\dt" 2>&1 | grep -iE 'observable|trace|langfuse|telemetry|monitor' | head -15
+docker exec $(docker ps -q --filter "name=db_postgres" | head -1) psql -U postgres -d enterprise -c "\dt" 2>&1 | grep -iE 'observable|trace|langfuse|telemetry|monitor' | head -15
