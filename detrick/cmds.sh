@@ -1,19 +1,19 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-07-20 15:00
-# Context: 上轮两个关键发现 ①MinIO unhealthy 是 healthcheck 用了 curl 但镜像无 curl 导致的假性告警（磁盘 44%、无 S3 报错、可忽略）；②之前在 langfuse 目录下执行 docker-compose 命令查的是 Langfuse 自己的服务（api/worker/minio），没查到 Dify 容器——所以"Dify 无 Langfuse 日志"是查错地方。本轮重点：用 docker 原生命令绕过目录限制，定位 Dify→Langfuse 对接方式 + 检查 Langfuse 内部消费链路。
+# Time: 2026-07-20 15:30
+# Context: 上轮发现 ①Dify 的 Langfuse 配置在应用前端页面，存在数据库（不是环境变量）；②Dify api 容器环境变量里有指向 enterprise-collector 的 endpoint（Dify Enterprise 的 OTel 中转层，需确认与前端 Langfuse 配置的关系）；③Redis 需要密码（redis-cli 无密码被拒绝）；④ClickHouse 表结构齐全（traces/observations/events_core/analytics_*）。本轮重点：定位应用层配置表 + enterprise-collector 角色 + ClickHouse traces 实际入库时间分布（验证滞后证据）+ Langfuse worker 消费状态。
 # Cmds: 4 条
 
-# 1. 列出所有运行中 docker 容器（定位 Dify api 容器名 + Langfuse web/worker/clickhouse/redis 各自容器名）
-docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}" 2>&1 | head -40
+# 1. 在 Dify 主数据库找应用层可观测性/Langfuse 配置表（前端配置存在哪张表）
+docker exec $(docker ps -q --filter "name=db_postgres" | head -1) psql -U postgres -d dify -c "\dt" 2>&1 | grep -iE 'observable|trace|langfuse|telemetry|monitor|opentelemetry|trace_app' | head -15
 
-# 2. 进 Dify api 容器查 Langfuse/OTel 环境变量（确认对接方式：OTel HTTP Exporter？应用内 SDK？batch 间隔？endpoint 是否正确？）
-docker exec $(docker ps -q --filter "name=api" | head -1) env 2>&1 | grep -iE 'langfuse|otel|otlp|trace|exporter|telemetry' | head -25
+# 2. enterprise-collector 角色 + 最近日志（是 Dify Enterprise 的 OTel 中转吗？压测时是否堆积/慢？）
+docker ps -a --filter "name=enterprise-collector" --format "{{.Names}}: {{.Status}}" 2>&1 | head -3
+docker logs --tail=300 $(docker ps -q --filter "name=enterprise-collector" | head -1) 2>&1 | tail -25
 
-# 3. Langfuse 各容器状态（web/worker/clickhouse/redis/db）+ 最近 30 分钟日志中 worker/clickhouse/queue 相关报错（找消费滞后证据）
+# 3. ClickHouse traces 表最近 2 小时按分钟聚合入库量（找滞后证据：压测结束后是否还在持续入库？入库量曲线是平稳还是尖峰后骤降？）
+docker exec $(docker ps -q --filter "name=clickhouse" | head -1) clickhouse-client -q "SELECT toStartOfMinute(created_at) AS minute, count() AS traces FROM traces WHERE created_at > now() - INTERVAL 2 HOUR GROUP BY minute ORDER BY minute DESC LIMIT 30" 2>&1 | head -35
+
+# 4. Langfuse 各容器状态 + worker 容器最近日志（worker 消费速度是否跟不上？ClickHouse 写入是否报错？）
 docker ps -a --filter "name=langfuse" --format "{{.Names}}: {{.Status}}" 2>&1 | head -10
-docker-compose logs --since 30m 2>&1 | grep -iE 'worker|clickhouse|queue|lag|delay|backlog|redis' | grep -iE 'error|warn|slow|timeout|refused|process' | tail -15
-
-# 4. 直接看 Redis 队列堆积情况 + ClickHouse 表清单（Redis DBSIZE 异常大说明 worker 消费跟不上；ClickHouse 是 Langfuse v3 的实际存储后端）
-docker exec $(docker ps -q --filter "name=redis" | head -1) redis-cli DBSIZE 2>&1 | head -3
-docker exec $(docker ps -q --filter "name=clickhouse" | head -1) clickhouse-client -q "SHOW TABLES" 2>&1 | head -15
+docker logs --tail=500 $(docker ps -q --filter "name=langfuse-worker\|langfuse_worker\|langfuse" | head -1) 2>&1 | grep -iE 'error|warn|slow|clickhouse|insert|queue|lag|backlog' | tail -20
