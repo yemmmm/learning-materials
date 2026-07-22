@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dify 企业版 3.10.0 版本特性讲解</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="index.html">
+    <span class="logo">D</span>
+    <span>Dify Enterprise <small>· 版本特性</small></span>
+  </a>
+  <div class="links">
+    <a href="index.html">Overview</a>
+    <a href="3.9.html">3.9</a>
+    <a href="3.10.html" class="active">3.10</a>
+    <a href="3.11.html">3.11</a>
+  </div>
+  <div class="ext"><a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai ↗</a></div>
+</nav>
+
+<header class="chapter-hero">
+  <div class="wrap">
+    <div class="crumb">Dify Enterprise / Maintenance · Non-skippable</div>
+    <h1><span style="color:var(--indigo);">3.10</span>.0</h1>
+    <p class="chlead">
+      3.10.0 是一条 <b>维护分支</b>版本，且<b>不可跳过</b>（Non-skippable，升级路径必须经过它）。
+      这是一个<b>面向生产运维</b>的版本：把企业级可观测性、Redis 高可用、外部向量库与 K8s 弹性扩缩容一次性补齐。
+      对应社区版 <span class="mono">1.14.1</span>、企业层 <span class="mono">0.17.0</span>。<b>升级需停机，含破坏性 DB 迁移</b>。
+    </p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="version" id="v3100">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.10.0</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge maint">Maintenance</span>
+          <span class="badge nonskip">Non-skippable</span>
+          <span class="badge breaking">Breaking · 2</span>
+          <span class="badge neutral">7 新特性 · 13 修复</span>
+          <span class="badge crit">停机 · 必须</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-05-28</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.14.1</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.17.0</b></span>
+      <span><span class="k">commit</span> <b class="mono">7b551da</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">7</span> 新特性</div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">企业可观测性：OpenTelemetry 追踪与指标</span><span class="ft-tag">OTel · 生产运维</span></div>
+        <div class="ft-desc">企业后端服务现在为<b>远程调用和数据库访问</b>统一发出 OpenTelemetry 追踪与指标，便于在生产中精确定位性能瓶颈。通过标准 <code>OTEL_*</code> 环境变量配置，<b>Helm 和 Docker Compose 模板均已更新</b>。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Redis Sentinel 与 Redis Cluster 支持</span><span class="ft-tag">高可用 · Redis</span></div>
+        <div class="ft-desc">企业 Go 服务支持 <b>Redis Sentinel</b>（高可用 Redis）；<b>EVENT_BUS 组件</b>可额外配置使用独立的 <b>Redis Cluster</b>。Helm 与 Docker Compose 用统一的 Redis/MQ schema 支持这些模式。<b>注意：端到端 Redis Cluster 尚未完全支持</b>——目前仅 EVENT_BUS 能独立配置 Redis Cluster。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Helm：外部 PGVector 向量数据库</span><span class="ft-tag">Helm · 向量库</span></div>
+        <div class="ft-desc">Helm Chart 支持配置<b>外部 PGVector 实例</b>作为向量库后端，运维可自主掌控向量存储的部署位置与配置。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Kubernetes：DifyPlugin Scale 子资源，对接 HPA</span><span class="ft-tag">K8s · 弹性</span></div>
+        <div class="ft-desc">DifyPlugin 自定义资源实现了 Kubernetes <b>scale 子资源</b>，客户可直接把 <b>HPA（水平 Pod 自动扩缩容）</b>接到插件部署，<b>无需自定义控制器逻辑</b>。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Kubernetes：动态 Kubeconfig 令牌轮换</span><span class="ft-tag">K8s · 凭据</span></div>
+        <div class="ft-desc">企业服务支持<b>自动 kubeconfig 重载</b>，支持动态令牌轮换场景。此前 kubeconfig 认证不能正确处理令牌刷新，凭据轮换需要重启 pod。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">插件管理：全选工作区</span><span class="ft-tag">管理台 · 效率</span></div>
+        <div class="ft-desc">企业管理台插件管理页支持<b>一次全选所有工作区</b>来安装或分配插件，大型部署不再需要逐个工作区点选。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">工作流：图初始化性能改进</span><span class="ft-tag">性能 · 工作流</span></div>
+        <div class="ft-desc">优化图初始化逻辑，<b>降低多节点复杂工作流的启动延迟</b>。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">13</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt"><b>模型凭据 API SQL 注入防护</b>：<code>CreateCredential</code> / <code>UpdateCredential</code> gRPC 端点对 <code>customer_model_type</code> 做严格白名单校验。此前畸形值（含 SQL 注入字符）会被写入 <code>provider_models</code>，导致下游所有模型相关 API 报错且需手工修库。</span></div>
+        <div class="fixrow"><span class="cat plugin">离线/插件</span><span class="txt"><b>离线（air-gapped）环境</b>：管理后台安装/分配插件不再联系 <code>marketplace.dify.ai</code>（消除 context deadline 超时）；知识库转管道在离线模式不再触发 marketplace 查询（消除 500）。插件安装现在<b>兼容 uv 包管理器</b>；插件守护进程 decode 端点参数位置（body→query/form）修正。</span></div>
+        <div class="fixrow"><span class="cat ctl">凭据/许可</span><span class="txt">工作区凭据<b>多默认值竞态</b>（多人同时设默认）；pod 重启触发 <b>License 误提示重激活</b>（<code>cluster_id</code> 唯一约束冲突，现跳过重复插入）。</span></div>
+        <div class="fixrow"><span class="cat workflow">数据/模型</span><span class="txt"><b>多模态知识库图片浏览器不可访问</b>（URL 用了内部 k8s 主机名 <code>dify-api:5001</code>，改用外部域名）；编辑模型凭据时<b>上下文长度被清空</b>；Dify 升级后<b>密码重置失败</b>（SQLAlchemy session）。</span></div>
+        <div class="fixrow"><span class="cat helm">部署/可观测</span><span class="txt"><b>Collector 因 Postgres 密码含 <code>#</code> 启动崩溃</b>（误解析为端口分隔符）；OTLP 端点校验<b>拒绝带 scheme 的 URL</b>（现已接受 <code>http://</code> / <code>https://</code>）。</span></div>
+        <div class="fixrow"><span class="cat ui">UI</span><span class="txt">代码节点<b>环境变量/输入参数引用在编辑器渲染错误</b>（运行时正常，仅 UI 混乱）；知识库上传对话框<b>最大文件数显示不准</b>。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响（破坏性 · 需停机）</div>
+      <div class="impact-box breaking">
+        <div class="lead">⚠ 本版本需停机，含两处需手动处理的破坏性变更：</div>
+        <p>• <b>Dify DB：model_type 旧值迁移</b>。CE 1.14.1 强制规范数据库中的 <code>model_type</code> 值。若你的库含旧值（<code>text-generation</code> / <code>embeddings</code> / <code>reranking</code>），升级后需在 Dify API 容器内运行 <code>flask data-migrate legacy-model-types</code>。<b>企业 DB 本身无需迁移</b>，完整步骤见 Upgrade Guide 的 Migration Notes。</p>
+        <p>• <b>Docker Compose：新 env_file 架构</b>（对齐 CE 1.14.1）。若用"除 <code>.env</code> 外替换全部文件"的标准流程升级，<b>无需额外操作</b>；若手工管理文件，须确保 <code>envs/enterprise/*</code> 在 <code>.env</code> 中正确设置，否则 Docker Compose 拒绝启动。</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="3.9.html">← 上一章：3.9</a> · <a href="3.11.html">下一章：3.11 →</a></span>
+    <span>数据来源 <a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai</a> · 更新 2026-07-22</span>
+  </div>
+</footer>
+
+</body>
+</html>

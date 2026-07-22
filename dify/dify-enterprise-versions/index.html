@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dify 企业版 3.9–3.11 版本特性讲解</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="index.html">
+    <span class="logo">D</span>
+    <span>Dify Enterprise <small>· 版本特性</small></span>
+  </a>
+  <div class="links">
+    <a href="index.html" class="active">Overview</a>
+    <a href="3.9.html">3.9</a>
+    <a href="3.10.html">3.10</a>
+    <a href="3.11.html">3.11</a>
+  </div>
+  <div class="ext"><a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai ↗</a></div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow"><span class="dot"></span> Dify Enterprise · Release Notes 讲解</span>
+    <h1>Dify 企业版 <span class="grad">3.9 – 3.11</span><br>版本特性逐版本讲解</h1>
+    <p class="lead">
+      覆盖 Dify 企业版 <b>3.9.0 → 3.11.1</b> 共 12 个版本的<b>新特性、关键修复与升级影响</b>。
+      每个版本都讲清楚"是什么、好在哪、怎么用/怎么升"。数据源自官方发布站
+      <a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai</a>，中文翻译提炼。
+    </p>
+    <div class="meta-row">
+      <span class="badge lts">3 条版本线</span>
+      <span class="badge neutral">12 个版本</span>
+      <span class="badge latest">最新 · 3.11.1</span>
+      <span class="badge rec">推荐 LTS · 3.9.8</span>
+      <span class="badge nonskip">2 个不可跳过版本</span>
+    </div>
+  </div>
+</header>
+
+<!-- 三章入口 -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>按版本线阅读</h2>
+      <span class="tag">3 chapters</span>
+      <span class="rule"></span>
+    </div>
+    <div class="chapters">
+
+      <a class="chapter-card" href="3.9.html" style="--bc: rgba(56,189,248,.4); --gc: rgba(56,189,248,.12); --vc: var(--sky);">
+        <div class="ver"><span class="dot">3.</span>9</div>
+        <div class="lbl"><span class="badge lts">LTS · 长期支持</span></div>
+        <h3>3.9.0 → 3.9.8（9 个版本）</h3>
+        <p>稳定的 LTS 长期支持线。首发引入 HITL 人工审核节点与 Celery worker 化执行；后续以安全加固、性能调优（TTFE）和 Redis 高可用为主。</p>
+        <span class="goto">查看 9 个版本 <span class="arr">→</span></span>
+      </a>
+
+      <a class="chapter-card" href="3.10.html" style="--bc: rgba(129,140,248,.4); --gc: rgba(129,140,248,.12); --vc: var(--indigo);">
+        <div class="ver"><span class="dot">3.</span>10</div>
+        <div class="lbl"><span class="badge maint">Maintenance</span> <span class="badge nonskip">Non-skippable</span></div>
+        <h3>3.10.0（单版本）</h3>
+        <p>面向生产运维的版本：企业级 OpenTelemetry 可观测性、Redis Sentinel/Cluster 高可用、外部 PGVector、HPA 扩缩容与 kubeconfig 令牌轮换。</p>
+        <span class="goto">查看 3.10.0 <span class="arr">→</span></span>
+      </a>
+
+      <a class="chapter-card" href="3.11.html" style="--bc: rgba(74,222,128,.4); --gc: rgba(74,222,128,.12); --vc: var(--green);">
+        <div class="ver"><span class="dot">3.</span>11</div>
+        <div class="lbl"><span class="badge latest">Latest</span> <span class="badge maint">Maintenance</span></div>
+        <h3>3.11.0 / 3.11.1</h3>
+        <p>最新能力线：工作区 <b>RBAC 角色权限</b>、difyctl 命令行客户端、CoT 推理可视化、长时模型支持，以及实时多人工作流协作编辑。</p>
+        <span class="goto">查看 3.11.x <span class="arr">→</span></span>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<!-- 发布时间线 -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>发布时间线</h2>
+      <span class="tag">2026-03 → 2026-07</span>
+      <span class="rule"></span>
+    </div>
+
+    <div class="timeline">
+
+      <div class="tl-item major" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.0</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">Mar 31, 2026</span>
+        </div>
+        <div class="tl-note">LTS 线首发。8 项新特性：<b>HITL 人工审核节点</b>、工作流执行迁入 Celery worker、MCP 用量元数据、批量 DSL 导入导出、专用嵌入 worker。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.1</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">Apr 13, 2026</span>
+        </div>
+        <div class="tl-note">2 项新特性：每服务独立外部数据库凭据、Azure Blob 托管标识支持。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.2</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">Apr 28, 2026</span>
+        </div>
+        <div class="tl-note">纯安全/修复版本（无新特性）。Chainguard 基础镜像、OpenSearch 修复、Go 1.26.2。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.3</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">May 8, 2026</span>
+        </div>
+        <div class="tl-note">安全 + 修复。多域图片 URL、凭据默认值、Helm/Docker Compose 队列配置修复。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.4</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">May 21, 2026</span>
+        </div>
+        <div class="tl-note">安全 + 性能。<b>TTFE 优化</b>、可配置 <code>EVENT_BUS_LISTENER_JOIN_TIMEOUT_MS</code> 降低运行后延迟。</div>
+      </div>
+
+      <div class="tl-item major" style="--tc: var(--indigo);">
+        <div class="tl-head">
+          <span class="tl-ver">3.10.0</span>
+          <span class="badge maint">Maintenance</span>
+          <span class="badge nonskip">Non-skippable</span>
+          <span class="tl-date">May 28, 2026</span>
+        </div>
+        <div class="tl-note">7 项新特性：<b>企业 OTel 可观测性</b>、Redis Sentinel/Cluster、外部 PGVector、HPA 扩缩容。需停机，含破坏性 DB 迁移。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.5</span>
+          <span class="badge lts">LTS</span>
+          <span class="badge clean">Security Clean</span>
+          <span class="tl-date">Jun 4, 2026</span>
+        </div>
+        <div class="tl-note">安全版本。CVE-2026-41947 租户隔离修复、Sandbox 升级 0.2.15（Chainguard，需 Linux 4.18+）。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.6</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">Jun 15, 2026</span>
+        </div>
+        <div class="tl-note">2 项新特性：Markdown <code>ALLOW_INLINE_STYLES</code>、RAG 检索 OTel 追踪。</div>
+      </div>
+
+      <div class="tl-item major" style="--tc: var(--green);">
+        <div class="tl-head">
+          <span class="tl-ver">3.11.0</span>
+          <span class="badge maint">Maintenance</span>
+          <span class="tl-date">Jun 30, 2026</span>
+        </div>
+        <div class="tl-note">8 项新特性：<b>工作区 RBAC</b>、difyctl CLI、CoT 推理可视化、长时模型支持。需停机 + 强制迁移。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.7</span>
+          <span class="badge lts">LTS</span>
+          <span class="tl-date">Jul 1, 2026</span>
+        </div>
+        <div class="tl-note">1 项新特性：Redis 高可用重试逻辑（Sentinel/Cluster）。非破坏性。</div>
+      </div>
+
+      <div class="tl-item" style="--tc: var(--sky);">
+        <div class="tl-head">
+          <span class="tl-ver">3.9.8</span>
+          <span class="badge lts">LTS</span>
+          <span class="badge rec">Recommended</span>
+          <span class="tl-date">Jul 15, 2026</span>
+        </div>
+        <div class="tl-note">推荐 LTS。SSRF 代理加固、邮箱规范化、试用应用注册校验等安全修复。非破坏性。</div>
+      </div>
+
+      <div class="tl-item major" style="--tc: var(--green);">
+        <div class="tl-head">
+          <span class="tl-ver">3.11.1</span>
+          <span class="badge latest">Latest</span>
+          <span class="badge nonskip">Non-skippable</span>
+          <span class="tl-date">Jul 15, 2026</span>
+        </div>
+        <div class="tl-note">2 项新特性：<b>实时多人工作流协作编辑</b>、Admin API RBAC 支持。非破坏性（但 &lt;3.11.0 需先做 3.11.0 迁移）。</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- 图例 -->
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>版本类型图例</h2>
+      <span class="rule"></span>
+    </div>
+    <div class="legend">
+      <div class="item"><span class="badge lts">LTS</span> 长期支持版，6 个月支持周期，安全补丁维护</div>
+      <div class="item"><span class="badge rec">Recommended</span> 官方推荐的当前 LTS 版本</div>
+      <div class="item"><span class="badge latest">Latest</span> 最新发布版本</div>
+      <div class="item"><span class="badge nonskip">Non-skippable</span> 不可跳过：必须经过此版本才能继续升级</div>
+      <div class="item"><span class="badge maint">Maintenance</span> 维护分支版本</div>
+      <div class="item"><span class="badge breaking">Breaking</span> 含破坏性变更，升级需手动处理</div>
+    </div>
+
+    <div class="callout">
+      <b>关于版本号对应：</b> Dify 企业版版本号（如 3.11.1）对应社区版 <span class="mono">1.15.0</span> 与企业层
+      <span class="mono">0.18.1</span>，各版本对应关系详见各章节页。<br>
+      <b>数据来源：</b> <a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai</a>
+      （Dify Enterprise 发布信息站）。企业版 release 信息为机密，仅作内部学习参考。
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>归档于个人资料库 · <a href="../notes/dify-enterprise-versions-design.md">设计文档</a></span>
+    <span>数据更新：2026-07-22 · 来源 <a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dify 企业版 3.9.x 版本特性讲解</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="index.html">
+    <span class="logo">D</span>
+    <span>Dify Enterprise <small>· 版本特性</small></span>
+  </a>
+  <div class="links">
+    <a href="index.html">Overview</a>
+    <a href="3.9.html" class="active">3.9</a>
+    <a href="3.10.html">3.10</a>
+    <a href="3.11.html">3.11</a>
+  </div>
+  <div class="ext"><a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai ↗</a></div>
+</nav>
+
+<header class="chapter-hero">
+  <div class="wrap">
+    <div class="crumb">Dify Enterprise / LTS 长期支持线</div>
+    <h1><span class="accent">3.9</span>.x <span style="color:var(--dim);font-size:.6em;font-weight:500;"> LTS</span></h1>
+    <p class="chlead">
+      Dify 企业版 3.9 是当前的<b>长期支持（LTS）线</b>，覆盖 <span class="mono">3.9.0 → 3.9.8</span> 共 9 个版本。
+      3.9.0 作为 LTS 首发引入了 HITL 人工审核、Celery worker 化执行等重磅能力；后续版本以<b>安全加固、性能调优（TTFE）和 Redis 高可用</b>为主。
+      对应社区版 <span class="mono">1.13.x</span>。
+    </p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="vernav">
+    <span class="vlabel">跳转到版本</span>
+    <a href="#v390">3.9.0</a>
+    <a href="#v391">3.9.1</a>
+    <a href="#v392">3.9.2</a>
+    <a href="#v393">3.9.3</a>
+    <a href="#v394">3.9.4</a>
+    <a href="#v395">3.9.5</a>
+    <a href="#v396">3.9.6</a>
+    <a href="#v397">3.9.7</a>
+    <a href="#v398">3.9.8</a>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- ============================ 3.9.0 ============================ -->
+  <section class="version" id="v390">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.0</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge breaking">Breaking · 3</span>
+          <span class="badge neutral">8 新特性 · 13 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-03-31</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.0</b></span>
+      <span><span class="k">支持至</span> <b>2026-12-31</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">8</span> 新特性</div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Human-in-the-Loop：人工输入节点</span><span class="ft-tag">HITL · 工作流</span></div>
+        <div class="ft-desc">工作流现在可以在<b>任意节点暂停</b>，等待人工审核后再继续。新增的 <b>Human Input 节点</b>让你在流程图里直接插入审核步骤：审核者可查看 AI 输出、编辑变量，并通过自定义按钮（如"批准 / 拒绝 / 升级"）决定流程走向。表单通过 Webapp 或邮件送达，<b>暂停的运行在收到响应后自动恢复</b>。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">工作流执行迁入 Celery Worker</span><span class="ft-tag">架构 · 可扩展性</span></div>
+        <div class="ft-desc">基于工作流的流式执行和高级聊天执行从 API 进程移到了 <b>Celery worker</b>，提升了可扩展性，也是上面 HITL 暂停/恢复的前提。<b>部署必须新增 <code>workflow_based_app_execution</code> 队列</b>（Helm values 或 Docker Compose 都要有 worker 消费这个队列），否则流式执行不会被处理。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">MCP 工具用量元数据提取</span><span class="ft-tag">MCP · 可观测性</span></div>
+        <div class="ft-desc">MCP 工具集成现在会从工具响应中<b>提取并暴露 token 与成本用量元数据</b>，可在工作流运行中追踪和归因 MCP 服务的资源消耗。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Service API：终端用户查询接口</span><span class="ft-tag">Admin / Service API</span></div>
+        <div class="ft-desc">新增 Service API 接口，可在指定租户和应用范围内<b>查询终端用户</b>，便于编程化构建用户管理集成和审计流程。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Admin API：批量 DSL 导入导出</span><span class="ft-tag">Admin API</span></div>
+        <div class="ft-desc">Admin API 新增<b>批量导入导出应用 DSL 文件</b>的接口，加速应用在工作区之间的迁移、备份和批量配置。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Helm：Celery 队列拆分，专用嵌入 Worker</span><span class="ft-tag">Helm · 知识库</span></div>
+        <div class="ft-desc">Helm Chart 支持将 Celery 队列拆分为<b>独立配置资源的专用 worker</b>。管理员可为知识库嵌入（embedding）任务单独分配计算资源，<b>解决大文档处理极慢</b>的问题。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">荷兰语（nl-NL）支持</span><span class="ft-tag">本地化</span></div>
+        <div class="ft-desc">后端语言映射和前端本地化资源新增<b>荷兰语</b>。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">企业遥测改进</span><span class="ft-tag">可观测性</span></div>
+        <div class="ft-desc">企业特定的遥测增强整合进主代码库，为企业版部署提供更好的可观测性和用量追踪。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">13</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt"><b>登出后 Access Token 仍有效</b>：用户登出后令牌未失效，现已在登出时正确撤销；多组件 <b>CVE 修复</b>（API / 企业采集器 / 前端 / sandbox / web）。</span></div>
+        <div class="fixrow"><span class="cat plugin">插件</span><span class="txt">企业管理台<b>插件版本升降级返回 404</b>（已分配工作区的插件）；插件管理页<b>未显示未分配工作区的已装插件</b>；插件版本变更后<b>凭据在工作流编辑器中不可选</b>（不再需重新分配）。</span></div>
+        <div class="fixrow"><span class="cat ctl">凭据</span><span class="txt">凭据策略 API <b>并发读取优化</b>解决高延迟；PUT 接口曾接受<b>无效插件 ID</b>（如畸形三段式），导致后续读写全部 500、需手工修库。</span></div>
+        <div class="fixrow"><span class="cat workflow">工作流/API</span><span class="txt">OTel 端点 URL 校验曾<b>拒绝带路径的有效 URL</b>（如 LangSmith）；<b>OpenAI 新模型凭据</b>（GPT-5.2+ 已废弃 <code>max_tokens</code> 改用 <code>max_completion_tokens</code>）报 400；Helm 升级后<b>工作区列表加载缓慢</b>。</span></div>
+        <div class="fixrow"><span class="cat helm">Helm/运行时</span><span class="txt"><b>自定义 CA 证书未下发到采集器</b>导致出站 TLS 失败；创建用户组误报"已存在"+500；企业组件 <b>Go 运行时升级</b>，提升性能并修复标准库安全问题。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响（含破坏性变更）</div>
+      <div class="impact-box breaking">
+        <div class="lead">⚠ 破坏性变更，升级前需处理：</div>
+        <p>• <b>内置 MinIO 替换为企业对象存储（OSS）</b>：因开源 MinIO 不再活跃维护，Helm Chart 中捆绑的 MinIO 被替换为轻量内置企业 OSS。依赖原 MinIO 的部署需检查 Helm values 的存储配置。</p>
+        <p>• <b>移除若干向量库与追踪集成</b>：AnalyticDB、Tablestore、ClickZetta 向量库集成与 Wandb Weave 追踪集成不再包含在当前 LTS 企业版镜像中。仍需使用的可改用社区版镜像（需自行承担安全风险）。</p>
+        <p>• <b>Sandbox：Python 3.10 → 3.14</b>：代码执行沙箱镜像升级，<b>自定义工作流代码、锁定的依赖、第三方 wheel 可能需更新并重新测试</b>后再上生产。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.1 ============================ -->
+  <section class="version" id="v391">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.1</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge breaking">Breaking · 3</span>
+          <span class="badge neutral">2 新特性 · 0 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-04-13</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.1</b></span>
+      <span><span class="k">commit</span> <b class="mono">3bd6f1a</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">2</span> 新特性</div>
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">数据库配置：每服务独立的外部数据库凭据</span><span class="ft-tag">部署 · 安全</span></div>
+        <div class="ft-desc">企业部署现在可以为<b>每个外部数据库单独配置用户名和密码</b>，不再所有服务共享一套凭据，更易满足严格的数据库访问策略和服务级凭据隔离要求。</div>
+      </div>
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Azure Blob：托管标识支持</span><span class="ft-tag">存储 · Azure</span></div>
+        <div class="ft-desc">Azure Blob 存储集成现在支持用 <b>Azure 托管标识（Managed Identity）</b>认证。Helm Chart 也增加了企业审计和插件守护进程工作负载所需的 pod 标签与 service account 配置，<b>无需再存储静态凭据</b>。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响</div>
+      <div class="impact-box breaking">
+        <div class="lead">⚠ 移除集成需镜像审查 + 两个 hotfix：</div>
+        <p>• 同 3.9.0，AnalyticDB / Tablestore / ClickZetta / Wandb Weave 不在标准企业 <code>dify-api</code> 镜像中，需用 <code>dify-ee-api-insecure:3.9.1</code> 替代（自担风险）。<b>3.9.2 会把 AnalyticDB 与 Tablestore 加回标准镜像。</b></p>
+        <p>• <b>OpenSearch 向量库触发 ImportError</b>：使用 patched 镜像 <code>dify-ee-api:3.9.1-hotfix-20260422</code>。</p>
+        <p>• <b>工作流运行实例化性能 hotfix</b>（缓存凭据）：<code>dify-ee-api:3.9.1-hotfix-20260423-2</code>。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.2 ============================ -->
+  <section class="version" id="v392">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.2</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge breaking">Breaking · 1</span>
+          <span class="badge neutral">0 新特性 · 8 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-04-28</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">d666fb1</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">0</span> 新特性</div>
+      <div class="no-features">本版本为<b>安全与修复版本</b>，无新功能。聚焦供应链安全、依赖维护与稳定性修复。</div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">8</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt">整合社区 LTS 分支的 <b>CVE 相关补丁</b>；企业镜像在适用的地方改用 <b>Chainguard 基础镜像</b>，强化供应链 provenance、降低常规基础层漏洞暴露。</span></div>
+        <div class="fixrow"><span class="cat plugin">插件</span><span class="txt"><b>decode-plugin 调用改用 multipart 表单</b>（而非 JSON body），匹配插件守护进程新契约；修复 OpenSearch 向量库的 <b>ImportError</b>（向量模块遮蔽了应用 events 包）。</span></div>
+        <div class="fixrow"><span class="cat helm">Helm</span><span class="txt">修正插件守护进程 <code>extraEnv</code> 的 YAML 缩进，避免渲染出非法 manifest。</span></div>
+        <div class="fixrow"><span class="cat perf">性能</span><span class="txt"><b>工作流图初始化加速</b>：相同模型的多个 LLM 节点不再重复查询凭据（缓存改进），含大量此类节点的流程首次运行延迟降低。</span></div>
+        <div class="fixrow"><span class="cat ctl">维护</span><span class="txt">审计镜像补 <code>tzdata</code>，修复审计日志导出；Go 组件工具链升级到 <b>1.26.2</b>。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响</div>
+      <div class="impact-box breaking">
+        <div class="lead">⚠ 默认 API 镜像瘦身：</div>
+        <p>为缩小攻击面，<b>Weights &amp; Biases（wandb）追踪与 ClickZetta 向量库</b>不再包含在默认 API 镜像中。仍需这两个集成的，使用 <code>dify-ee-api-insecure:3.9.2</code>（保留旧行为，但带额外已知漏洞）。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.3 ============================ -->
+  <section class="version" id="v393">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.3</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge breaking">Breaking · 3</span>
+          <span class="badge neutral">0 新特性 · 6 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-05-08</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">f3d4605</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">0</span> 新特性</div>
+      <div class="no-features">本版本为<b>安全与修复版本</b>，无新功能。</div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">6</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt">修复前一版本的若干漏洞（详见完整 CVE 报告）。</span></div>
+        <div class="fixrow"><span class="cat ui">多域/UI</span><span class="txt"><b>多域部署图片 URL 生成不一致</b>：<code>attachments.source_url</code> 误用控制台域名而非 <code>FILES_URL</code>，导致图片加载 404。</span></div>
+        <div class="fixrow"><span class="cat ctl">凭据</span><span class="txt"><b>多个成员可各自设同一工具的默认凭据</b>，现强制每个工作区每个 provider 只能有一个默认凭据（租户级）。</span></div>
+        <div class="fixrow"><span class="cat helm">部署</span><span class="txt"><code>plugin-manager.yaml</code> 的 YAML 缩进错误导致 Helm 部署失败；Docker Compose 升级后<b>缺失 <code>workflow_based_app_execution</code> 队列配置</b>，工作流/聊天流预览无限挂起。</span></div>
+        <div class="fixrow"><span class="cat workflow">可观测</span><span class="txt">OTLP 端点校验曾<b>拒绝带 scheme 的 URL</b>（http/https），阻断阿里云 ARMS 等集成；现接受完整 URL 并从 scheme 推导 TLS。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响</div>
+      <div class="impact-box breaking">
+        <p>• 同前：<b>W&amp;B tracing 与 ClickZetta</b> 默认镜像移除，需 insecure 镜像。</p>
+        <p>• <b>Hotfix <code>3.9.3-hotfix-20260512</code></b>：支持 <code>ENTERPRISE_DISABLE_RUNTIME_CREDENTIAL_CHECK=true</code> 跳过运行时凭据校验，修复 #35910。</p>
+        <p>• <b>Hotfix <code>3.9.3-hotfix-20260515</code></b>：改进缓存效率、减少数据库往返，<b>降低 TTFE（首事件时延）</b>。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.4 ============================ -->
+  <section class="version" id="v394">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.4</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge breaking">Breaking · 1</span>
+          <span class="badge neutral">0 新特性 · 3 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-05-21</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">c5d8c00</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">0</span> 新特性</div>
+      <div class="no-features">本版本为<b>安全与性能版本</b>，无新功能。重点是<b>响应延迟优化</b>。</div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">3</span> 安全与性能</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt">修复前一版本若干漏洞（详见 CVE 报告）。</span></div>
+        <div class="fixrow"><span class="cat perf">性能</span><span class="txt"><b>TTFE 优化</b>：通过缓存优化和减少数据库往返，降低首事件时延，LTS 3.9.x 全线响应更快。</span></div>
+        <div class="fixrow"><span class="cat perf">延迟</span><span class="txt">新增可配置 <code>EVENT_BUS_LISTENER_JOIN_TIMEOUT_MS</code>，可缩短聊天流运行结束后的<b>空闲延迟</b>（用优雅断流换取更低收尾延迟，<b>100 是合理值</b>）。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响</div>
+      <div class="impact-box breaking"><p>同前：<b>W&amp;B tracing 与 ClickZetta</b> 默认镜像移除。</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.5 ============================ -->
+  <section class="version" id="v395">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.5</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge clean">Security Clean</span>
+          <span class="badge breaking">Breaking · 4</span>
+          <span class="badge neutral">0 新特性 · 2 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-06-04</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">8be9c5f</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">0</span> 新特性</div>
+      <div class="no-features">本版本为<b>纯安全版本</b>（Security Clean），无新功能。</div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">2</span> 安全修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">租户隔离</span><span class="txt"><b>CVE-2026-41947</b>：从社区 v1.14.2 回溯 trace-config 端点的<b>租户隔离修复</b>。防止已认证 Editor 用户绕过租户边界修改任意应用 trace 配置（可能导致数据泄露）。</span></div>
+        <div class="fixrow"><span class="cat security">沙箱</span><span class="txt">Sandbox 升级到 <b>0.2.15 + Chainguard 基础镜像</b>，修复多个 CVE，改善安全姿态、缩小攻击面。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响（破坏性较多，务必阅读）</div>
+      <div class="impact-box breaking">
+        <p>• 同前：<b>W&amp;B tracing 与 ClickZetta</b> 默认镜像移除。</p>
+        <p>• <b>Sandbox：<code>PYTHON_LIB_PATH</code> → <code>SYSTEM_LIB_REQUIREMENTS</code></b>，自定义沙箱配置需更新变量名。</p>
+        <p>• <b>Sandbox 需 Linux 内核 4.18+</b>（Chainguard 基础镜像要求）。旧内核且无法升级的，可将 sandbox 镜像 tag 锁定到 <code>dify-ee-sandbox:3.9.4</code> 回退。</p>
+        <p>• <b>Hotfix <code>3.9.5-hotfix-20260609</code></b>：初始版本未完全修复 <b>CVE-2026-41948（插件守护进程路径遍历）</b>，务必使用此 hotfix 镜像。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.6 ============================ -->
+  <section class="version" id="v396">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.6</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge breaking">Breaking · 1</span>
+          <span class="badge neutral">2 新特性 · 3 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-06-15</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.3</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">18211c1</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">2</span> 新特性</div>
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Markdown 渲染：ALLOW_INLINE_STYLES</span><span class="ft-tag">渲染 · 可配置</span></div>
+        <div class="ft-desc">新增 <code>ALLOW_INLINE_STYLES</code> 环境变量，允许 Markdown 渲染<b>保留内联 CSS 样式</b>（而非默认剥离），使聊天响应和知识库文档支持更丰富的格式。</div>
+      </div>
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">RAG 知识检索 OpenTelemetry 追踪</span><span class="ft-tag">可观测性 · RAG</span></div>
+        <div class="ft-desc">为 RAG（检索增强生成）<b>知识检索管道添加 OTel 追踪 span</b>，可见检索性能，便于运维诊断知识召回延迟、对比不同版本表现。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">3</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat workflow">聊天流</span><span class="txt">Chatflow Service API 在<b>传入不存在的会话 ID 时无限挂起</b>，现改为新建会话；<b>聊天流图片刷新后从历史消失</b>，现已正确持久化展示。</span></div>
+        <div class="fixrow"><span class="cat ctl">密码</span><span class="txt">密码重置触发 <b>500（SQLAlchemy DetachedInstanceError）</b>，已修正 ORM session 处理。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响</div>
+      <div class="impact-box breaking"><p>同前：<b>W&amp;B tracing 与 ClickZetta</b> 默认镜像移除。</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.7 ============================ -->
+  <section class="version" id="v397">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.7</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge safe">非破坏性</span>
+          <span class="badge neutral">1 新特性 · 4 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-07-01</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.x</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">89fb932</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">1</span> 新特性</div>
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Redis：高可用重试逻辑</span><span class="ft-tag">高可用 · Redis</span></div>
+        <div class="ft-desc">所有 Redis 客户端构造路径（standalone / Sentinel / Cluster / pub-sub）都加入了<b>共享的重试/退避与连接健康策略</b>。在主节点故障转移和瞬时网络抖动时更具韧性，<b>无需在每个调用点写应用级重试</b>。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">4</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">HTTP 节点</span><span class="txt">关闭"校验 SSL 证书"在配置了 SSRF 代理时<b>不生效</b>（回归），现已正确透传到各 scheme 代理传输。</span></div>
+        <div class="fixrow"><span class="cat ui">Web App</span><span class="txt">终端用户头像显示为<b>纯黑色</b>，已修复。</span></div>
+        <div class="fixrow"><span class="cat workflow">表单</span><span class="txt">streamdown 重构引入的回归：<b>中文/Unicode 表单字段名被正则静默丢弃</b>，破坏依赖非 ASCII 字段名的既有工作流。</span></div>
+        <div class="fixrow"><span class="cat ctl">SSO/SCIM</span><span class="txt">关闭自动创建工作区时，<b>即使存在默认工作区也无法登录</b>；现已允许只要有默认工作区即可认证。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">✓</span> 升级影响</div>
+      <div class="impact-box safe"><div class="lead">✓ 非破坏性</div><p>仅 Bug 修复与 Redis HA 改进，无破坏性变更。</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.9.8 ============================ -->
+  <section class="version" id="v398">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.9.8</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge lts">LTS</span>
+          <span class="badge rec">Recommended</span>
+          <span class="badge safe">非破坏性</span>
+          <span class="badge neutral">0 新特性 · 6 修复</span>
+          <span class="badge safe">停机 · 无</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-07-15</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.13.x</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.16.x</b></span>
+      <span><span class="k">commit</span> <b class="mono">82ab9b2</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">0</span> 新特性</div>
+      <div class="no-features">本版本为<b>当前推荐的 LTS 版本</b>，聚焦安全加固与稳定性修复，无新功能。</div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">6</span> 安全与修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">SSRF</span><span class="txt"><b>加固默认 SSRF 代理出站</b>：在一般出站前拒绝 loopback / 私网 / CGN / link-local / ULA / 多播 / 保留 / 云元数据目标网段，不再依赖 Squid 镜像内置 allow 规则。新增 <code>SSRF_PROXY_ALLOW_PRIVATE_IPS</code> / <code>SSRF_PROXY_ALLOW_PRIVATE_DOMAINS</code> 作为可信私网部署的逃生口。</span></div>
+        <div class="fixrow"><span class="cat security">访问控制</span><span class="txt"><b>试用应用须注册后才能读取</b>，关闭未注册试用应用可被读取的缺口；成员/管理服务新增<b>严格邮箱规范化</b>（仅拉丁、去空格、拒绝非法格式），防邮箱绕过。</span></div>
+        <div class="fixrow"><span class="cat security">CVE</span><span class="txt">更新有补丁的可修复依赖（注：<code>quick-xml</code> 经 uv、<code>nltk</code> 仍无上游补丁）。</span></div>
+        <div class="fixrow"><span class="cat ui">UI</span><span class="txt">共享 WebApp 在 <code>/site</code> / <code>/parameters</code> / <code>/meta</code> 后台重取时内容被卸载<b>导致表单输入丢失</b>，现保持挂载；修复 streamdown 表格全屏缺失样式。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">✓</span> 升级影响</div>
+      <div class="impact-box safe"><div class="lead">✓ 非破坏性 · 推荐升级</div><p>安全与 Bug 修复，无破坏性变更。作为推荐 LTS，建议 3.9.x 用户升级到此版本。</p></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="index.html">← 返回总览</a> · <a href="3.10.html">下一章：3.10 →</a></span>
+    <span>数据来源 <a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai</a> · 更新 2026-07-22</span>
+  </div>
+</footer>
+
+</body>
+</html>

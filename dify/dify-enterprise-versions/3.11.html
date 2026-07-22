@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dify 企业版 3.11.x 版本特性讲解</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <a class="brand" href="index.html">
+    <span class="logo">D</span>
+    <span>Dify Enterprise <small>· 版本特性</small></span>
+  </a>
+  <div class="links">
+    <a href="index.html">Overview</a>
+    <a href="3.9.html">3.9</a>
+    <a href="3.10.html">3.10</a>
+    <a href="3.11.html" class="active">3.11</a>
+  </div>
+  <div class="ext"><a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai ↗</a></div>
+</nav>
+
+<header class="chapter-hero">
+  <div class="wrap">
+    <div class="crumb">Dify Enterprise / Latest · 最新能力线</div>
+    <h1><span style="color:var(--green);">3.11</span>.x <span style="color:var(--dim);font-size:.6em;font-weight:500;"> Latest</span></h1>
+    <p class="chlead">
+      3.11 是 Dify 企业版的<b>最新能力线</b>。3.11.0 引入了<b>工作区 RBAC 角色权限</b>、difyctl 命令行客户端、CoT 推理可视化等重磅能力（需停机 + 强制迁移）；
+      3.11.1 则带来了<b>实时多人工作流协作编辑</b>，是当前<b>最新发布版本</b>。对应社区版 <span class="mono">1.15.0</span>。
+    </p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="vernav">
+    <span class="vlabel">跳转到版本</span>
+    <a href="#v3110">3.11.0</a>
+    <a href="#v3111">3.11.1</a>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- ============================ 3.11.0 ============================ -->
+  <section class="version" id="v3110">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.11.0</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge maint">Maintenance</span>
+          <span class="badge breaking">Breaking · 3</span>
+          <span class="badge neutral">8 新特性 · 2 修复</span>
+          <span class="badge crit">停机 · 必须</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-06-30</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.15.0</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.18.0</b></span>
+      <span><span class="k">commit</span> <b class="mono">64e29f2</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">8</span> 新特性</div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">RBAC：工作区角色权限控制</span><span class="ft-tag">★ 重磅 · 权限</span></div>
+        <div class="ft-desc">工作区现在支持<b>细粒度角色权限控制（RBAC）</b>。管理员可定义<b>自定义角色和权限集</b>，分配资源级访问（应用、知识库、工具、凭据、监控），并从工作区 UI 和企业管理台双向管理角色分配。包含：<b>系统预设角色、多语言角色/权限模板、资源默认访问策略、按资源 ACL</b>。关闭 RBAC 时回退到旧的固定角色行为。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">difyctl：命令行客户端</span><span class="ft-tag">CLI · 效率</span></div>
+        <div class="ft-desc">新增命令行客户端，<b>无需 web UI 即可直接从终端调用应用和工作流</b>。支持 macOS、Linux、Windows，发布带校验和（checksum）验证。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">CoT 思维链推理可视化</span><span class="ft-tag">推理模型 · 体验</span></div>
+        <div class="ft-desc">聊天流和工作流现在可把<b>模型推理过程流式输出到专门的"思考"面板</b>，同时保持最终答案干净。推理内容<b>跨页面刷新持久化</b>，并在 CLI 和工作流预览中一致显示。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">HITL：下拉选择与文件上传</span><span class="ft-tag">HITL · 表单</span></div>
+        <div class="ft-desc">工作流暂停表单在文本输入之外，现在还支持<b>下拉选择和文件上传</b>，审核者可在人工审核步骤给出结构化响应并附带文件。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">长时模型支持</span><span class="ft-tag">工作流 · 多模态</span></div>
+        <div class="ft-desc">工作流现在通过<b>轮询</b>容纳慢模型（如图像、视频生成），<b>等待结果而非超时</b>失败。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">知识导入：Excel 内嵌图片提取</span><span class="ft-tag">知识库 · RAG</span></div>
+        <div class="ft-desc">知识导入现在会<b>提取 Excel 文件内嵌的图片</b>，此前被丢弃的图示类内容得以保留进知识库。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">可观测性：自定义追踪会话 ID 与检索追踪</span><span class="ft-tag">可观测性</span></div>
+        <div class="ft-desc">用户可为 Phoenix 设置<b>自定义追踪会话 ID</b>，<b>文档检索步骤现在也可追踪</b>，提升 RAG 透明度。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">社区版 1.15.0 基础</span><span class="ft-tag">基线升级</span></div>
+        <div class="ft-desc">本版本将 Dify 基线升级到<b>社区版 1.15.0</b>，所有上游 1.15.0 的特性与修复都纳入企业发行版。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">2</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt"><b>CVE-2026-41948</b>：修复插件守护进程请求转发中的<b>路径遍历漏洞</b>（继承自社区版 1.15.0 基线）。</span></div>
+        <div class="fixrow"><span class="cat workflow">稳定性</span><span class="txt"><b>工作流与 RAG 稳定性改进</b>：加固 HTTP 超时、修复向量库兼容性问题、细化工作流执行错误处理，并降低工作流启动与终止延迟。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">!</span> 升级影响（破坏性 · 必须迁移，否则宕机）</div>
+      <div class="impact-box breaking">
+        <div class="lead">⚠ 本版本需停机，且必须运行数据库迁移——迁移完成前应用不可用：</div>
+        <p>迁移未完成时：<b>工作区成员没有 RBAC 角色（拒绝访问）、数据集权限未映射到 RBAC、插件自动升级状态未初始化</b>。请安排维护窗口，<b>升级后立即运行全部迁移、再恢复流量</b>。</p>
+        <p>• <b>RBAC 成员角色迁移（必须）</b>：<code>flask rbac-migrate-member-roles</code>。不运行则现有成员映射不到任何 RBAC 角色、全工作区访问被拒，应用实质宕机。</p>
+        <p>• <b>RBAC 数据集权限迁移（必须）</b>：<code>flask rbac-migrate-dataset-permissions --apply</code>。不运行则旧数据集权限（all-team / partial-members / only-me）未映射到 RBAC，知识库访问错误。</p>
+        <p>• <b>插件自动升级回填（必须）</b>：<code>flask backfill-plugin-auto-upgrade</code>，为既有安装初始化插件自动升级状态。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ 3.11.1 ============================ -->
+  <section class="version" id="v3111">
+    <div class="v-top">
+      <div class="v-num"><span class="pre">v</span>3.11.1</div>
+      <div>
+        <div class="v-badges">
+          <span class="badge latest">Latest</span>
+          <span class="badge nonskip">Non-skippable</span>
+          <span class="badge safe">非破坏性</span>
+          <span class="badge neutral">2 新特性 · 6 修复</span>
+          <span class="badge high">停机 · 短暂</span>
+        </div>
+      </div>
+    </div>
+    <div class="v-meta">
+      <span><span class="k">发布</span> <b>2026-07-15</b></span>
+      <span><span class="k">社区版</span> <b class="mono">1.15.0</b></span>
+      <span><span class="k">企业层</span> <b class="mono">0.18.1</b></span>
+      <span><span class="k">commit</span> <b class="mono">56bf682</b></span>
+    </div>
+
+    <div class="block">
+      <div class="block-title features"><span class="pill">2</span> 新特性</div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">工作流协作：实时多人编辑</span><span class="ft-tag">★ 重磅 · 协作</span></div>
+        <div class="ft-desc">实时多人工作流编辑在企业版<b>正式可用（GA）</b>。多名编辑者可通过<b>专用 Socket.IO websocket 服务</b>同时编辑同一个工作流。协作通过 Helm 的 <code>collaboration.enabled</code> 开关启用，<b>需 Dify 企业版 3.11.1 或更高版本</b>。</div>
+      </div>
+
+      <div class="feature">
+        <div class="ft-head"><span class="ft-title">Admin API：RBAC 支持</span><span class="ft-tag">Admin API · 自动化</span></div>
+        <div class="ft-desc">企业 Admin API 现在支持 RBAC，<b>可通过 Admin API 编程管理工作区成员角色与权限</b>（除控制台 UI 之外的又一条路径），便于自动化配置管理。</div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title fixes"><span class="pill">6</span> 问题修复</div>
+      <div class="fixtable">
+        <div class="fixrow"><span class="cat security">安全</span><span class="txt"><b>SQL 注入加固</b>（加固查询构造 + 元数据 key 校验，关闭继承自社区版的注入向量）；<b>CVE 依赖修复</b>（<code>python-socketio</code> / <code>python-engineio</code> / <code>soupsieve</code>，插件守护进程 Go builder 升级）。</span></div>
+        <div class="fixrow"><span class="cat rbac">RBAC</span><span class="txt"><b>编辑者权限修正</b>：编辑者不再尝试成员管理、可查看应用日志、改 trace 配置现需编辑权限；成员新建的应用<b>默认对同角色成员可访问</b>。</span></div>
+        <div class="fixrow"><span class="cat plugin">插件</span><span class="txt"><b>插件管理稳定性</b>：marketplace 安装回调、debug 模式插件权限未生效、插件外部 user ID 解析、凭据刷新改为 single-flight；内置对象存储启用 HTTP Range，<b>修复 &gt;5MB 插件安装失败</b>。</span></div>
+        <div class="fixrow"><span class="cat workflow">工作流/API</span><span class="txt">修复 <code>Working outside of application context</code>、分块工作流失败追踪数据、批量记录删除<b>无限循环防护</b>、内部 RBAC 请求接入专用超时。</span></div>
+        <div class="fixrow"><span class="cat ui">UI/认证</span><span class="txt">主导航状态、数据集创建布局高度、应用卡片溢出、<b>无插件时深色模式渲染</b>、HITL 输入保存按钮可见性、toast 阻塞点击、OAuth 错误、重复 auth 前缀、管理成员页过滤后分页。</span></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-title impact"><span class="pill">✓</span> 升级影响</div>
+      <div class="impact-box safe">
+        <div class="lead">✓ 非破坏性（补丁版本）</div>
+        <p>这是 3.11.x 的补丁版本，<b>无新增强制迁移</b>。工作流协作作为专用 websocket 服务发布——启用它（或滚动更新本身）会<b>短暂重连活跃的工作流编辑会话</b>。</p>
+        <p><b>注意：</b>从早于 3.11.0 的版本升级，仍须<b>先完成 3.11.0 的 RBAC 与插件自动升级迁移</b>（见上文 3.11.0）。</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><a href="3.10.html">← 上一章：3.10</a> · <a href="index.html">返回总览</a></span>
+    <span>数据来源 <a href="https://ee.dify.ai" target="_blank" rel="noopener">ee.dify.ai</a> · 更新 2026-07-22</span>
+  </div>
+</footer>
+
+</body>
+</html>
