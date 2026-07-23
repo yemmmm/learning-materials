@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 最小可行性验证：
-#   操作机 -> 个人账号@目标服务器 -> 公用账号@127.0.0.1 -> ls -la
+#   操作机 -> 个人账号@目标服务器 -> sudo /bin/rootsh -i -u 公用账号 -> ls -la
 #
 # 密码始终由 OpenSSH 在终端中交互读取，本脚本不会读取、保存或打印密码。
 
@@ -14,7 +14,7 @@ DRY_RUN=0
 usage() {
     cat <<'EOF'
 用法：
-  ./two-hop-ssh-ls-poc.sh [--config 配置文件] [--dry-run]
+  ./ssh-sudo-rootsh-ls-poc.sh [--config 配置文件] [--dry-run]
 
 选项：
   --config FILE  指定服务器配置文件，默认使用脚本目录下的 servers.conf
@@ -22,9 +22,9 @@ usage() {
   -h, --help     显示帮助
 
 配置格式：
-  名称|服务器地址|SSH端口|个人账号|公用账号
+  名称|服务器地址|SSH端口|个人账号|rootsh 切换账号
 
-本脚本只会在公用账号下执行固定命令：ls -la
+本脚本只会通过 sudo /bin/rootsh 切换到目标账号，并执行固定命令：ls -la
 EOF
 }
 
@@ -99,10 +99,10 @@ success=0
 failed=0
 line_number=0
 
-while IFS='|' read -r label host port personal_user shared_user extra ||
-      [ -n "${label}${host}${port}${personal_user}${shared_user}${extra}" ]; do
+while IFS='|' read -r label host port personal_user target_user extra ||
+      [ -n "${label}${host}${port}${personal_user}${target_user}${extra}" ]; do
     line_number=$((line_number + 1))
-    shared_user=${shared_user%$'\r'}
+    target_user=${target_user%$'\r'}
 
     case "$label" in
         ''|\#*) continue ;;
@@ -113,24 +113,23 @@ while IFS='|' read -r label host port personal_user shared_user extra ||
     validate_host "$host" || die "配置文件第 ${line_number} 行服务器地址不合法：$host"
     validate_port "$port" || die "配置文件第 ${line_number} 行 SSH 端口不合法：$port"
     validate_user "$personal_user" || die "配置文件第 ${line_number} 行个人账号不合法：$personal_user"
-    validate_user "$shared_user" || die "配置文件第 ${line_number} 行公用账号不合法：$shared_user"
+    validate_user "$target_user" || die "配置文件第 ${line_number} 行 rootsh 切换账号不合法：$target_user"
 
     total=$((total + 1))
-    printf '\n[%s] %s@%s:%s -> %s@127.0.0.1 -> ls -la\n' \
-        "$label" "$personal_user" "$host" "$port" "$shared_user"
+    printf '\n[%s] %s@%s:%s -> sudo /bin/rootsh -i -u %s -> ls -la\n' \
+        "$label" "$personal_user" "$host" "$port" "$target_user"
 
     if [ "$DRY_RUN" -eq 1 ]; then
         success=$((success + 1))
         continue
     fi
 
-    # 两层都强制分配终端，使 OpenSSH 能安全地交互读取密码。
-    # 参数均经过白名单校验，远端执行命令固定为 ls -la。
+    # -tt 让 SSH 和 sudo 均可从终端交互读取密码。
+    # sudo -k 清除该服务器上当前个人账号的 sudo 时间戳，确保本次验证会询问密码。
+    # 参数均经过白名单校验，rootsh 后的远端命令固定为 ls -la。
     if ssh "${SSH_COMMON_OPTIONS[@]}" -tt -p "$port" \
         "${personal_user}@${host}" \
-        ssh "${SSH_COMMON_OPTIONS[@]}" -tt \
-        "${shared_user}@127.0.0.1" \
-        ls -la; then
+        "sudo -k && exec sudo /bin/rootsh -i -u ${target_user} ls -la"; then
         printf '[%s] 成功\n' "$label"
         success=$((success + 1))
     else
