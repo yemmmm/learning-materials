@@ -1,0 +1,337 @@
+#!/usr/bin/expect -f
+
+# 最小可行性验证：
+#   操作机 -> SSH 个人账号@目标服务器
+#          -> sudo /bin/rootsh -i -u 公用账号
+#          -> 在交互式 rootsh Shell 中输入 ls -la
+#
+# sudo 命令本身不附加 ls 参数，确保它与 sudoers 已授权命令完全一致。
+
+set timeout 30
+set config_file [file join [file dirname [file normalize [info script]]] servers.conf]
+set dry_run 0
+
+proc usage {} {
+    send_user {
+用法：
+  ./ssh-sudo-rootsh-ls-poc.sh [--config 配置文件] [--dry-run]
+
+选项：
+  --config FILE  指定服务器配置文件，默认使用脚本目录下的 servers.conf
+  --dry-run      只检查配置并显示访问路径，不建立 SSH 连接
+  -h, --help     显示帮助
+
+配置格式：
+  名称|服务器地址|SSH端口|个人账号|rootsh 切换账号
+
+脚本通过已授权的交互式 rootsh Shell 执行固定命令：ls -la
+}
+}
+
+proc die {message} {
+    send_error "错误：$message\n"
+    exit 2
+}
+
+proc valid_name {value} {
+    return [regexp {^[A-Za-z0-9_.-]+$} $value]
+}
+
+proc valid_host {value} {
+    return [regexp {^[A-Za-z0-9_.:-]+$} $value]
+}
+
+proc valid_port {value} {
+    if {![string is integer -strict $value]} {
+        return 0
+    }
+    return [expr {$value >= 1 && $value <= 65535}]
+}
+
+proc valid_user {value} {
+    return [regexp {^[A-Za-z_][A-Za-z0-9_.-]*$} $value]
+}
+
+proc read_secret {prompt} {
+    stty -echo
+    send_user $prompt
+    expect_user -re "(.*)\n"
+    set value [string trimright $expect_out(1,string) "\r"]
+    stty echo
+    send_user "\n"
+    return $value
+}
+
+proc close_spawn {child_spawn_id} {
+    catch {send -i $child_spawn_id -- "\003"}
+    catch {close -i $child_spawn_id}
+    catch {wait -i $child_spawn_id}
+}
+
+proc run_server {record password} {
+    lassign $record label host port personal_user target_user
+
+    send_user "\n\[$label\] $personal_user@$host:$port"
+    send_user " -> sudo /bin/rootsh -i -u $target_user -> ls -la\n"
+
+    set ssh_options [list \
+        -o ConnectTimeout=10 \
+        -o ServerAliveInterval=15 \
+        -o ServerAliveCountMax=2 \
+        -o PubkeyAuthentication=no \
+        -o PreferredAuthentications=keyboard-interactive,password \
+        -o NumberOfPasswordPrompts=2 \
+        -o StrictHostKeyChecking=accept-new]
+
+    # 先输出外层连接标记，便于区分 SSH 认证和 sudo/rootsh 阶段。
+    # rootsh 的参数到 target_user 为止，ls -la 随后通过交互式 Shell 输入。
+    set remote_command [format \
+        {printf '__POC_OUTER_SSH_OK__\n'; sudo -k; exec sudo /bin/rootsh -i -u %s} \
+        $target_user]
+
+    spawn -noecho ssh {*}$ssh_options -tt -p $port \
+        "$personal_user@$host" $remote_command
+    set child_spawn_id $spawn_id
+    match_max 1048576
+
+    set ssh_password_sent 0
+    set outer_connected 0
+
+    while {!$outer_connected} {
+        expect {
+            -re {\r*\n__POC_OUTER_SSH_OK__\r*\n} {
+                set outer_connected 1
+            }
+            -re {(?i)(password|passcode|密码)[^:\r\n：]*[:：] ?$} {
+                if {$ssh_password_sent} {
+                    send_error "\n\[$label\] SSH 密码认证失败\n"
+                    close_spawn $child_spawn_id
+                    return 0
+                }
+                send -- "$password\r"
+                set ssh_password_sent 1
+            }
+            -re {(?i)host key verification failed|remote host identification has changed} {
+                send_error "\n\[$label\] SSH 主机指纹校验失败\n"
+                close_spawn $child_spawn_id
+                return 0
+            }
+            timeout {
+                send_error "\n\[$label\] SSH 连接或认证超时\n"
+                close_spawn $child_spawn_id
+                return 0
+            }
+            eof {
+                send_error "\n\[$label\] SSH 在进入远端 Shell 前断开\n"
+                catch {wait}
+                return 0
+            }
+        }
+    }
+
+    set sudo_password_sent 0
+    set rootsh_ready 0
+
+    while {!$rootsh_ready} {
+        expect {
+            -re {(?i)(password|passcode|密码)[^:\r\n：]*[:：] ?$} {
+                if {$sudo_password_sent} {
+                    send_error "\n\[$label\] sudo 密码认证失败\n"
+                    close_spawn $child_spawn_id
+                    return 0
+                }
+                send -- "$password\r"
+                set sudo_password_sent 1
+            }
+            -re {(?i)sorry, try again|authentication failure|密码不正确} {
+                send_error "\n\[$label\] sudo 密码认证失败\n"
+                close_spawn $child_spawn_id
+                return 0
+            }
+            -re {(?i)not allowed to execute|不允许.*执行} {
+                send_error "\n\[$label\] sudoers 不允许执行精确的 rootsh 命令\n"
+                close_spawn $child_spawn_id
+                return 0
+            }
+            -re {(?m)[#$>] ?(\x1b\[[0-9;]*m)*$} {
+                set rootsh_ready 1
+            }
+            timeout {
+                send_error "\n\[$label\] 等待 rootsh Shell 提示符超时\n"
+                close_spawn $child_spawn_id
+                return 0
+            }
+            eof {
+                send_error "\n\[$label\] rootsh Shell 启动前连接已断开\n"
+                catch {wait}
+                return 0
+            }
+        }
+    }
+
+    # 标记必须独占一行，避免与终端回显的命令文本混淆。
+    set payload {
+printf '\n__POC_USER_BEGIN__\n'; id -un; printf '__POC_USER_END__\n'; ls -la && printf '\n__POC_LS_RC_0__\n' || printf '\n__POC_LS_RC_NONZERO__\n'; exit
+}
+    set payload [string trim $payload]
+    send -- "$payload\r"
+
+    set observed_user ""
+    set ls_result ""
+    set session_ended 0
+
+    while {!$session_ended} {
+        expect {
+            -re {\r*\n__POC_USER_BEGIN__\r*\n([^\r\n]+)\r*\n__POC_USER_END__\r*\n} {
+                set observed_user [string trim $expect_out(1,string)]
+            }
+            -re {\r*\n__POC_LS_RC_0__\r*\n} {
+                set ls_result "success"
+            }
+            -re {\r*\n__POC_LS_RC_NONZERO__\r*\n} {
+                set ls_result "failed"
+            }
+            timeout {
+                send_error "\n\[$label\] 等待 ls 执行结果超时\n"
+                close_spawn $child_spawn_id
+                return 0
+            }
+            eof {
+                set session_ended 1
+                catch {wait}
+            }
+        }
+    }
+
+    if {$observed_user ne $target_user} {
+        send_error "\[$label\] 失败：期望用户 $target_user，实际用户 "
+        send_error [expr {$observed_user eq "" ? "未知" : $observed_user}]
+        send_error "\n"
+        return 0
+    }
+
+    if {$ls_result ne "success"} {
+        send_error "\[$label\] 失败：ls -la 未成功完成\n"
+        return 0
+    }
+
+    send_user "\[$label\] 成功：已在 $target_user 账号下执行 ls -la\n"
+    return 1
+}
+
+set index 0
+while {$index < [llength $argv]} {
+    set argument [lindex $argv $index]
+    switch -- $argument {
+        --config {
+            incr index
+            if {$index >= [llength $argv]} {
+                die "--config 后缺少文件路径"
+            }
+            set config_file [lindex $argv $index]
+        }
+        --dry-run {
+            set dry_run 1
+        }
+        -h -
+        --help {
+            usage
+            exit 0
+        }
+        default {
+            die "未知参数：$argument"
+        }
+    }
+    incr index
+}
+
+if {![file readable $config_file]} {
+    die "无法读取配置文件：$config_file"
+}
+
+set config_handle [open $config_file r]
+set records {}
+set line_number 0
+
+while {[gets $config_handle line] >= 0} {
+    incr line_number
+    set line [string trim $line]
+
+    if {$line eq "" || [string index $line 0] eq "#"} {
+        continue
+    }
+
+    set fields [split $line "|"]
+    if {[llength $fields] != 5} {
+        close $config_handle
+        die "配置文件第 $line_number 行必须包含 5 个字段"
+    }
+
+    lassign $fields label host port personal_user target_user
+
+    if {![valid_name $label]} {
+        close $config_handle
+        die "配置文件第 $line_number 行名称不合法：$label"
+    }
+    if {![valid_host $host]} {
+        close $config_handle
+        die "配置文件第 $line_number 行服务器地址不合法：$host"
+    }
+    if {![valid_port $port]} {
+        close $config_handle
+        die "配置文件第 $line_number 行 SSH 端口不合法：$port"
+    }
+    if {![valid_user $personal_user]} {
+        close $config_handle
+        die "配置文件第 $line_number 行个人账号不合法：$personal_user"
+    }
+    if {![valid_user $target_user]} {
+        close $config_handle
+        die "配置文件第 $line_number 行 rootsh 切换账号不合法：$target_user"
+    }
+
+    lappend records [list $label $host $port $personal_user $target_user]
+}
+
+close $config_handle
+
+if {[llength $records] == 0} {
+    die "配置文件中没有有效的服务器记录"
+}
+
+if {$dry_run} {
+    foreach record $records {
+        lassign $record label host port personal_user target_user
+        send_user "\[$label\] $personal_user@$host:$port"
+        send_user " -> sudo /bin/rootsh -i -u $target_user"
+        send_user " -> 交互输入 ls -la\n"
+    }
+    send_user "\n配置检查通过：服务器数=[llength $records]\n"
+    exit 0
+}
+
+trap {
+    catch {stty echo}
+    send_user "\n操作已中断\n"
+    exit 130
+} {SIGINT SIGTERM SIGHUP}
+
+set password [read_secret "请输入个人账号密码（SSH 与 sudo 共用）："]
+if {$password eq ""} {
+    die "密码不能为空"
+}
+
+set total [llength $records]
+set success 0
+
+foreach record $records {
+    if {[run_server $record $password]} {
+        incr success
+    }
+}
+
+set password ""
+set failed [expr {$total - $success}]
+
+send_user "\n执行汇总：总数=$total，成功=$success，失败=$failed\n"
+exit [expr {$failed == 0 ? 0 : 1}]

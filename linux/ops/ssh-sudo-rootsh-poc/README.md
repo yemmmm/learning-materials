@@ -1,24 +1,31 @@
-# SSH + sudo rootsh 最小可行性验证
+# Expect + SSH + sudo rootsh 最小可行性验证
 
-这个 PoC 用于验证以下访问链路是否能够被 Bash 脚本串行执行：
+这个 PoC 用于验证以下访问链路能否由操作机上的 Expect 串行执行：
 
 ```text
 操作机
   -> 个人账号@目标服务器
   -> sudo /bin/rootsh -i -u qqaipd1
-  -> ls -la
+  -> 在交互式 rootsh Shell 中输入 ls -la
 ```
 
-脚本不读取、不保存密码。SSH 和 sudo 的认证提示都直接在当前终端中完成。
+脚本运行时隐藏输入一次个人账号密码，并将其用于 SSH 和 sudo 认证。密码只保存在 Expect 进程内存中，不写入配置文件、命令行参数或日志。
 
 ## 环境要求
 
-- 操作机安装了 Bash 和 OpenSSH 客户端。
+- 操作机安装了 Bash、OpenSSH 客户端和 Expect。
 - 目标服务器允许个人账号通过 SSH 登录。
 - 目标服务器上存在 `/bin/rootsh`，且个人账号被授权执行 `sudo /bin/rootsh -i -u qqaipd1`。
-- `rootsh` 支持在账号参数后接要执行的命令；本 PoC 实际执行的是 `sudo /bin/rootsh -i -u qqaipd1 ls -la`。
 
-服务器端不需要安装 Python、`expect`、`sshpass` 或其他第三方工具。
+Linux Mint/Ubuntu 操作机安装 Expect：
+
+```bash
+sudo apt update
+sudo apt install -y expect
+expect -v
+```
+
+服务器端不需要安装 Python、Expect、`sshpass` 或其他第三方工具。
 
 ## 配置
 
@@ -60,24 +67,31 @@ server-b|10.10.10.12|22|zhangsan|qqaipd1
 ./ssh-sudo-rootsh-ls-poc.sh --config /安全目录/servers.conf
 ```
 
-脚本串行处理服务器。每台服务器先执行 `sudo -k` 清除 sudo 缓存，再调用 rootsh 切换账号并执行 `ls -la`；失败时会记录 SSH 返回码，并继续验证下一台服务器。
+脚本串行处理服务器，并对每台服务器执行以下步骤：
 
-## 首次运行时的正常提示
+1. 使用个人账号和密码建立 SSH 连接。
+2. 执行 `sudo -k` 清除该连接的 sudo 缓存。
+3. 精确执行已被 sudoers 授权的 `sudo /bin/rootsh -i -u <切换账号>`。
+4. 等待 rootsh Shell 提示符出现，再通过终端输入固定的 `ls -la`。
+5. 使用 `id -un` 验证实际身份，并检查 `ls -la` 的执行结果。
+6. 输入 `exit` 退出 rootsh，继续处理下一台服务器。
 
-首次连接外层服务器时，OpenSSH 可能要求确认主机指纹。核对指纹后输入 `yes`，记录会写入操作机的 `known_hosts`。
+某台服务器失败时，脚本会记录失败阶段并继续验证下一台服务器。
 
-一次完整连接通常会出现两次密码提示：
+## 主机指纹
 
-1. 个人账号登录目标服务器。
-2. 个人账号执行 sudo/rootsh。
+脚本使用 OpenSSH 的 `StrictHostKeyChecking=accept-new`：
 
-当前 PoC 故意不自动填写密码。它只验证 SSH 登录、sudo/rootsh 切换和公用账号命令执行是否可行。
+- 首次连接会自动记录新服务器的主机指纹。
+- 已记录服务器的指纹发生变化时，连接会被拒绝。
 
 ## 安全边界
 
-- 远端命令固定为 `sudo /bin/rootsh -i -u <切换账号> ls -la`，不能通过参数替换成其他命令。
+- sudo 调用严格保持为 `sudo /bin/rootsh -i -u <切换账号>`，不会追加 `ls` 参数。
+- `ls -la` 仅在 rootsh 成功切换账号后作为交互式 Shell 输入发送。
 - 脚本不会使用 `StrictHostKeyChecking=no` 绕过主机身份校验。
 - 脚本不会把密码放入命令行、配置文件、环境变量或日志。
-- 为了严格验证个人账号密码认证链路，当前版本禁用了 SSH 公钥认证；`sudo -k` 会清除 sudo 的短期认证缓存。
+- 当前版本禁用 SSH 公钥认证，以验证个人账号的密码认证链路。
+- 服务器地址和账号经过白名单校验，远端操作固定为身份检查和 `ls -la`。
 
 验证通过后，可以在此基础上增加 Docker Compose 的 `status`、`restart` 和 `logs` 等白名单操作。
