@@ -89,7 +89,7 @@ SELECT
     wr.created_at AS workflow_created_at,
     wr.finished_at AS workflow_finished_at,
 
-    COALESCE(NULLIF(wr.inputs, ''), '{}')::jsonb
+    CAST(COALESCE(NULLIF(wr.inputs, ''), '{}') AS jsonb)
         AS raw_workflow_inputs,
 
     ne.id AS node_execution_id,
@@ -99,22 +99,30 @@ SELECT
     ne.created_at AS node_created_at,
     ne.finished_at AS node_finished_at,
 
-    COALESCE(NULLIF(ne.process_data, ''), '{}')::jsonb -> 'prompts'
-        AS llm_prompt_messages,
+    (
+        CAST(COALESCE(NULLIF(ne.process_data, ''), '{}') AS jsonb)
+        -> 'prompts'
+    ) AS llm_prompt_messages,
 
-    COALESCE(NULLIF(ne.outputs, ''), '{}')::jsonb
+    CAST(COALESCE(NULLIF(ne.outputs, ''), '{}') AS jsonb)
         AS llm_outputs,
 
-    COALESCE(NULLIF(ne.outputs, ''), '{}')::jsonb ->> 'text'
-        AS llm_output_text,
+    (
+        CAST(COALESCE(NULLIF(ne.outputs, ''), '{}') AS jsonb)
+        ->> 'text'
+    ) AS llm_output_text,
 
-    COALESCE(NULLIF(ne.process_data, ''), '{}')::jsonb ->> 'model_provider'
-        AS model_provider,
+    (
+        CAST(COALESCE(NULLIF(ne.process_data, ''), '{}') AS jsonb)
+        ->> 'model_provider'
+    ) AS model_provider,
 
-    COALESCE(NULLIF(ne.process_data, ''), '{}')::jsonb ->> 'model_name'
-        AS model_name,
+    (
+        CAST(COALESCE(NULLIF(ne.process_data, ''), '{}') AS jsonb)
+        ->> 'model_name'
+    ) AS model_name,
 
-    COALESCE(NULLIF(ne.execution_metadata, ''), '{}')::jsonb
+    CAST(COALESCE(NULLIF(ne.execution_metadata, ''), '{}') AS jsonb)
         AS execution_metadata
 
 FROM workflow_runs AS wr
