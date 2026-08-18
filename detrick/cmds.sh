@@ -1,16 +1,23 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 16 ===
-# Time: 2026-08-19 00:20
-# Context: api_websocket 零连接记录，但 /socket.io curl 返回 200——怀疑 200 来自
-#          web 前端容器（Next.js 任意路径返回 200 HTML），即 socket.io 实际被路由错了。
-#          本轮目标：验证响应体是否为 engine.io 握手包 + 核对 Caddyfile 站点结构。
-# Cmds: 2 条 + F12 一项
+# === Detrick Troubleshoot Round 17（修复轮：工作流同步）===
+# Time: 2026-08-19 00:55
+# Context: 定案——Caddyfile 第 76 行 @socketio 上游是 http://api:5001，
+#          应为 http://api_websocket:5001（官方模板默认值）。
+#          连接全打到主 api，协作事件不通 → 画布永远"同步数据中"。
+# Cmds: 3 条（1 查来源，2 修复，3 验证）
 
-# 1. 看 socket.io 响应体（0{"sid":...} = 路由正确到 api_websocket；<html/<!DOCTYPE = 路由到 web 前端，实锤）
-curl -sk 'https://lp19dksfai18vm.bmwgroup.net/socket.io/?EIO=4&transport=polling' 2>&1 | head -c 200; echo
+# 1. 查网关的 SOCKETIO 上游变量来源（确认它是被 .env/compose 设成了 api:5001）
+docker-compose exec -T dify-gateway sh -c 'printenv | grep -iE "SOCKETIO|UPSTREAM"' 2>&1 | head -5
+grep -rn "SOCKETIO" /global/dockerdata/dify-enterprise-3.12.0/.env /global/dockerdata/dify-enterprise-3.12.0/docker-compose.yaml 2>/dev/null | head -5
 
-# 2. Caddyfile 站点与路由结构（看 @socketio 在哪个站点块内、你们访问的域名命中哪个站点）
-docker-compose exec -T dify-gateway sh -c 'grep -nE "^[^ #/].*\{|@socketio|reverse_proxy http" /app/gateway_configs/Caddyfile' 2>&1 | head -40
+# 2. 修复：把变量改为 api_websocket:5001 后重建网关容器（按你们实际的配置位置改，
+#    优先改 .env 或 compose 里 dify-gateway 服务的 environment，然后执行）：
+#    在 .env 中设置/修改：GATEWAY_SOCKETIO_UPSTREAM=api_websocket:5001
+docker-compose up -d dify-gateway
 
-# ===== F12（Network 里点开一个 /socket.io 请求）=====
-# 看 Response 体：是 0{"sid":...} 还是 HTML？这一眼定案
+# 3. 验证（网关重启后）：
+#    a) 确认渲染结果已变
+docker-compose exec -T dify-gateway sh -c 'grep -A2 "@socketio" /app/gateway_configs/Caddyfile' 2>&1 | head -4
+#    b) 浏览器强刷（Ctrl+Shift+R）重新打开工作流画布，看"同步数据中"是否结束
+#    c) 画布打开后立刻看 api_websocket 应出现连接活动
+docker-compose logs --tail=15 api_websocket 2>&1 | tail -6
