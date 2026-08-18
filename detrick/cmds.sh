@@ -1,17 +1,22 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 3 ===
-# Time: 2026-08-18 16:35
-# Context: 已确认认证正常（多个 console 端企业接口 200），仅写操作 UpdateWebAppWhitelistSubjects
-#          返回 401 ErrUnauthorized。用户角色 admin，且 agent 应用为其本人创建。
-#          本轮目标：抓 401 前后的完整日志上下文 + 检查 rbac 服务健康 + 企业服务配置。
-# Cmds: 3 条
+# === Detrick Troubleshoot Round 4 ===
+# Time: 2026-08-18 17:10
+# Context: 认证正常，仅写操作 401。config.yaml 显示企业服务会回调社区 api
+#          （DIFY_ENDPOINT + DIFY_INNER_API_KEY）做权限判定。
+#          本轮目标：验证 enterprise→api 回调的地址、密钥、连通性是否正常，
+#          并补上轮缺失的 401 上下文日志。
+# Cmds: 4 条
 
-# 1. 401 前后的完整日志上下文（权限判定失败时通常有前置日志说明原因）
+# 1. 补上轮关键缺失：401 前后的完整日志上下文（权限判定失败的前置原因）
 docker-compose logs --tail=3000 dify-enterprise 2>&1 | grep -B5 -A2 'UpdateWebAppWhitelistSubjects' | tail -40
 
-# 2. rbac 服务状态与错误日志（企业权限判定可能依赖它；服务名不同请替换）
-docker-compose ps 2>&1 | grep -iE 'NAME|rbac|enterprise' | head -8
-docker-compose logs --tail=200 dify-enterprise-rbac 2>&1 | grep -iE 'error|denied|unauthorized|fail|panic' | tail -10
+# 2. 企业服务回调地址实际值 + 两侧 INNER_API_KEY 指纹比对（只出 md5；两行相同=匹配）
+docker-compose exec -T dify-enterprise printenv DIFY_ENDPOINT DIFY_CONSOLE_API_URL DIFY_INNER_API_KEY 2>/dev/null | sed -n '1,2p'
+echo "ent INNER_API_KEY: $(docker-compose exec -T dify-enterprise printenv DIFY_INNER_API_KEY | md5sum | cut -d' ' -f1)"
+echo "api INNER_API_KEY: $(docker exec $(docker-compose ps -q api) printenv INNER_API_KEY | md5sum | cut -d' ' -f1)"
 
-# 3. 企业服务配置文件（看日志级别能否调到 debug，以及权限/rbac 相关配置项）
-docker-compose exec -T dify-enterprise sh -c 'cat /app/config.yaml 2>/dev/null || cat /config.yaml 2>/dev/null' 2>&1 | head -40
+# 3. 从企业服务容器内探测回调地址连通性（连不上=实锤）
+docker-compose exec -T dify-enterprise sh -c 'wget -qO- -T 5 "$DIFY_ENDPOINT/health" 2>&1 || curl -s -m 5 "$DIFY_ENDPOINT/health" 2>&1' 2>&1 | head -5
+
+# 4. api 日志中 inner 回调记录（enterprise→api 方向的请求有没有到达、状态码多少）
+docker-compose logs --tail=1000 api 2>&1 | grep -iE 'inner' | tail -10
