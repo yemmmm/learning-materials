@@ -1,19 +1,16 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 15 ===
-# Time: 2026-08-18 23:45
-# Context: /socket.io 路由正常(200)、api_websocket 健康。工作流画布仍全员卡"同步数据中"。
-#          需要定位卡住的到底是 WS 连接还是某个 REST 请求（draft 同步）。
-#          操作顺序：先打开一个工作流画布让它卡住 → 保持页面不关 → 立刻执行命令。
-# Cmds: 2 条 + F12 抓取
+# === Detrick Troubleshoot Round 16 ===
+# Time: 2026-08-19 00:20
+# Context: api_websocket 零连接记录，但 /socket.io curl 返回 200——怀疑 200 来自
+#          web 前端容器（Next.js 任意路径返回 200 HTML），即 socket.io 实际被路由错了。
+#          本轮目标：验证响应体是否为 engine.io 握手包 + 核对 Caddyfile 站点结构。
+# Cmds: 2 条 + F12 一项
 
-# 1. 画布卡住状态下，api_websocket 是否有新连接/活动（对比打开画布前后的日志变化）
-docker-compose logs --tail=30 api_websocket 2>&1 | tail -12
+# 1. 看 socket.io 响应体（0{"sid":...} = 路由正确到 api_websocket；<html/<!DOCTYPE = 路由到 web 前端，实锤）
+curl -sk 'https://lp19dksfai18vm.bmwgroup.net/socket.io/?EIO=4&transport=polling' 2>&1 | head -c 200; echo
 
-# 2. 主 api 服务中 workflow/draft/sync 相关请求有无报错或长时间处理
-docker-compose logs --tail=300 api 2>&1 | grep -iE 'draft|sync|workflow|socket' | grep -iE 'error|fail|timeout|500|401|403' | tail -10
+# 2. Caddyfile 站点与路由结构（看 @socketio 在哪个站点块内、你们访问的域名命中哪个站点）
+docker-compose exec -T dify-gateway sh -c 'grep -nE "^[^ #/].*\{|@socketio|reverse_proxy http" /app/gateway_configs/Caddyfile' 2>&1 | head -40
 
-# ===== F12 抓取（画布卡住时，最关键证据）=====
-# 浏览器 F12 → Network：
-#   a. 筛选 "WS"：socket.io 连接状态是 101（成功）还是一直 pending/failed？
-#   b. 筛选 "Fetch/XHR"：找到一直处于 pending（转圈）的那个请求，贴出 URL + Method + 状态
-#   c. Console 页签有无红色报错，一并贴出
+# ===== F12（Network 里点开一个 /socket.io 请求）=====
+# 看 Response 体：是 0{"sid":...} 还是 HTML？这一眼定案
