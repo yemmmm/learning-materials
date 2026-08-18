@@ -1,21 +1,26 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 7 ===
-# Time: 2026-08-18 19:00
-# Context: 根因已锁定：rbac 服务 check-access 拒绝（已见 app_view_layout denied）。
-#          写操作对应权限项 app_access_config。需确认被拒 scene 全集，
-#          并在企业管理后台核对用户角色权限分配。
-# Cmds: 2 条 + 1 个后台核对步骤
+# === Detrick Troubleshoot Round 8 ===
+# Time: 2026-08-18 19:40
+# Context: 根因确认——RBAC 判定 "account is not in the resource whitelist"：
+#          当前账号不在目标应用(94808e1b)的资源白名单表(resource_whitelist_members)中，
+#          导致 app_view_layout / app_access_config 等全部 scene 被拒。
+#          剩余疑问：a) 白名单为何缺失（agent 应用创建时未写入?）
+#                    b) 为何 UI 无法给成员分配角色（写操作同样失败?）
+# Cmds: 2 条 + 2 个 UI 实验
 
-# 1. rbac 拒绝记录按 scene 统计（确认 app_access_config / app_view_layout 等被拒范围）
-docker-compose logs --tail=3000 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | grep -oE '"scene" ?: ?"[^"]+"' | sort | uniq -c | sort -rn | head -10
+# 1. UI 分配角色失败瞬间的三个服务日志（先在页面操作一次"给成员分配角色"，再立刻执行本条）
+docker-compose logs --tail=60 dify-enterprise-rbac 2>&1 | grep -iE 'denied|error|fail|warn' | tail -8
+docker-compose logs --tail=60 dify-enterprise 2>&1 | grep -E 'ERROR|"status" ?: ?"?4|"status" ?: ?"?5' | tail -8
+docker-compose logs --tail=60 api 2>&1 | grep -iE 'ERROR|error' | tail -8
 
-# 2. 最近 10 条该账号的 check-access 明细（时间戳与 console 操作对齐，确认 401 对应 app_access_config 被拒）
-docker-compose logs --tail=3000 dify-enterprise-rbac 2>&1 | grep 'check-access' | grep '78e64483' | tail -10
+# 2. rbac 服务最近的完整 WARN/ERROR（看白名单相关还有哪些异常）
+docker-compose logs --tail=1000 dify-enterprise-rbac 2>&1 | grep -E '"severity":"(WARN|ERROR)"' | tail -10
 
-# ===== 后台核对（非命令，决定修复方式）=====
-# 登录企业管理后台（dify-enterprise-frontend 对应的 ENTERPRISE_URL 域名，
-# 即 Caddyfile 中 CADDY_ENTERPRISE_SITE_ADDR 那个站点）→ 「成员与角色 / Members & Roles」：
-#   a. 查看你账号(78e64483)被分配的 RBAC 角色是什么
-#   b. 查看该角色的权限项里「应用/App」分类下是否勾选了 访问配置(access config)、
-#      查看/编辑 等（对照上面 scene 清单）
-#   c. 同时看 owner 账号的角色（解释为什么 owner 看不到功能入口）
+# ===== UI 实验一（验证白名单缺失是否 agent 应用特有）=====
+# 新建一个普通 Chatbot 应用（基础编排，不进工作流页面），打开"访问权限"尝试修改：
+#   成功 → 白名单写入仅对 agent 应用失效，属 3.12.0 bug，直接报企业支持
+#   失败 → 所有应用白名单数据都有问题（环境/初始化问题）
+#
+# ===== UI 实验二（F12 抓"分配角色"失败请求）=====
+# Console 或企业管理页尝试给成员分配角色，F12 Network 找失败的请求，
+# 贴出：URL、方法、状态码、响应 body
