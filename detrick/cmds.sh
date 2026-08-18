@@ -1,20 +1,19 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 14 ===
-# Time: 2026-08-18 23:10
-# Context: rbac denied 已消失（角色迁移生效）。剩余：
-#          A. 全员卡工作流同步 → 验证 /socket.io WebSocket 路由（最关键，3 条）
-#          B. 非 owner 改访问权限仍失败 → 需重新抓取当前失败请求（F12）
-# Cmds: 3 条
+# === Detrick Troubleshoot Round 15 ===
+# Time: 2026-08-18 23:45
+# Context: /socket.io 路由正常(200)、api_websocket 健康。工作流画布仍全员卡"同步数据中"。
+#          需要定位卡住的到底是 WS 连接还是某个 REST 请求（draft 同步）。
+#          操作顺序：先打开一个工作流画布让它卡住 → 保持页面不关 → 立刻执行命令。
+# Cmds: 2 条 + F12 抓取
 
-# A1. 探测 socket.io 端点（200=路由正常；404/502/000=Caddy 缺 /socket.io 路由实锤）
-curl -sk -o /dev/null -w 'socket.io HTTP %{http_code}\n' 'https://lp19dksfai18vm.bmwgroup.net/socket.io/?EIO=4&transport=polling'
+# 1. 画布卡住状态下，api_websocket 是否有新连接/活动（对比打开画布前后的日志变化）
+docker-compose logs --tail=30 api_websocket 2>&1 | tail -12
 
-# A2. 网关 Caddyfile 中 socket.io 路由段（无输出=缺失；服务名可能叫 dify-gateway，不同请替换）
-docker-compose exec -T dify-gateway sh -c 'grep -rn "socket.io" /app/gateway_configs/ /etc/caddy/ 2>/dev/null' 2>&1 | head -10
+# 2. 主 api 服务中 workflow/draft/sync 相关请求有无报错或长时间处理
+docker-compose logs --tail=300 api 2>&1 | grep -iE 'draft|sync|workflow|socket' | grep -iE 'error|fail|timeout|500|401|403' | tail -10
 
-# A3. api_websocket 最近日志（有无 socket.io 连接进入、有无报错）
-docker-compose logs --tail=200 api_websocket 2>&1 | tail -8
-
-# ===== B. F12 重新抓取（非 owner 账号操作"修改访问权限"失败时）=====
-# 贴出失败请求的：URL、方法、状态码、响应 body
-# （rbac 已无拒绝记录，需确认现在失败在哪一层：可能不再是 401）
+# ===== F12 抓取（画布卡住时，最关键证据）=====
+# 浏览器 F12 → Network：
+#   a. 筛选 "WS"：socket.io 连接状态是 101（成功）还是一直 pending/failed？
+#   b. 筛选 "Fetch/XHR"：找到一直处于 pending（转圈）的那个请求，贴出 URL + Method + 状态
+#   c. Console 页签有无红色报错，一并贴出
