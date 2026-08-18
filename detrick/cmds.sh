@@ -1,23 +1,19 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 5 ===
-# Time: 2026-08-18 17:45
-# Context: DIFY_ENDPOINT=http://api:5001 配置正确；401 前无任何报错日志（只有 GetCurrentWorkspace 成功记录）。
-#          上轮 api 侧 INNER_API_KEY md5、连通性探测、api 日志 inner 记录三处输出被截断，本轮补齐。
-#          新线索：企业服务写操作权限依赖"应用编辑者(AppEditor)同步数据"，同步断链也会导致 Update 401。
-# Cmds: 3 条（均为上轮截断项补跑）
+# === Detrick Troubleshoot Round 6 ===
+# Time: 2026-08-18 18:20
+# Context: INNER_API_KEY 一致（排除密钥问题）；401 为企业服务内部权限判定拒绝。
+#          新假设：RESOURCE_GROUP_ENABLED=true 时，资源组准入控制拒绝了未被纳入资源组的
+#          Agent 应用写操作（报错措辞 "unauthorized to access this resource" 吻合，
+#          且可能同时解释"owner 看不到功能入口"和"工作流同步卡住"）。
+#          本轮目标：确认资源组开关状态 + rbac 服务健康 + 资源组相关日志。
+# Cmds: 3 条
 
-# 1. 两侧 INNER_API_KEY 指纹比对（两条 md5 相同=匹配；上轮 api 侧输出被截断）
-echo "ent INNER_API_KEY: $(docker-compose exec -T dify-enterprise printenv DIFY_INNER_API_KEY | md5sum | cut -d' ' -f1)"
-echo "api INNER_API_KEY: $(docker exec $(docker-compose ps -q api) printenv INNER_API_KEY | md5sum | cut -d' ' -f1)"
+# 1. 企业服务容器内资源组/日志相关环境变量的实际值（RESOURCE_GROUP_ENABLED 是否为 true）
+docker-compose exec -T dify-enterprise sh -c 'printenv | grep -E "^(RESOURCE_GROUP_ENABLED|WEBAPP_PUBLIC_ACCESS_ENABLED|LOG_LEVEL|ENTERPRISE_LICENSE_MODE)="' 2>&1 | head -6
 
-# 2. 企业服务容器内探测回调地址连通性（上轮未贴；连不上=回调链路断）
-docker-compose exec -T dify-enterprise sh -c 'wget -qO- -T 5 http://api:5001/health 2>&1 || curl -s -m 5 http://api:5001/health 2>&1' 2>&1 | head -5
+# 2. rbac 容器状态与错误日志（上轮一直没贴到；服务名不同请替换）
+docker-compose ps 2>&1 | grep -iE 'rbac' | head -3
+docker-compose logs --tail=200 dify-enterprise-rbac 2>&1 | grep -iE 'error|denied|unauthorized|fail|panic' | tail -10
 
-# 3. api 日志中 inner 请求记录（enterprise→api 的回调有没有到达、状态码；上轮未贴）
-docker-compose logs --tail=1000 api 2>&1 | grep -iE 'inner' | tail -10
-
-# ===== 另外请完成两个零成本对照实验（不需要命令，结果直接决定结论）=====
-# 实验 A：用 admin 新建一个普通应用（chatbot，非 Agent），打开"访问权限"尝试修改：
-#         成功 → Agent 应用类型的权限同步 bug；失败 → 环境链路问题
-# 实验 B：浏览器 F12 → Network，重放失败的 access-mode/whitelist 请求，
-#         贴出：完整请求 URL、请求方法(PUT/POST?)、响应 body 全文
+# 3. 企业服务日志中资源组/准入相关记录（有没有 resolve/admission 被拒的痕迹）
+docker-compose logs --tail=3000 dify-enterprise 2>&1 | grep -iE 'resource.?group|admission|resolve.?request|release' | tail -10
