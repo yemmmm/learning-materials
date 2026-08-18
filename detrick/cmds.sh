@@ -1,19 +1,21 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 6 ===
-# Time: 2026-08-18 18:20
-# Context: INNER_API_KEY 一致（排除密钥问题）；401 为企业服务内部权限判定拒绝。
-#          新假设：RESOURCE_GROUP_ENABLED=true 时，资源组准入控制拒绝了未被纳入资源组的
-#          Agent 应用写操作（报错措辞 "unauthorized to access this resource" 吻合，
-#          且可能同时解释"owner 看不到功能入口"和"工作流同步卡住"）。
-#          本轮目标：确认资源组开关状态 + rbac 服务健康 + 资源组相关日志。
-# Cmds: 3 条
+# === Detrick Troubleshoot Round 7 ===
+# Time: 2026-08-18 19:00
+# Context: 根因已锁定：rbac 服务 check-access 拒绝（已见 app_view_layout denied）。
+#          写操作对应权限项 app_access_config。需确认被拒 scene 全集，
+#          并在企业管理后台核对用户角色权限分配。
+# Cmds: 2 条 + 1 个后台核对步骤
 
-# 1. 企业服务容器内资源组/日志相关环境变量的实际值（RESOURCE_GROUP_ENABLED 是否为 true）
-docker-compose exec -T dify-enterprise sh -c 'printenv | grep -E "^(RESOURCE_GROUP_ENABLED|WEBAPP_PUBLIC_ACCESS_ENABLED|LOG_LEVEL|ENTERPRISE_LICENSE_MODE)="' 2>&1 | head -6
+# 1. rbac 拒绝记录按 scene 统计（确认 app_access_config / app_view_layout 等被拒范围）
+docker-compose logs --tail=3000 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | grep -oE '"scene" ?: ?"[^"]+"' | sort | uniq -c | sort -rn | head -10
 
-# 2. rbac 容器状态与错误日志（上轮一直没贴到；服务名不同请替换）
-docker-compose ps 2>&1 | grep -iE 'rbac' | head -3
-docker-compose logs --tail=200 dify-enterprise-rbac 2>&1 | grep -iE 'error|denied|unauthorized|fail|panic' | tail -10
+# 2. 最近 10 条该账号的 check-access 明细（时间戳与 console 操作对齐，确认 401 对应 app_access_config 被拒）
+docker-compose logs --tail=3000 dify-enterprise-rbac 2>&1 | grep 'check-access' | grep '78e64483' | tail -10
 
-# 3. 企业服务日志中资源组/准入相关记录（有没有 resolve/admission 被拒的痕迹）
-docker-compose logs --tail=3000 dify-enterprise 2>&1 | grep -iE 'resource.?group|admission|resolve.?request|release' | tail -10
+# ===== 后台核对（非命令，决定修复方式）=====
+# 登录企业管理后台（dify-enterprise-frontend 对应的 ENTERPRISE_URL 域名，
+# 即 Caddyfile 中 CADDY_ENTERPRISE_SITE_ADDR 那个站点）→ 「成员与角色 / Members & Roles」：
+#   a. 查看你账号(78e64483)被分配的 RBAC 角色是什么
+#   b. 查看该角色的权限项里「应用/App」分类下是否勾选了 访问配置(access config)、
+#      查看/编辑 等（对照上面 scene 清单）
+#   c. 同时看 owner 账号的角色（解释为什么 owner 看不到功能入口）
