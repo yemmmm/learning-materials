@@ -1,32 +1,28 @@
 #!/bin/bash
-# === Detrick Troubleshoot Round 20（确认并修复前端 Socket URL）===
-# Time: 2026-08-19 10:50
-# Context: 网关上游虽已手改为 api_websocket，但全员仍卡“同步数据中”。旧版升级环境可能缺少
-#          NEXT_PUBLIC_SOCKET_URL，导致 web 默认发布 ws://localhost；同时用正确变量名固化网关上游。
+# === Detrick Troubleshoot Round 21（强制修复 web 的 Socket URL）===
+# Time: 2026-08-19 11:00
+# Context: 网关经真实域名握手已返回 200，api_websocket 路由正确；浏览器仍请求
+#          ws://console.dify.local，需定位旧值来源并强制让 web 使用生产域名的 wss 地址。
 # Cmds: 3 条
 
-# 1. 取证：查看两个容器当前实际变量，并确认运行中 Caddyfile 的全部 socket.io 上游
-docker-compose exec -T web sh -c 'printf "NEXT_PUBLIC_SOCKET_URL="; printenv NEXT_PUBLIC_SOCKET_URL' 2>&1 | head -3
-docker-compose exec -T dify-gateway sh -c 'printf "GATEWAY_SOCKET_IO_UPSTREAM="; printenv GATEWAY_SOCKET_IO_UPSTREAM; grep -n -A2 "@socketio path" /app/gateway_configs/Caddyfile' 2>&1 | head -15
+# 1. 定位旧值来自宿主机导出变量、配置文件还是现有容器（只显示 Socket URL，不显示其他环境变量）
+printf 'host_shell='; printenv NEXT_PUBLIC_SOCKET_URL 2>/dev/null || echo '<unset>'
+grep -nH '^NEXT_PUBLIC_SOCKET_URL=' .env envs/core-services/web.env 2>/dev/null | head -10
+docker-compose config 2>/dev/null | grep -n 'NEXT_PUBLIC_SOCKET_URL:' | head -5
+docker-compose exec -T web sh -c 'printf "container="; printenv NEXT_PUBLIC_SOCKET_URL' 2>&1 | head -3
 
-# 2. 取证：从容器内按浏览器的真实 HTTPS 域名走完整网关路径；正常应返回 HTTP 200 和以 0{ 开头的 Socket.IO 握手包
-docker-compose exec -T api sh -c 'curl -ksS -i -m 8 "https://lp19dksfai18vm.bmwgroup.net/socket.io/?EIO=4&transport=polling&t=round20"' 2>&1 | head -15
-
-# 3. 修复：若变量不是目标值，备份 .env、写入 HTTPS 对应的 wss 地址和正确网关变量名，重建 3 个相关服务并复验
-WEB_SOCKET_NOW=$(docker-compose exec -T web sh -c 'printenv NEXT_PUBLIC_SOCKET_URL' 2>/dev/null | tr -d '\r')
-GATEWAY_UPSTREAM_NOW=$(docker-compose exec -T dify-gateway sh -c 'printenv GATEWAY_SOCKET_IO_UPSTREAM' 2>/dev/null | tr -d '\r')
-if [ "$WEB_SOCKET_NOW" != "wss://lp19dksfai18vm.bmwgroup.net" ] || [ "$GATEWAY_UPSTREAM_NOW" != "api_websocket:5001" ]; then
-  BACKUP_FILE=".env.before-round20-$(date +%Y%m%d-%H%M%S)"
-  cp -p .env "$BACKUP_FILE"
-  for KV in 'NEXT_PUBLIC_SOCKET_URL=wss://lp19dksfai18vm.bmwgroup.net' 'GATEWAY_SOCKET_IO_UPSTREAM=api_websocket:5001'; do
-    KEY=${KV%%=*}
-    if grep -q "^${KEY}=" .env; then sed -i "s|^${KEY}=.*|${KV}|" .env; else printf '\n%s\n' "$KV" >> .env; fi
-  done
-  echo "backup=$BACKUP_FILE"
-  docker-compose up -d --force-recreate web api_websocket dify-gateway 2>&1 | tail -12
+# 2. 强制修复：备份并更新 .env；在子 shell 中清除宿主机同名变量，避免它覆盖 .env，然后只重建 web
+BACKUP_FILE=".env.before-round21-$(date +%Y%m%d-%H%M%S)"
+cp -p .env "$BACKUP_FILE"
+if grep -q '^NEXT_PUBLIC_SOCKET_URL=' .env; then
+  sed -i 's|^NEXT_PUBLIC_SOCKET_URL=.*|NEXT_PUBLIC_SOCKET_URL=wss://lp19dksfai18vm.bmwgroup.net|' .env
 else
-  echo "变量已正确，无需重建容器"
+  printf '\nNEXT_PUBLIC_SOCKET_URL=wss://lp19dksfai18vm.bmwgroup.net\n' >> .env
 fi
-docker-compose exec -T web sh -c 'printf "web_socket="; printenv NEXT_PUBLIC_SOCKET_URL' 2>&1 | head -3
-docker-compose exec -T dify-gateway sh -c 'printf "gateway_upstream="; printenv GATEWAY_SOCKET_IO_UPSTREAM; grep -A2 "@socketio path" /app/gateway_configs/Caddyfile' 2>&1 | head -8
-echo "完成后用 Ctrl+Shift+R 强制刷新画布；回贴以上 3 条输出和 finished 请求的 Request URL。"
+(unset NEXT_PUBLIC_SOCKET_URL; docker-compose up -d --force-recreate --no-deps web) 2>&1 | tail -12
+echo "backup=$BACKUP_FILE"
+docker-compose exec -T web sh -c 'printf "container_after="; printenv NEXT_PUBLIC_SOCKET_URL' 2>&1 | head -3
+
+# 3. 浏览器必须丢弃旧前端缓存后复验；新请求必须是 wss://lp19dksfai18vm.bmwgroup.net/socket.io/...
+echo '浏览器 F12 -> Network 勾选 Disable cache -> 长按刷新按钮选 Empty Cache and Hard Reload'
+echo '重新打开工作流后，回贴：是否仍“同步数据中”、socket.io Request URL、以及第 1/2 条完整输出'
