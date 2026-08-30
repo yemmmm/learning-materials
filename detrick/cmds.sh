@@ -1,17 +1,11 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-30 22:53
-# Context: 上轮 3 条命令结果未回传（粘贴被截断）。S3 仍连不上，新增怀疑：容器内全局代理变量劫持了到 MinIO 的请求（环境存在企业 TLS 拦截）。本轮 4 条 = 上轮 3 条 + 代理检查
-# Cmds: 4 条
+# Time: 2026-08-30 22:59
+# Context: endpoint/bucket/网络均已验证正常，仍 Failed to connect to S3。嫌疑集中在签名校验（region=auto 与 MinIO 默认 us-east-1 不匹配）。本轮用容器内 AWS SDK 直接发真实请求拿底层错误码
+# Cmds: 2 条
 
-# 1. 【新增】检查容器内是否设置了全局代理（若 HTTP_PROXY/HTTPS_PROXY 存在，S3 请求可能被劫持去走代理导致连不上 MinIO）
+# 1. 【关键】在 n8n 容器内用其自带的 @aws-sdk/client-s3 按 n8n 实际配置发 HeadBucket，打印真实错误（SignatureDoesNotMatch=region或密钥签名问题，403=凭据错，404=bucket不存在）
+docker-compose exec -T n8n-main-1 sh -c 'NODE_PATH=/usr/local/lib/node_modules/n8n/node_modules node -e "const {S3Client, HeadBucketCommand} = require(\"@aws-sdk/client-s3\"); const c = new S3Client({region: process.env.N8N_EXTERNAL_STORAGE_S3_BUCKET_REGION, endpoint: process.env.N8N_EXTERNAL_STORAGE_S3_ENDPOINT, forcePathStyle: true, credentials: {accessKeyId: process.env.N8N_EXTERNAL_STORAGE_S3_ACCESS_KEY, secretAccessKey: process.env.N8N_EXTERNAL_STORAGE_S3_ACCESS_SECRET}}); c.send(new HeadBucketCommand({Bucket: process.env.N8N_EXTERNAL_STORAGE_S3_BUCKET_NAME})).then(r => console.log(\"OK\", r.$metadata.httpStatusCode)).catch(e => console.log(\"ERR\", e.name, e.$metadata && e.$metadata.httpStatusCode, String(e.message).slice(0, 200)))"' 2>&1 | tail -5
+
+# 2. 【补测】上轮因容器重启没跑成的代理变量检查（若存在 HTTP_PROXY 会劫持 S3 请求）
 docker-compose exec -T n8n-main-1 sh -c 'env | grep -iE "proxy|no_proxy" | cat -A' 2>&1 | head -10
-
-# 2. 确认容器内当前 S3 变量值是否已更新（若仍带前导 = 说明需要 --force-recreate 重建容器）
-docker-compose exec -T n8n-main-1 sh -c 'env | grep N8N_EXTERNAL_STORAGE | cat -A' 2>&1 | head -10
-
-# 3. 查看 MinIO 数据目录下的 bucket 列表（目录名即 bucket 名，确认 n8n-binary-data 是否已创建）
-docker-compose exec -T minio sh -c 'ls -la /data 2>/dev/null | head -15' 2>&1 | tail -12
-
-# 4. 查 S3 报错前后的完整上下文日志（找底层错误码，如 NoSuchBucket / 403 / ECONNREFUSED）
-docker-compose logs --tail=200 n8n-main-1 2>&1 | grep -B5 -A15 'Failed to connect' | head -40
