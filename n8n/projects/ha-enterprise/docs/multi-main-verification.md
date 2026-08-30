@@ -91,6 +91,42 @@ curl -s http://127.0.0.1:8889/api/http/services | grep -o 'n8n_cluster[^}]*'
 
 ---
 
+## ⚠️ 已知坑：license 有效但仍报双 leader
+
+**症状**：`license:info` 显示 `multipleMainInstances: true`，但 §3 仍持续出现
+`Detected 2 instances claiming leader role`。
+
+**根因**：multi-main 不是有 license 就自动生效。源码
+(`packages/@n8n/config/src/configs/multi-main-setup.config.ts`) 中：
+
+```typescript
+@Env('N8N_MULTI_MAIN_SETUP_ENABLED')
+enabled: boolean = false;   // 默认关闭
+```
+
+license 是"入场券"，`N8N_MULTI_MAIN_SETUP_ENABLED=true` 才是"开关"。
+不设置时两个 main 各自以单 main 模式运行，都认为自己是 leader，
+定时任务会双发。
+
+**修复**：compose 中两个 main 的 environment 都加上（用 `&shared` 锚点的加一处即可）：
+
+```yaml
+- N8N_MULTI_MAIN_SETUP_ENABLED=true
+```
+
+然后重建：
+
+```bash
+docker-compose up -d n8n-main-1 n8n-main-2
+```
+
+重启后重跑 §3，应出现 leader 选举日志且不再有双 leader warning。
+开启后机制：leader 通过 Redis 锁选举，锁 TTL 10s、每 3s 续期检查
+（可调：`N8N_MULTI_MAIN_SETUP_KEY_TTL` / `N8N_MULTI_MAIN_SETUP_CHECK_INTERVAL`），
+只有一个 main 负责 trigger 轮询、定时调度、执行清理等后台任务。
+
+---
+
 ## 判定汇总
 
 | 项 | 命令位置 | 通过标准 |

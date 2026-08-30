@@ -54,6 +54,9 @@ x-shared: &shared
     - DB_POSTGRESDB_SCHEMA=${DB_POSTGRESDB_SCHEMA:-public}
     # --- Queue Mode ---
     - EXECUTIONS_MODE=queue
+    # Multi-Main 开关：license 只是授权，必须显式开启才会做 leader 选举，
+    # 否则双 main 各自为政，日志报 "Detected 2 instances claiming leader role"
+    - N8N_MULTI_MAIN_SETUP_ENABLED=true
     - QUEUE_BULL_REDIS_HOST=${QUEUE_BULL_REDIS_HOST:-redis}
     - QUEUE_BULL_REDIS_PORT=${QUEUE_BULL_REDIS_PORT:-6379}
     - QUEUE_BULL_REDIS_PASSWORD=${QUEUE_BULL_REDIS_PASSWORD}
