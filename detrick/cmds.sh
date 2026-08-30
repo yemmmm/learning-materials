@@ -1,14 +1,11 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-30 23:07
-# Context: 上轮 S3 测试脚本执行崩溃（只看到 Node.js v24.16.0 堆栈尾行），怀疑 NODE_PATH 路径不对找不到 @aws-sdk 模块。本轮修测试工具：定位模块路径 + 看完整报错头
-# Cmds: 3 条
+# Time: 2026-08-30 23:14
+# Context: 用户终端会截断长命令，SDK 测试方案放弃。改用 wget 强制走代理访问 minio（模拟 n8n 走代理访问 S3），若 FAIL 即证明代理是根因
+# Cmds: 2 条
 
-# 1. 定位 @aws-sdk/client-s3 在镜像里的实际安装路径（判断 NODE_PATH 应该写什么）
-docker-compose exec -T n8n-main-1 sh -c 'ls -d /usr/local/lib/node_modules/n8n/node_modules/@aws-sdk/client-s3 2>/dev/null; ls /usr/local/lib/node_modules 2>/dev/null | head -5; which n8n 2>/dev/null' 2>&1 | head -8
+# 1. 强制让 wget 走 122.200.106.5:8080 代理访问 minio（FAIL = 代理无法访问 docker 域名 minio，即 S3 报错根因）
+docker-compose exec -T n8n-main-1 sh -c 'http_proxy=http://122.200.106.5:8080 wget -q -T 5 -O /dev/null http://minio:9000/minio/health/live && echo VIA-PROXY-OK || echo VIA-PROXY-FAIL' 2>&1 | tail -2
 
-# 2. 重跑测试脚本，这次显示报错头部 8 行（上轮 tail -3 把真正的错误截掉了）
-docker-compose exec -T n8n-main-1 sh -c 'NODE_PATH=/usr/local/lib/node_modules/n8n/node_modules node /tmp/s3test.js 2>&1 | head -8'
-
-# 3. 确认上轮 heredoc 写入的脚本内容没被终端截断（应看到 3 行 JS 开头）
-docker-compose exec -T n8n-main-1 sh -c 'wc -l /tmp/s3test.js 2>/dev/null; head -2 /tmp/s3test.js 2>/dev/null' 2>&1 | head -5
+# 2. 查看当前 NO_PROXY 是否已包含 minio（确认修复是否已生效）
+docker-compose exec -T n8n-main-1 env 2>&1 | grep -i no_proxy | head -3
