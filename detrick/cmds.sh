@@ -1,17 +1,17 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-31 10:55
-# Context: n8n 手动触发只有 "enqueued execution (job xxx)"，worker 无日志任务不执行。本轮广撒网：确认 worker 是否运行、main/worker 是否都是 queue 模式、Redis 配置是否一致、worker 日志有无报错
+# Time: 2026-08-31 11:01
+# Context: 上轮确认 worker 容器 healthy 且 Redis 配置一致，但看到的是 task runner 日志而非 worker 主进程。本轮看 worker 主进程日志 + Redis 队列里 job 是否积压
 # Cmds: 4 条
 
-# 1. 看 n8n 相关容器是否都在跑（重点看有没有 worker、状态是否 Restarting/Exited）
-docker ps -a --format '{{.Names}} {{.Status}}' | grep -iE 'n8n|redis' | head -15
+# 1. worker 主进程最近日志（有没有成功启动、有没有在等 job / 报错）
+docker logs --tail 40 n8n-worker-1 2>&1 | tail -40
 
-# 2. 对比 main 和 worker 的执行模式 + Redis 连接配置（EXECUTIONS_MODE/REDIS_HOST/DB/PREFIX 必须一致）
-for c in $(docker ps --format {{.Names}} | grep -i n8n); do echo "== $c"; docker exec $c env | grep -iE 'EXECUTIONS_MODE|REDIS|BULL' | head -8; done
+# 2. worker 日志里过滤执行/任务/错误关键字
+docker logs --tail 500 n8n-worker-1 2>&1 | grep -iE 'execution|job|error|refused' | tail -15
 
-# 3. 看 worker 最近日志（有无启动成功/连 Redis 报错）
-c=$(docker ps --format {{.Names}} | grep -iE 'worker' | head -1); docker logs --tail 25 $c 2>&1 | tail -25
+# 3. Redis 里 n8n 的 bull 队列 key 列表（看 job 积压在哪些 key）
+docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning --scan --pattern 'bull*' | head -20
 
-# 4. 过滤 worker 错误日志
-c=$(docker ps --format {{.Names}} | grep -iE 'worker' | head -1); docker logs --tail 300 $c 2>&1 | grep -iE 'error|fatal|refused|timeout' | tail -10
+# 4. 等待队列长度（如果上条 key 前缀不是 bull_n8n，请替换后再执行一次）
+docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning llen bull_n8n:jobs:wait
