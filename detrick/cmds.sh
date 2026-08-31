@@ -1,17 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-31 11:01
-# Context: 上轮确认 worker 容器 healthy 且 Redis 配置一致，但看到的是 task runner 日志而非 worker 主进程。本轮看 worker 主进程日志 + Redis 队列里 job 是否积压
-# Cmds: 4 条
+# Time: 2026-08-31 11:05
+# Context: worker-1 日志出现 "Editor is now accessible"/"Instance registered"（main 特征），怀疑 worker 容器实际以 main 角色运行导致队列无人消费；队列前缀确认为 bull:jobs
+# Cmds: 3 条
 
-# 1. worker 主进程最近日志（有没有成功启动、有没有在等 job / 报错）
-docker logs --tail 40 n8n-worker-1 2>&1 | tail -40
+# 1. 四个 n8n 进程的启动命令（worker 必须是 "n8n worker"，如果是 "n8n start"/空 就是根因）
+docker inspect --format '{{.Name}} cmd={{.Config.Cmd}}' n8n-worker-1 n8n-worker-2 n8n-main-1 n8n-main-2
 
-# 2. worker 日志里过滤执行/任务/错误关键字
-docker logs --tail 500 n8n-worker-1 2>&1 | grep -iE 'execution|job|error|refused' | tail -15
+# 2. 等待队列积压长度（>0 说明没有 worker 在消费）
+docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning llen bull:jobs:wait
 
-# 3. Redis 里 n8n 的 bull 队列 key 列表（看 job 积压在哪些 key）
-docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning --scan --pattern 'bull*' | head -20
-
-# 4. 等待队列长度（如果上条 key 前缀不是 bull_n8n，请替换后再执行一次）
-docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning llen bull_n8n:jobs:wait
+# 3. 活跃/暂停队列长度（job 被取走但卡死会堆在 active）
+docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning llen bull:jobs:active
