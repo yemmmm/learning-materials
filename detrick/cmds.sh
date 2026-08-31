@@ -1,17 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-31 11:08
-# Context: worker 命令正确但 bull:jobs:wait 积压 6 个 job 无人消费，worker 日志有反复 Lost Redis connection；另 n8n-main-2 容器不存在。本轮验证 worker 启动状态与 Redis 连接稳定性
-# Cmds: 4 条
+# Time: 2026-08-31 00:00
+# Context: api_websocket 日志全是重连 Redis，但多人协同正常；确认日志形态与所连 Redis 配置
+# Cmds: 3 条
 
-# 1. worker 启动关键日志（有没有 "Worker started"/并发数/就绪字样）
-docker logs n8n-worker-1 2>&1 | grep -iE 'worker|started|concurrency|ready' | head -12
+# 1. 看 api_websocket 重连日志的具体内容与频率（错误关键词过滤+时间戳）
+docker-compose logs --tail=300 --timestamps api_websocket 2>&1 | grep -iE 'redis|reconnect|error|retry' | tail -30
 
-# 2. worker 累计 Redis 断连次数（数字大 = 连接极不稳定，接近根因）
-docker logs n8n-worker-1 2>&1 | grep -c 'Lost Redis'
+# 2. 看 api_websocket 实际使用的 Redis 连接配置（HOST/DB/SENTINEL/代理）
+docker-compose exec -T api_websocket env 2>&1 | grep -iE 'REDIS|PROXY' | head -15
 
-# 3. Redis 当前客户端连接数与限制（connected_clients vs maxclients）
-docker exec n8n-redis redis-cli -a finagentn8n --no-auth-warning info clients | head -4
-
-# 4. 现在手动触发一次工作流，等 1 分钟后执行本条，看 worker 最近 5 分钟有无反应
-docker logs --since 5m n8n-worker-1 2>&1 | tail -30
+# 3. 看 Redis 服务端是否有踢客户端/超时/最大连接数类告警
+docker-compose logs --tail=200 redis 2>&1 | grep -iE 'timeout|close|maxclients|error|warning' | tail -20
