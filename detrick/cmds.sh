@@ -1,22 +1,24 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-31 00:20
-# Context: 连接正常但 receive 循环刷 ERROR；直接看容器内 redis_manager.py:188 的触发条件 + 订阅是否存活
-# Cmds: 3 条
+# Time: 2026-08-31 00:30
+# Context: 已定位为 socketio 库 listen 循环的瞬时异常被记 ERROR；本轮用探针复现抓出真实异常类型（最终确认）
+# Cmds: 2 条
 
-# 1. 挖出企业版 redis_manager.py 第 160-200 行源码（看 188 行报错的触发条件）
-docker-compose exec -T api_websocket sh -c 'f=$(find /app -name redis_manager.py 2>/dev/null | head -1); echo $f; sed -n "160,200p" $f' 2>&1 | head -50
-
-# 2. 看 Redis 当前活跃的 Pub/Sub 订阅通道（确认协同订阅还活着）
-docker-compose exec -T redis redis-cli -a difyai123456 PUBSUB CHANNELS 2>/dev/null | head -10
-
-# 3. 用同样的客户端做 30 秒空闲订阅测试（复现读超时是否抛异常）
+# 1. 用与 socketio manager 相同的方式订阅并 listen 90 秒，抓实际抛出的异常类型
 docker-compose exec -T api_websocket python -c "
 import redis, time
 r = redis.Redis(host='redis',port=6379,password='difyai123456',db=0)
 p = r.pubsub(); p.subscribe('test_probe')
-t=time.time()
-try:
-    m = p.get_message(timeout=20); print('20s idle get_message ->', m)
-except Exception as e: print('EXC ->', type(e).__name__, e)
-" 2>&1 | tail -5
+t = time.time()
+while time.time() - t < 90:
+    try:
+        for m in p.listen():
+            pass
+    except Exception as e:
+        print('EXC ->', type(e).__name__, str(e)[:120])
+        time.sleep(1)
+print('done, no exception in 90s' )
+" 2>&1 | tail -8
+
+# 2. 顺便看下 gunicorn/gevent 相关配置（gevent 与阻塞读的相互作用）
+docker-compose exec -T api_websocket env 2>&1 | grep -iE 'GUNICORN|GEVENT|SERVER_WORKER|SOCKETIO' | head -8
