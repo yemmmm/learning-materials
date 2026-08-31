@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-08-31 00:05
-# Context: 上轮确认 Redis 服务端无告警、无代理劫持；本轮看重连日志原文 + Redis timeout 配置 + 重连频率
+# Time: 2026-08-31 00:10
+# Context: Redis timeout=0 仍持续"连接失败1s重连"；怀疑刷日志的连接与协同用的连接不同，查具体连的是哪个 host + 错误原文
 # Cmds: 3 条
 
-# 1. 看 api_websocket 重连日志的原始内容（哪句话在刷、什么级别）
-docker-compose logs --tail=100 api_websocket 2>&1 | tail -30
+# 1. 看日志原文（不过滤），确认报错的具体 host:port 和错误类型
+docker-compose logs --tail=20 --timestamps api_websocket 2>&1 | tail -25
 
-# 2. 看 Redis 服务端 timeout/tcp-keepalive/maxclients 实际配置值（空闲踢除不产生日志）
-docker-compose exec -T redis redis-cli -a difyai123456 CONFIG GET timeout tcp-keepalive maxclients 2>&1 | head -10
+# 2. 看 Redis 主机与 event bus 的完整配置（上轮疑似缺 REDIS_HOST）
+docker-compose exec -T api_websocket env 2>&1 | grep -iE 'REDIS_HOST|EVENT_BUS|CELERY|LOG_LEVEL' | head -12
 
-# 3. 统计 api_websocket 最近 1 小时重连日志的条数和分布（判断频率是否空闲期触发）
-docker-compose logs --since 60m --timestamps api_websocket 2>&1 | grep -iE 'redis|reconnect|retry' | awk '{print substr($1,1,16)}' | sort | uniq -c | tail -15
+# 3. 从容器内直连 Redis 验证（走和业务完全相同的路径）
+docker-compose exec -T api_websocket python -c "import redis; r=redis.Redis(host='redis',port=6379,password='difyai123456',db=0,socket_timeout=3); print('PING ->', r.ping())" 2>&1 | tail -5
