@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-01 17:35
-# Context: agent_backend 调模型被 ssrf_proxy(Squid) 拒绝，查被拒域名 + Squid ACL 规则 + 配置文件改动时间
+# Time: 2026-09-01 17:50
+# Context: 模型域名 lp19dksfai07vm.bmwgroup.net 在 Squid 内容器 DNS 被解析成公网 IPv6，对比宿主机/容器解析差异
 # Cmds: 3 条
 
-# 1. Squid 访问日志（看被 DENIED 的请求和目标域名，复现一次 agent 提问后执行最佳）
-docker-compose logs --tail=100 ssrf_proxy 2>&1 | tail -30
+# 1. 宿主机上该域名解析结果（正确的内网 IP 应该是什么）
+getent hosts lp19dksfai07vm.bmwgroup.net | head -3
 
-# 2. Squid 的 ACL 规则（看允许/拒绝了哪些目标）
-docker-compose exec -T ssrf_proxy sh -c 'grep -vE "^#|^$" /etc/squid/squid.conf | head -30'
+# 2. ssrf_proxy 容器内解析结果（预期会看到错误的公网 IPv6）
+docker-compose exec -T ssrf_proxy getent hosts lp19dksfai07vm.bmwgroup.net 2>&1 | head -3
 
-# 3. 配置文件最近修改时间（定位"某个时间点"改了什么）
-ls -l .env docker-compose.yaml ssrf_proxy/squid.conf 2>&1 | head -10
+# 3. api 容器内解析结果（确认 api 是否也被污染）
+docker-compose exec -T api getent hosts lp19dksfai07vm.bmwgroup.net 2>&1 | head -3
