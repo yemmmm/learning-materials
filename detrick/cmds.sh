@@ -1,14 +1,15 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-01 17:50
-# Context: 模型域名 lp19dksfai07vm.bmwgroup.net 在 Squid 内容器 DNS 被解析成公网 IPv6，对比宿主机/容器解析差异
+# Time: 2026-09-01 18:10
+# Context: 对比实验——先后问坏/好 Agent 同一问题，抓 15 分钟窗口内日志排除历史残留
 # Cmds: 3 条
+# 实验步骤：1)记时间问坏Agent 2)记时间问好Agent 3)立刻执行以下命令
 
-# 1. 宿主机上该域名解析结果（正确的内网 IP 应该是什么）
-getent hosts lp19dksfai07vm.bmwgroup.net | head -3
+# 1. 15 分钟窗口内 api 的报错/agent 相关日志（看坏 Agent 这次运行有没有再次报 AgentBackendRunFailedError）
+docker-compose logs --since 15m api 2>&1 | grep -iE 'error|failed' | tail -20
 
-# 2. ssrf_proxy 容器内解析结果（预期会看到错误的公网 IPv6）
-docker-compose exec -T ssrf_proxy getent hosts lp19dksfai07vm.bmwgroup.net 2>&1 | head -3
+# 2. agent_backend 窗口内日志（过滤掉 XREAD/XADD 轮询噪音，只留真实事件）
+docker-compose logs --since 15m agent_backend 2>&1 | grep -viE 'XREAD|XADD|EXPIRE|GET /runs' | tail -25
 
-# 3. api 容器内解析结果（确认 api 是否也被污染）
-docker-compose exec -T api getent hosts lp19dksfai07vm.bmwgroup.net 2>&1 | head -3
+# 3. 窗口内 Squid 日志（看两次提问各走了哪个模型域名、结果如何）
+docker-compose logs --since 15m ssrf_proxy 2>&1 | grep -E 'CONNECT|POST' | tail -10
