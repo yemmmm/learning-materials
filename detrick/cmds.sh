@@ -1,15 +1,15 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-01 18:10
-# Context: 对比实验——先后问坏/好 Agent 同一问题，抓 15 分钟窗口内日志排除历史残留
+# Time: 2026-09-05 21:00
+# Context: 升级后 OIDC SSO 失败；确认运行版本、invalid_scope 产生在哪一层，以及 OIDC 配置存储位置
 # Cmds: 3 条
-# 实验步骤：1)记时间问坏Agent 2)记时间问好Agent 3)立刻执行以下命令
+# 操作提示：先重新发起一次 SSO 登录，看到报错后立即执行以下命令
 
-# 1. 15 分钟窗口内 api 的报错/agent 相关日志（看坏 Agent 这次运行有没有再次报 AgentBackendRunFailedError）
-docker-compose logs --since 15m api 2>&1 | grep -iE 'error|failed' | tail -20
+# 1. 确认升级后实际运行的 SSO 相关容器镜像和状态
+docker-compose ps 2>&1 | grep -E '(^Name|dify-enterprise|dify-gateway|api)' | head -20 && docker-compose images 2>&1 | grep -E '(^Container|dify-enterprise|dify-gateway|api)' | head -20
 
-# 2. agent_backend 窗口内日志（过滤掉 XREAD/XADD 轮询噪音，只留真实事件）
-docker-compose logs --since 15m agent_backend 2>&1 | grep -viE 'XREAD|XADD|EXPIRE|GET /runs' | tail -25
+# 2. 查看刚才这次登录在网关、企业服务和 API 三层的 OIDC/Scope/State 证据
+docker-compose logs --since 10m dify-gateway dify-enterprise api 2>&1 | grep -iE 'oidc|sso|invalid_scope|unknown|scope|state|callback|error' | tail -30
 
-# 3. 窗口内 Squid 日志（看两次提问各走了哪个模型域名、结果如何）
-docker-compose logs --since 15m ssrf_proxy 2>&1 | grep -E 'CONNECT|POST' | tail -10
+# 3. 仅列出数据库中与 SSO/OIDC 有关的表名和字段名，不读取配置值或密钥
+docker-compose exec -T db_postgres sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atc "SELECT table_schema||chr(46)||table_name||chr(46)||column_name FROM information_schema.columns ORDER BY table_schema,table_name,ordinal_position;"' 2>&1 | grep -iE 'sso|oidc|oauth|scope' | head -30
