@@ -1,13 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-05 21:23
-# Context: 已确认使用外部 PostgreSQL；验证 api/enterprise 数据库配置是否一致，并读取外部 enterprise 库中的 SSO 协议与 scopes
+# Time: 2026-09-05 21:59
+# Context: 数据库有 OIDC provider 但管理页不显示；检查 OIDC 专用字段完整性及后端读取错误
 # Cmds: 2 条
+# 操作提示：先刷新一次管理员认证配置页面，再立即执行以下命令
 
-# 1. 比较 api 与 dify-enterprise 的数据库目标；敏感变量按变量名完整遮蔽
-for svc in api dify-enterprise; do echo "service=$svc"; docker-compose exec -T "$svc" sh -c env 2>&1 | grep -E '^(DB_(ENGINE|HOST|PORT|USER|USERNAME|PASS|PASSWORD|SSL_MODE)|DIFY_DB_|ENTERPRISE_DB_)' | awk -F= 'BEGIN{IGNORECASE=1} $1 ~ /(PASS|PASSWORD|SECRET|TOKEN|KEY|USER)/ {print $1 "=[REDACTED]"; next} {print}'; done | head -30
+# 1. 查看刷新页面时 dify-enterprise 后端的最近输出，不预先过滤错误关键词
+docker-compose logs --since 5m --timestamps dify-enterprise 2>&1 | tail -30
 
-# 2. 从 api 容器连接外部 enterprise 数据库，只输出 SSO 配置结构、协议、启用状态和 scopes
+# 2. 安全检查 USER_SSO_SETTINGS 的时间戳及 OIDC 专用字段状态，不输出字段值或密钥
 docker-compose exec -T api python - <<'PY' 2>&1 | head -30
 import json
 import os
@@ -16,41 +17,36 @@ import psycopg2
 def pick(*names):
     return next((os.environ.get(name) for name in names if os.environ.get(name)), None)
 
+def state(value):
+    if value is None:
+        return "MISSING"
+    if isinstance(value, str):
+        return "EMPTY" if not value.strip() else "SET(length=%d)" % len(value)
+    return str(value) if isinstance(value, bool) else "SET(type=%s)" % type(value).__name__
+
 conn = psycopg2.connect(
-    host=pick("DB_HOST"),
-    port=pick("DB_PORT") or "5432",
+    host=pick("DB_HOST"), port=pick("DB_PORT") or "5432",
     dbname=pick("ENTERPRISE_DB_NAME"),
     user=pick("ENTERPRISE_DB_USER", "DB_USER", "DB_USERNAME"),
     password=pick("ENTERPRISE_DB_PASS", "DB_PASS", "DB_PASSWORD"),
     sslmode=pick("DB_SSL_MODE") or "disable",
 )
 cur = conn.cursor()
-cur.execute("SELECT current_database(), to_regclass('public.sys_settings')")
-print("database=%s sys_settings=%s" % cur.fetchone())
-keys = ("USER_SSO_SETTINGS", "WEB_SSO_SETTINGS", "DASHBOARD_SSO_SETTINGS")
-cur.execute("SELECT key, value FROM sys_settings WHERE key = ANY(%s) ORDER BY key", (list(keys),))
-rows = cur.fetchall()
-print("sso_rows=%d" % len(rows))
-for key, raw in rows:
-    try:
-        data = json.loads(raw)
-    except Exception:
-        print("%s length=%d json=UNPARSEABLE" % (key, len(raw)))
-        continue
-    print("%s length=%d top_keys=%s" % (key, len(raw), sorted(data.keys())))
-    def walk(value, path=""):
-        if isinstance(value, dict):
-            for name, child in value.items():
-                child_path = "%s.%s" % (path, name) if path else name
-                if name.lower() in {"scope", "scopes", "protocol", "type", "enabled"}:
-                    print("  %s=%s" % (child_path, json.dumps(child, ensure_ascii=True)))
-                if isinstance(child, (dict, list)):
-                    walk(child, child_path)
-        elif isinstance(value, list):
-            for index, child in enumerate(value):
-                if isinstance(child, (dict, list)):
-                    walk(child, "%s[%d]" % (path, index))
-    walk(data)
+cur.execute("SELECT created_at, updated_at, value FROM sys_settings WHERE key=%s", ("USER_SSO_SETTINGS",))
+row = cur.fetchone()
+if not row:
+    print("USER_SSO_SETTINGS=MISSING")
+else:
+    created_at, updated_at, raw = row
+    data = json.loads(raw)
+    provider = data.get("sso_idp_provider") or {}
+    oidc = provider.get("oidc_config") or {}
+    oauth2 = provider.get("oauth2_config") or {}
+    print("created_at=%s updated_at=%s" % (created_at, updated_at))
+    print("protocol=%s provider_type=%s" % (provider.get("protocol"), provider.get("provider")))
+    for name in ("issuer_url", "client_id", "client_secret", "enable_pkce"):
+        print("oidc_config.%s=%s" % (name, state(oidc.get(name))))
+    print("oauth2_config.scopes=%s (not used when protocol=oidc)" % state(oauth2.get("scopes")))
 cur.close()
 conn.close()
 PY
