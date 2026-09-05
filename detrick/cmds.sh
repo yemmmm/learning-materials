@@ -1,28 +1,55 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-05 21:59
-# Context: 数据库有 OIDC provider 但管理页不显示；检查 OIDC 专用字段完整性及后端读取错误
+# Time: 2026-09-05 22:21
+# Context: Provider 与管理 API 均正常；对比 Dify 实际请求的 scope 和 IdP discovery 声明的 scopes_supported
 # Cmds: 2 条
-# 操作提示：先刷新一次管理员认证配置页面，再立即执行以下命令
 
-# 1. 查看刷新页面时 dify-enterprise 后端的最近输出，不预先过滤错误关键词
-docker-compose logs --since 5m --timestamps dify-enterprise 2>&1 | tail -30
+# 1. 调用 OIDC 登录入口，只显示授权请求的 scope、state 是否存在及参数名，不输出完整 URL/client_id/state
+docker-compose exec -T api python - <<'PY' 2>&1 | head -30
+import json
+from urllib.parse import parse_qs, urlsplit
+import requests
 
-# 2. 安全检查 USER_SSO_SETTINGS 的时间戳及 OIDC 专用字段状态，不输出字段值或密钥
+r = requests.get("http://dify-enterprise:8082/console/api/enterprise/sso/oidc/login", timeout=15, allow_redirects=False)
+print("status=%s content_type=%s" % (r.status_code, r.headers.get("content-type", "")))
+urls = []
+if r.headers.get("location"):
+    urls.append(r.headers["location"])
+try:
+    body = r.json()
+    print("body_keys=%s" % sorted(body.keys()) if isinstance(body, dict) else "body_type=%s" % type(body).__name__)
+    def walk(value, key=""):
+        if isinstance(value, dict):
+            for name, child in value.items():
+                walk(child, name)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child, key)
+        elif isinstance(value, str) and value.startswith(("http://", "https://")) and ("url" in key.lower() or "redirect" in key.lower()):
+            urls.append(value)
+    walk(body)
+except Exception:
+    pass
+if not urls:
+    print("authorization_url=NOT_FOUND")
+for url in urls[:2]:
+    parsed = urlsplit(url)
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    print("authorization_target=%s%s" % (parsed.netloc, parsed.path))
+    print("query_keys=%s" % sorted(query.keys()))
+    print("scope=%r" % query.get("scope", [None])[0])
+    print("state_present=%s state_empty=%s" % ("state" in query, query.get("state", [""])[0] == ""))
+PY
+
+# 2. 读取数据库中的 OIDC issuer，并只显示 discovery 状态及 IdP 声明支持的 scopes
 docker-compose exec -T api python - <<'PY' 2>&1 | head -30
 import json
 import os
 import psycopg2
+import requests
 
 def pick(*names):
     return next((os.environ.get(name) for name in names if os.environ.get(name)), None)
-
-def state(value):
-    if value is None:
-        return "MISSING"
-    if isinstance(value, str):
-        return "EMPTY" if not value.strip() else "SET(length=%d)" % len(value)
-    return str(value) if isinstance(value, bool) else "SET(type=%s)" % type(value).__name__
 
 conn = psycopg2.connect(
     host=pick("DB_HOST"), port=pick("DB_PORT") or "5432",
@@ -32,21 +59,17 @@ conn = psycopg2.connect(
     sslmode=pick("DB_SSL_MODE") or "disable",
 )
 cur = conn.cursor()
-cur.execute("SELECT created_at, updated_at, value FROM sys_settings WHERE key=%s", ("USER_SSO_SETTINGS",))
-row = cur.fetchone()
-if not row:
-    print("USER_SSO_SETTINGS=MISSING")
-else:
-    created_at, updated_at, raw = row
-    data = json.loads(raw)
-    provider = data.get("sso_idp_provider") or {}
-    oidc = provider.get("oidc_config") or {}
-    oauth2 = provider.get("oauth2_config") or {}
-    print("created_at=%s updated_at=%s" % (created_at, updated_at))
-    print("protocol=%s provider_type=%s" % (provider.get("protocol"), provider.get("provider")))
-    for name in ("issuer_url", "client_id", "client_secret", "enable_pkce"):
-        print("oidc_config.%s=%s" % (name, state(oidc.get(name))))
-    print("oauth2_config.scopes=%s (not used when protocol=oidc)" % state(oauth2.get("scopes")))
+cur.execute("SELECT value FROM sys_settings WHERE key=%s", ("USER_SSO_SETTINGS",))
+data = json.loads(cur.fetchone()[0])
+issuer = data["sso_idp_provider"]["oidc_config"]["issuer_url"]
+metadata_url = issuer if ".well-known/openid-configuration" in issuer else issuer.rstrip("/") + "/.well-known/openid-configuration"
+r = requests.get(metadata_url, timeout=15)
+print("discovery_status=%s content_type=%s" % (r.status_code, r.headers.get("content-type", "")))
+metadata = r.json()
+print("issuer_matches=%s" % (metadata.get("issuer", "").rstrip("/") == issuer.replace("/.well-known/openid-configuration", "").rstrip("/")))
+print("authorization_endpoint_present=%s" % bool(metadata.get("authorization_endpoint")))
+print("token_endpoint_present=%s" % bool(metadata.get("token_endpoint")))
+print("scopes_supported=%r" % metadata.get("scopes_supported"))
 cur.close()
 conn.close()
 PY
