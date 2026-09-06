@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-06 16:10
-# Context: 迁移已覆盖报障租户、绑定已写入（account_role_ids 非空），剩最后一步：确认角色 d36c6ac4 到底是什么角色、为何不含 app_view_layout。本轮查：①用户工作区角色（修正表名 tenant_account_joins）②rbac 服务数据库配置 ③inner api key
+# Time: 2026-09-06 17:00
+# Context: 用户工作区角色是 admin，但 account_role_ids 里的角色 d36c6ac4 不含 app_view_layout 权限。本轮目标：查出 d36c6ac4 的角色名和权限内容，定性是角色映射 bug 还是配置问题
 # Cmds: 3 条
 
-# 1. 用你的外部数据库客户端执行（表名修正为 tenant_account_joins）：
-select tenant_id, role, current from tenant_account_joins where account_id='dc81582c-3934-4d8f-b034-9cb7809dce2b';
+# 1. 带 inner key 调角色 API（鉴权头猜 X-Inner-Token，401 就试下一条）
+docker-compose exec -T api curl -s -H "X-Inner-Token: difyai123456" "http://dify-enterprise-rbac:8086/inner/api/rbac/roles?results_per_page=100" | head -c 2000
 
-# 2. 看 rbac 服务自己的数据库连接配置（角色数据存在 rbac 的库里，找到 DSN 才能直接查角色名）
-docker-compose exec -T dify-enterprise-rbac env | grep -iE 'dsn|postgres|mysql|db_' | head -10
+# 2. 鉴权头换 Authorization Bearer 再试（哪条返回 JSON 用哪条）
+docker-compose exec -T api curl -s -H "Authorization: Bearer difyai123456" "http://dify-enterprise-rbac:8086/inner/api/rbac/roles?results_per_page=100" | head -c 2000
 
-# 3. 从 api 容器环境变量里找 inner api key（下一轮带 key 调角色 API）
-docker-compose exec -T api env | grep -iE 'inner|rbac|enterprise' | head -15
+# 3. 在外部数据库的 dify_enterprise 库（rbac 用的库）执行：列出角色相关表名
+select table_name from information_schema.tables where table_name like '%role%' or table_name like '%rbac%';
