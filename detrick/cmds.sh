@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-06 20:30
-# Context: 不确定本机 db 服务里存的是什么库、rbac 连的 PG 是不是它。本轮先摸清：①db 服务身份与库清单 ②rbac 实际连的 DB 主机
-# Cmds: 3 条
+# Time: 2026-09-06 21:30
+# Context: 根因已实锤——旧应用缺少 RBAC whitelist（仅创建时可写入），官方无回填命令。本轮对报障 app 60a56261 单点验证修复：PUT /inner/api/rbac/apps/whitelist scope=all
+# Cmds: 3 条（顺序执行，1 必须先跑，变量在同一终端会话内生效）
 
-# 1. db 容器的身份信息（用户名/密码/默认库）
-docker-compose exec -T db env | grep -iE 'postgres_|pgdata' | head -10
+# 1. 先设置变量（在同一终端里执行，后续命令依赖）
+T=e823b48d-382f-43cb-9574-410948f53315; A=dc81582c-3934-4d8f-b034-9cb7809dce2b; I=60a56261-fd3c-47cc-8f63-ad40adee61cf; echo vars-ok
 
-# 2. db 容器里现有的数据库清单（看有没有 dify_enterprise 库）
-PGPASSWORD=difyai123456 docker-compose exec -T db psql -U postgres -c "select datname from pg_database" 2>&1 | head -20
+# 2. 读取该应用当前 whitelist（无副作用，验证鉴权头是否通过；返回 JSON 即成功）
+docker-compose exec -T api curl -s -H "Enterprise-Api-Secret-Key: difyai123456" -H "X-Inner-Tenant-Id: $T" -H "X-Inner-Account-Id: $A" "http://dify-enterprise-rbac:8086/inner/api/rbac/apps/whitelist?app_id=$I"
 
-# 3. rbac 容器连的 DB 主机地址（确认连的是 db 服务还是别的 PG）
-docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' $(docker-compose ps -q dify-enterprise-rbac) | grep -iE 'host|addr' | head -5
+# 3. 【修复】将该应用 whitelist 设为 scope=all（等价于新建应用时的默认授权）。执行后用普通账号打开该工作流验证
+docker-compose exec -T api curl -s -X PUT -H "Enterprise-Api-Secret-Key: difyai123456" -H "X-Inner-Tenant-Id: $T" -H "X-Inner-Account-Id: $A" -H "Content-Type: application/json" -d '{"scope":"all"}' "http://dify-enterprise-rbac:8086/inner/api/rbac/apps/whitelist?app_id=$I"
