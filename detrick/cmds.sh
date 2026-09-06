@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-06 18:00
-# Context: curl 用的 key 不对（401），外部库里也没找到 rbac 业务表。本轮查：①rbac 容器完整 DB 环境变量（确定真实库名）②api 容器里真正的 inner key ③rbac 容器挂载（找 config.yaml）
+# Time: 2026-09-06 19:00
+# Context: INNER_API_KEY=difyai123456 已确认，上轮失败是请求头名不对。本轮：①用正确头名查角色 API ②SQL 列出 dify_enterprise 库全部业务表（兜底直查角色表）
 # Cmds: 3 条
 
-# 1. rbac 容器完整环境变量里的 DB 配置（docker inspect，不受容器内缺 shell 影响）
-docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' $(docker-compose ps -q dify-enterprise-rbac) | grep -iE 'db|database' | head -15
+# 1. 用 X-Api-Key 头重试角色 API（Dify 内部调用惯例头名）
+docker-compose exec -T api curl -s -H "X-Api-Key: difyai123456" "http://dify-enterprise-rbac:8086/inner/api/rbac/roles?results_per_page=100" | head -c 2000
 
-# 2. api 容器所有含 key/token 的环境变量（找真正的 enterprise inner key）
-docker-compose exec -T api env | grep -iE 'key|token' | grep -viE 'sentry|public' | head -20
+# 2. 用 X-Inner-Api-Key 头再试（两条哪条返回 JSON 用哪条，401 就跳过）
+docker-compose exec -T api curl -s -H "X-Inner-Api-Key: difyai123456" "http://dify-enterprise-rbac:8086/inner/api/rbac/roles?results_per_page=100" | head -c 2000
 
-# 3. rbac 容器的挂载点（定位 config.yaml 位置，key 可能写在配置文件里）
-docker inspect --format '{{json .Mounts}}' $(docker-compose ps -q dify-enterprise-rbac) | head -c 800
+# 3. 在外部数据库的 dify_enterprise 库执行：列出全部业务表（确认角色表真实表名）
+select table_schema, table_name from information_schema.tables where table_schema not in ('pg_catalog','information_schema') order by 1,2 limit 50;
