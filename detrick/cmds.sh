@@ -1,14 +1,15 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-06 23:20
-# Context: whitelist 已是 scope=all 但 check-access 仍 allowed:false，怀疑 rbac Go 服务存在判定缓存。本轮：重启 rbac 清缓存后直接重测
+# Time: 2026-09-07 00:10
+# Context: 实锤——scope=all 是成员快照，必须走控制台 API 才触发成员枚举任务（inner API 不触发）。本轮：用管理员 token 调控制台 PUT whitelist，然后验证 check-access
 # Cmds: 3 条（顺序执行）
+# 准备：管理员账号（就是报障那位 admin）登录 Dify 控制台 → F12 开发者工具 → Network → 随便点一个请求 → Request Headers 里复制 Authorization: Bearer 后面的整串 token
 
-# 1. 重设变量并重启 rbac 容器（清掉内存中的判定/白名单缓存，约 10 秒）
-K='Enterprise-Api-Secret-Key: difyai123456'; U=http://dify-enterprise-rbac:8086/inner/api/rbac; T=e823b48d-382f-43cb-9574-410948f53315; A=dc81582c-3934-4d8f-b034-9cb7809dce2b; I=60a56261-fd3c-47cc-8f63-ad40adee61cf; docker-compose restart dify-enterprise-rbac
+# 1. 设置变量（把 <TOKEN> 换成刚复制的 token；N 如果控制台不是 80 端口就改成实际地址如 http://localhost:8080）
+N=http://localhost; T='<TOKEN>'; I=60a56261-fd3c-47cc-8f63-ad40adee61cf; echo ok
 
-# 2. 等 rbac 起来后重测 check-access（如果这次 true，就是缓存问题，页面直接恢复）
-sleep 15; docker-compose exec -T api curl -s -X POST -H "$K" -H "X-Inner-Tenant-Id: $T" -H "X-Inner-Account-Id: $A" -H "Content-Type: application/json" -d "{\"account_id\":\"$A\",\"tenant_id\":\"$T\",\"scene\":\"app_view_layout\",\"resource_type\":\"app\",\"resource_id\":\"$I\"}" "$U/check-access"
+# 2. 调控制台 API 重新保存 scope=all（这次会触发成员枚举任务，给全员写授权）
+curl -s -X PUT -H "Authorization: Bearer $T" -H "Content-Type: application/json" -d '{"scope":"all"}' "$N/console/api/workspaces/current/rbac/apps/$I/whitelist"
 
-# 3. 对照实验：找一个升级后新建的、你能正常打开的工作流 app id（浏览器地址栏 /app/<id>/workflow 里的 id），替换 NEWID 后执行，看正常场景的 check-access 返回结构
-docker-compose exec -T api curl -s -X POST -H "$K" -H "X-Inner-Tenant-Id: $T" -H "X-Inner-Account-Id: $A" -H "Content-Type: application/json" -d "{\"account_id\":\"$A\",\"tenant_id\":\"$T\",\"scene\":\"app_view_layout\",\"resource_type\":\"app\",\"resource_id\":\"NEWID\"}" "$U/check-access"
+# 3. 等异步任务跑完后重测 check-access（返回 allowed:true 即修复成功，页面刷新即可打开）
+sleep 20; K='Enterprise-Api-Secret-Key: difyai123456'; U=http://dify-enterprise-rbac:8086/inner/api/rbac; TT=e823b48d-382f-43cb-9574-410948f53315; A=dc81582c-3934-4d8f-b034-9cb7809dce2b; docker-compose exec -T api curl -s -X POST -H "$K" -H "X-Inner-Tenant-Id: $TT" -H "X-Inner-Account-Id: $A" -H "Content-Type: application/json" -d "{\"account_id\":\"$A\",\"tenant_id\":\"$TT\",\"scene\":\"app_view_layout\",\"resource_type\":\"app\",\"resource_id\":\"$I\"}" "$U/check-access"
