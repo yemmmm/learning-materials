@@ -1,15 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-06 12:05
-# Context: Dify EE 3.12 RBAC 拒绝（account is not in the resource whitelist），三步迁移已执行仍复现。本轮查：①拒绝日志完整字段 ②member-roles 迁移实际写入情况
+# Time: 2026-09-06 15:20
+# Context: RBAC 拒绝场景中 account_role_ids 非空（d36c6ac4）但 matched_role_ids 为空，怀疑用户角色本身不含 app_view_layout 权限。本轮查：①用户工作区角色 ②d36c6ac4 角色名 ③迁移是否覆盖报障租户
 # Cmds: 3 条
-# 注：api 容器名如不是 dockerapi，请用 docker-compose ps 确认后替换
 
-# 1. 看最近 RBAC 拒绝日志的完整字段（重点看 account id / scene / matched_role_ids）
-docker-compose logs --tail=500 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -10
+# 1. 查报障用户在各工作区的角色（重点看 tenant e823b48d 下是 owner/admin/normal/editor）
+docker-compose exec -T db psql -U postgres -d dify -c "select tenant_id,role from tenant_members where account_id='dc81582c-3934-4d8f-b034-9cb7809dce2b'" 2>&1 | head -10
 
-# 2. 重跑 member-roles 迁移看输出（幂等；若显示 0 待迁移说明绑定已写入，若仍有 pending 说明上次没生效）
-docker-compose exec -T dockerapi flask rbac-migrate-member-roles 2>&1 | tail -15
+# 2. 查 rbac 角色列表，找 d36c6ac4 对应的角色名（看它的权限范围）
+docker-compose exec -T api curl -s 'http://dify-enterprise-rbac:8086/inner/api/rbac/roles?page_number=1&results_per_page=100' 2>&1 | head -c 2000
 
-# 3. dataset-permissions 迁移 dry-run（不带 --apply，看是否还有待迁移项）
-docker-compose exec -T dockerapi flask rbac-migrate-dataset-permissions 2>&1 | tail -15
+# 3. 确认迁移是否遍历到了报障租户 e823b48d
+docker-compose exec -T api flask rbac-migrate-member-roles 2>&1 | grep -E 'tenant=' | tail -10
