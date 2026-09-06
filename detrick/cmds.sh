@@ -1,14 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-06 19:00
-# Context: INNER_API_KEY=difyai123456 已确认，上轮失败是请求头名不对。本轮：①用正确头名查角色 API ②SQL 列出 dify_enterprise 库全部业务表（兜底直查角色表）
+# Time: 2026-09-06 20:30
+# Context: 不确定本机 db 服务里存的是什么库、rbac 连的 PG 是不是它。本轮先摸清：①db 服务身份与库清单 ②rbac 实际连的 DB 主机
 # Cmds: 3 条
 
-# 1. 用 X-Api-Key 头重试角色 API（Dify 内部调用惯例头名）
-docker-compose exec -T api curl -s -H "X-Api-Key: difyai123456" "http://dify-enterprise-rbac:8086/inner/api/rbac/roles?results_per_page=100" | head -c 2000
+# 1. db 容器的身份信息（用户名/密码/默认库）
+docker-compose exec -T db env | grep -iE 'postgres_|pgdata' | head -10
 
-# 2. 用 X-Inner-Api-Key 头再试（两条哪条返回 JSON 用哪条，401 就跳过）
-docker-compose exec -T api curl -s -H "X-Inner-Api-Key: difyai123456" "http://dify-enterprise-rbac:8086/inner/api/rbac/roles?results_per_page=100" | head -c 2000
+# 2. db 容器里现有的数据库清单（看有没有 dify_enterprise 库）
+PGPASSWORD=difyai123456 docker-compose exec -T db psql -U postgres -c "select datname from pg_database" 2>&1 | head -20
 
-# 3. 在外部数据库的 dify_enterprise 库执行：列出全部业务表（确认角色表真实表名）
-select table_schema, table_name from information_schema.tables where table_schema not in ('pg_catalog','information_schema') order by 1,2 limit 50;
+# 3. rbac 容器连的 DB 主机地址（确认连的是 db 服务还是别的 PG）
+docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' $(docker-compose ps -q dify-enterprise-rbac) | grep -iE 'host|addr' | head -5
