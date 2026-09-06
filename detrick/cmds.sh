@@ -1,14 +1,11 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 01:00
-# Context: 浏览器里找不到 Authorization token，改用登录 API 直接换 access_token，然后调控制台 whitelist API 触发成员枚举
-# Cmds: 3 条（顺序执行）
+# Time: 2026-09-07 02:00
+# Context: 登录接口返回空，怀疑 N 地址/端口不对。本轮：①看 nginx 实际端口 ②带状态码重试登录
+# Cmds: 2 条（顺序执行）
 
-# 1. 设置变量（换成 admin 的邮箱和密码；控制台端口不是 80 就改 N）
-N=http://localhost; E='admin@example.com'; P='password-here'; I=60a56261-fd3c-47cc-8f63-ad40adee61cf; echo ok
+# 1. 看 dify 相关容器的端口映射（确认控制台 nginx 是哪个端口）
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep -iE 'nginx|gateway|api' | head -10
 
-# 2. 登录换 token（从返回 JSON 里复制 data.access_token 的值，一长串 JWT）
-curl -s -X POST -H "Content-Type: application/json" -d "{\"email\":\"$E\",\"password\":\"$P\",\"remember_me\":true}" "$N/console/api/login" | head -c 600
-
-# 3. 把 <TOKEN> 换成刚拿到的 access_token 后执行（触发全员授权枚举）
-T='<TOKEN>'; curl -s -X PUT -H "Authorization: Bearer $T" -H "Content-Type: application/json" -d '{"scope":"all"}' "$N/console/api/workspaces/current/rbac/apps/$I/whitelist"
+# 2. 带响应头重试登录（能看到 HTTP 状态码和错误；E/P 换成 admin 邮箱密码，端口按命令 1 结果改 N）
+N=http://localhost; E='admin@example.com'; P='password-here'; curl -si -X POST -H "Content-Type: application/json" -d "{\"email\":\"$E\",\"password\":\"$P\",\"remember_me\":true}" "$N/console/api/login" 2>&1 | head -25
