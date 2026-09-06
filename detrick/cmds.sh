@@ -1,11 +1,21 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 05:00
-# Context: check-access 已 allowed:true，但页面仍报错。本轮定位页面报错的真实来源：是别的 app/scene 被拒，还是 api 层缓存
-# Cmds: 2 条（先在页面上刷新复现一次报错，再执行命令）
+# Time: 2026-09-07 06:00
+# Context: 单点修复已验证成功（allowed:true + 页面正常打开）。本轮批量修复：对该租户全部 app 逐个执行官方枚举任务。为防长命令截断，先逐行写脚本文件再执行
+# Cmds: 10 条（全部按顺序执行，1-9 是写脚本，10 是运行）
 
-# 1. 看最近 10 分钟 rbac 拒绝日志（如有新拒绝，看 resource_id/scene 是什么；没有新拒绝说明报错不来自 RBAC）
-docker-compose logs --since 10m dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -5
+# 1-9. 逐行写入修复脚本（每行一条，逐条粘贴执行）
+echo "import os" > /tmp/fix_rbac.py
+echo "from app_factory import create_app" >> /tmp/fix_rbac.py
+echo "wsgi, app = create_app(); app.app_context().push()" >> /tmp/fix_rbac.py
+echo "from extensions.ext_database import db; from models.model import App" >> /tmp/fix_rbac.py
+echo "from tasks.initialize_created_app_rbac_access_task import initialize_created_app_rbac_access_task as t" >> /tmp/fix_rbac.py
+echo "T=os.environ['T']; A=os.environ['A']" >> /tmp/fix_rbac.py
+echo "ids=[str(r[0]) for r in db.session.query(App.id).filter(App.tenant_id==T).all()]; print(len(ids),'apps found')" >> /tmp/fix_rbac.py
+echo "[t.apply(args=(T,A,i)) for i in ids]; print('all-done')" >> /tmp/fix_rbac.py
 
-# 2. 看 api 容器最近的权限类错误（定位非 RBAC 的报错来源）
-docker-compose logs --since 10m api 2>&1 | grep -iE 'forbidden|permission|403' | tail -10
+# 10. 运行（对租户内全部 app 执行，幂等、对新应用无害；app 多时可能跑几分钟）
+T=e823b48d-382f-43cb-9574-410948f53315; A=dc81582c-3934-4d8f-b034-9cb7809dce2b; docker-compose exec -T -e T -e A api sh -c 'cd /app/api && python -' < /tmp/fix_rbac.py
+
+# 收尾：跑完确认无误后删除临时脚本
+rm -f /tmp/fix_rbac.py
