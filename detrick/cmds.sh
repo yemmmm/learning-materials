@@ -1,12 +1,11 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 14:26
-# Context: 新建 Agent 后他人访问被拒。判别是"成员绑定又空了(bug)"还是"Agent 默认访问范围=特定成员(设计)"。
-# 用法：下次复现时【先跑这两条，再跑迁移命令】，把输出带回
+# Time: 2026-09-07 18:01
+# Context: scene=app_view_layout 白名单拒绝 + 迁移命令崩于 WORKSPACE_ALREADY_HAS_OWNER（疑似某 workspace 双 owner）。本轮拿完整拒绝行(matched_role_ids 判别) + 定位双 owner 的 workspace
 # Cmds: 2 条
 
-# 1. 看拒绝日志的 scene 和 reason（若 reason 仍是 not in the resource whitelist，看 scene 是 agent 专属还是通用 app scene）
-docker-compose logs --tail=100 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -10
+# 1. 完整拒绝日志行（关键看 matched_role_ids 字段：空=绑定bug；非空=Agent默认访问范围设计行为）
+docker-compose logs --tail=200 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -3
 
-# 2. 关键判别：dry-run 看是否有待迁移成员（0 pending = 绑定没问题，拒绝来自 Agent 默认访问范围，属设计行为，去应用的企业访问控制里改范围即可；有 pending = 又是绑定 bug）
-docker-compose exec -T api flask rbac-migrate-member-roles 2>&1 | tail -20
+# 2. 查 DB 里 owner 数 >1 的 workspace（定位双 owner 现场在哪）
+docker-compose exec -T db psql -U postgres -d dify -c "select tenant_id,count(*) from tenant_members where role='owner' group by 1 having count(*)>1"
