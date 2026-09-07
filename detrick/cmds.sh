@@ -1,14 +1,18 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 22:58
-# Context: Agent 拒绝原因为 resource whitelist，account_role_ids 非空；运行源码 Agent 创建缺初始化，管理员邀请仅绑定角色。读取实际策略，修复宿主 Python 旧版本兼容问题；全部只读。
+# Time: 2026-09-07 23:07
+# Context: Agent 白名单拒绝及邀请后资源授权待查；兼容宿主旧 Python 和 ~/.bashrc 中的 docker-compose() 函数；全部只读。
 # Cmds: 3 条
 # 在服务器 Compose 目录执行。先让受影响成员各复现一次 Agent 打开失败、旧工作流打开失败。
+# 整份执行请用 source ./cmds.sh（在已有 docker-compose 函数的 Bash 中），不要用 bash cmds.sh。
 
 # 1. 镜像、有效 RBAC 开关及 worker 实际订阅队列（不输出连接串或密钥；最多 20 行）
+if declare -F docker-compose >/dev/null; then export -f docker-compose; fi
 python3 - <<'PY'
 import json, subprocess
 def run(args):
+    if args[0] == 'docker-compose':
+        args = ['bash', '-c', 'docker-compose "$@"', 'rbac-probe'] + args[1:]
     return subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=25)
 for svc in ['api', 'worker', 'dify-enterprise-rbac']:
     ids = run(['docker-compose', 'ps', '-q', svc]).stdout.split()
@@ -33,9 +37,11 @@ PY
 
 # 2. 自动提取最近 15 分钟最多 2 个拒绝案例，GET 查询白名单/成员策略/角色（最多 20 行；不打印密钥或姓名邮箱）
 # 请受影响成员先分别打开一次 Agent 和加入工作区前已有的工作流，然后执行。
+if declare -F docker-compose >/dev/null; then export -f docker-compose; fi
 python3 - <<'PY'
 import json, subprocess, uuid
-r = subprocess.run(['docker-compose', 'logs', '--since', '15m', '--tail=1200', '--no-color', 'dify-enterprise-rbac'],
+compose = ['bash', '-c', 'docker-compose "$@"', 'rbac-probe']
+r = subprocess.run(compose + ['logs', '--since', '15m', '--tail=1200', '--no-color', 'dify-enterprise-rbac'],
                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=25)
 cases = []
 for line in reversed(r.stdout.splitlines()):
@@ -94,7 +100,7 @@ for c in cases:
                 print('ROLE', role['id'], 'tag='+str(detail.get('role_tag')),
                       'keys='+str([k for k in keys if k == 'agent.manage' or k.startswith('app.')]))
 '''
-r = subprocess.run(['docker-compose','exec','-T','-e','RBAC_PROBE_CASES='+json.dumps(cases),'api','python','-'],
+r = subprocess.run(compose + ['exec','-T','-e','RBAC_PROBE_CASES='+json.dumps(cases),'api','python','-'],
                    input=probe, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
 print(r.stdout[:16000], end='')
 if r.returncode: print('PROBE_EXIT', r.returncode, '(stderr omitted to avoid exposing credentials)')
