@@ -1,15 +1,12 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 11:14
-# Context: Dify 添加外部知识库报 missing dataset_id or pipeline_id in request path，怀疑是 Dify 转发给外部知识库服务的请求路径不对，需从 api 日志确认实际请求 URL 和外部服务返回
-# Cmds: 3 条
+# Time: 2026-09-07 11:27
+# Context: 已确认报错是 Dify EE 已知 bug（v3.12.1 修复），最后验证服务器当前 Dify 版本是否 <= 3.12.0，以闭环"升级即可修复"的结论
+# Cmds: 2 条
 # 注意：在 Dify 的 docker-compose 目录下执行
 
-# 1. 看 api 容器里这个报错的上下文（谁抛的、请求了什么 URL）
-docker-compose logs --tail=1000 api 2>&1 | grep -B8 -A8 -i 'missing dataset_id' | tail -40
+# 1. 看 api 容器实际使用的镜像 tag（确认版本）
+docker ps --format '{{.Names}}\t{{.Image}}' | grep -iE 'api|worker' | head -5
 
-# 2. 过滤 api 日志中外部知识库相关的请求/错误（看 actual 请求路径和返回码）
-docker-compose logs --tail=1000 api 2>&1 | grep -iE 'external_knowledge|/retrieval|dataset_id|pipeline_id' | tail -20
-
-# 3. 报错发生时的完整 ERROR 日志（带 traceback）
-docker-compose logs --since 60m api 2>&1 | grep -iE 'error|exception' | tail -20
+# 2. 容器内 pyproject.toml 的版本号（镜像 tag 可能被本地重打过，以代码内版本为准）
+docker-compose exec -T api sh -c 'grep -m1 ^version /app/api/pyproject.toml' 2>&1 | head -3
