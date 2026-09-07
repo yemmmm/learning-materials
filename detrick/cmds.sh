@@ -1,102 +1,66 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 23:32
-# Context: 对比正常/异常环境，未认定镜像缺陷。检查有效配置、RBAC 指向、API/worker 一致性、实际队列和源码指纹；全部只读。
+# Time: 2026-09-07 23:44
+# Context: 正常环境也是新增 Agent；已回传关键源码一致；异常 worker 已订阅 app_rbac。优先比较有效配置和任务执行错误，尚未定位环境差异。
 # Cmds: 3 条
-# 两套环境各自在 Compose 目录执行，并标注正常/异常及测试类型（新 Agent 或 Workflow）。
-# 已定义 docker-compose() 的终端中 source ./cmds.sh，或逐条粘贴执行。
+# 在两套环境各自的 Compose 目录，把每条命令完整粘贴到平时 docker-compose 可用的终端执行。
+# 无需 source，无需 export，无需改 PATH；不再从 Python 启动 docker-compose。
 
-# 1. 运行镜像与有效配置；凭据只比较是否一致，不输出内容（最多 25 行）
-if declare -F docker-compose >/dev/null; then export -f docker-compose; fi
-python3 - <<'PY'
-import json, subprocess
+# 1. 两套都执行：镜像、RBAC 开关、路由、数据库及 API/worker 配置一致性（最多 25 行，凭据不输出）
+docker inspect $(docker-compose ps -q api worker dify-enterprise-rbac dify-enterprise) | python3 -c '
+import json,sys
 from urllib.parse import urlsplit
-compose = ['bash','-c','docker-compose "$@"','rbac-probe']
-def run(args):
-    r = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=25)
-    if r.returncode: raise RuntimeError('command failed: '+args[0]+' exit='+str(r.returncode))
-    return r.stdout
+try: objects=json.load(sys.stdin)
+except ValueError:
+    print("INSPECT_FAILED: container metadata was not received"); raise SystemExit(0)
 def endpoint(v):
-    if not v: return '<unset>'
+    if not v: return "<unset>"
     try:
-        u = urlsplit(v if '://' in v else '//'+v)
-        return (u.scheme+'://' if u.scheme else '')+str(u.hostname)+(':'+str(u.port) if u.port else '')
-    except ValueError: return '<unparseable>'
-envs = {}
-for svc in ['api','worker','web','dify-enterprise','dify-enterprise-rbac']:
-    ids = run(compose+['ps','-q',svc]).split()
-    if not ids:
-        print(svc,'NO_CONTAINER'); continue
-    for cid in ids[:2]:
-        o = json.loads(run(['docker','inspect',cid]))[0]
-        e = dict(x.split('=',1) for x in o['Config'].get('Env',[]) if '=' in x)
-        if svc not in envs: envs[svc] = e
-        print('IMAGE',svc,o['Config']['Image'],'id='+o['Image'],
-              'code_mounts='+str([m['Destination'] for m in o.get('Mounts',[]) if m['Destination'] in ['/app','/app/api','/app/web']]))
-        print('CONFIG',svc,'RBAC='+e.get('RBAC_ENABLED','<unset>'),
-              'ENTERPRISE='+e.get('ENTERPRISE_ENABLED','<unset>'),
-              'rbac_target='+endpoint(e.get('ENTERPRISE_RBAC_API_URL') or e.get('RBAC_INNER_BASE_URL')),
-              'db_host='+endpoint(e.get('DB_HOST')),'db_name='+e.get('DB_DATABASE',e.get('DB_NAME','<unset>')))
-a,w = envs.get('api',{}),envs.get('worker',{})
+        u=urlsplit(v if "://" in v else "//"+v)
+        return (u.scheme+"://" if u.scheme else "")+str(u.hostname)+(":"+str(u.port) if u.port else "")
+    except ValueError: return "<unparseable>"
+envs={}
+for o in objects[:8]:
+    svc=(o["Config"].get("Labels") or {}).get("com.docker.compose.service",o["Name"])
+    e=dict(x.split("=",1) for x in o["Config"].get("Env",[]) if "=" in x)
+    envs.setdefault(svc,e)
+    print("IMAGE",svc,o["Config"]["Image"],"id="+o["Image"])
+    print("CONFIG",svc,"RBAC="+e.get("RBAC_ENABLED","<unset>"),
+          "ENTERPRISE="+e.get("ENTERPRISE_ENABLED","<unset>"),
+          "rbac_target="+endpoint(e.get("ENTERPRISE_RBAC_API_URL") or e.get("RBAC_INNER_BASE_URL")),
+          "db_host="+endpoint(e.get("DB_HOST")),"db_name="+e.get("DB_DATABASE",e.get("DB_NAME","<unset>")))
+a,w=envs.get("api",{}),envs.get("worker",{})
 for group,keys in [
- ('routing',['ENTERPRISE_API_URL','ENTERPRISE_RBAC_API_URL','RBAC_ENABLED','DB_HOST','DB_PORT','DB_DATABASE','DB_USERNAME']),
- ('broker',['CELERY_BROKER_URL','CELERY_QUEUES','REDIS_HOST','REDIS_PORT','REDIS_DB','REDIS_USERNAME']),
- ('credentials',['ENTERPRISE_API_SECRET_KEY','DB_PASSWORD','REDIS_PASSWORD'])]:
-    print('API_WORKER_ENV_COMPARE',group,
-          ' '.join(k+':'+('both-unset' if k not in a and k not in w else 'equal' if a.get(k)==w.get(k) else 'DIFFERENT') for k in keys))
-PY
+ ("routing",["ENTERPRISE_API_URL","ENTERPRISE_RBAC_API_URL","RBAC_ENABLED","DB_HOST","DB_PORT","DB_DATABASE","DB_USERNAME"]),
+ ("broker",["CELERY_BROKER_URL","CELERY_QUEUES","REDIS_HOST","REDIS_PORT","REDIS_DB"]),
+ ("credentials",["ENTERPRISE_API_SECRET_KEY","DB_PASSWORD","REDIS_PASSWORD"])]:
+    print("API_WORKER_COMPARE",group," ".join(k+":"+("both-unset" if k not in a and k not in w else "equal" if a.get(k)==w.get(k) else "DIFFERENT") for k in keys))
+'
 
-# 2. 实际 Celery 队列：允许 JSON 前后有启动日志；不输出原始日志/连接串（最多 12 行）
-if declare -F docker-compose >/dev/null; then export -f docker-compose; fi
-python3 - <<'PY'
-import json, subprocess
-args=['bash','-c','docker-compose "$@"','rbac-probe','exec','-T','worker','celery','-A','app.celery','inspect','active_queues','--timeout=5','--json']
-r=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.PIPE,universal_newlines=True,timeout=45)
-decoder=json.JSONDecoder(); found=None
-for stream in [r.stdout,r.stderr]:
-    for i,ch in enumerate(stream):
-        if ch!='{': continue
-        try: obj,end=decoder.raw_decode(stream[i:])
-        except ValueError: continue
-        if isinstance(obj,dict) and obj and all(isinstance(v,list) and all(isinstance(q,dict) and 'name' in q for q in v) for v in obj.values()):
-            found=obj; break
-    if found is not None: break
+# 2. 只需正常环境执行：确认实际授权队列；直接调用容器 Python 模块，绕开宿主函数与 celery 可执行文件查找问题（最多 10 行）
+docker-compose exec -T worker python -m celery -A app.celery inspect active_queues --timeout=5 --json 2>&1 | python3 -c '
+import json,sys
+stream=sys.stdin.read(); decoder=json.JSONDecoder(); found=None
+for i,ch in enumerate(stream):
+    if ch!="{": continue
+    try: obj,end=decoder.raw_decode(stream[i:])
+    except ValueError: continue
+    if isinstance(obj,dict) and obj and all(isinstance(v,list) and all(isinstance(q,dict) and "name" in q for q in v) for v in obj.values()):
+        found=obj; break
 if found is not None:
-    for worker,queues in list(found.items())[:8]:
-        names=[q['name'] for q in queues]
-        print('ACTIVE_QUEUE',worker,'app_rbac='+str('app_rbac' in names),'count='+str(len(names)))
+    for name,queues in list(found.items())[:8]:
+        print("ACTIVE_QUEUE",name,"app_rbac="+str(any(q["name"]=="app_rbac" for q in queues)),"count="+str(len(queues)))
 else:
-    merged=(r.stdout+r.stderr).lower()
-    hints=[x for x in ['no nodes replied','unrecognized arguments','no such option','unable to load celery application','connection refused','authentication','timed out','not found'] if x in merged]
-    print('QUEUE_UNRESOLVED','exit='+str(r.returncode),'stdout_bytes='+str(len(r.stdout)),'stderr_bytes='+str(len(r.stderr)),'hints='+str(hints))
-    print('No subscription conclusion can be drawn from this result.')
-PY
+    hints=[x for x in ["no nodes replied","no module named","no such option","unable to load celery application","connection refused","authentication","timed out","not found"] if x in stream.lower()]
+    print("QUEUE_UNRESOLVED","bytes="+str(len(stream)),"hints="+str(hints))
+    print("No subscription conclusion can be drawn.")
+'
 
-# 3. API/worker 的创建、邀请、初始化源码指纹（每个服务 5 行，最多 12 行；不执行业务代码）
+# 3. 两套都执行：近 24 小时初始化任务/创建者授权同步结果（每服务最多 8 行；日志缺失不代表任务没有执行）
 for svc in api worker; do
-  echo "[source $svc]"
-  docker-compose exec -T "$svc" python - <<'PY'
-import ast,hashlib,pathlib
-checks=[
- ('controllers/console/agent/roster.py','post','mode="agent"'),
- ('controllers/console/app/app.py','post','app_service.create_app'),
- ('services/app_service.py','create_app',''),
- ('services/account_service.py','invite_new_member',''),
- ('tasks/initialize_created_app_rbac_access_task.py','initialize_created_app_rbac_access_task','')]
-keys=['replace_whitelist','initialize_created_app_rbac_access_task.delay','MemberRoles.replace','try_sync_creator_access_policy_member_bindings']
-for rel,name,marker in checks:
-    p=pathlib.Path('/app/api')/rel
-    if not p.is_file(): print(rel,'SOURCE_UNAVAILABLE'); continue
-    raw=p.read_bytes()
-    try:
-        s=raw.decode(); tree=ast.parse(s); bodies=[]
-        for n in ast.walk(tree):
-            if isinstance(n,ast.FunctionDef) and n.name==name:
-                body=ast.get_source_segment(s,n) or ''
-                if not marker or marker in body: bodies.append(body)
-        text='\n'.join(bodies)
-        print(rel,'sha256='+hashlib.sha256(raw).hexdigest()[:16],
-              'matched='+str(len(bodies)),'calls='+','.join(k for k in keys if k in text))
-    except (SyntaxError,UnicodeError): print(rel,'SOURCE_UNREADABLE')
-PY
+  echo "[authorization task logs $svc]"
+  docker-compose logs --since 24h --tail=2000 --no-color "$svc" 2>&1 |
+    grep -iE "initialize_created_app_rbac_access_task|Failed to initialize app RBAC|Failed to sync.*creator|sync.creator.*failed|unregistered task.*rbac" |
+    sed -E "s/((token|password|secret|authorization)[\" ]*[:=][\" ]*)[^ ,}]+/\1[REDACTED_SECRET]/Ig" |
+    tail -8 | cut -c1-1400
 done
