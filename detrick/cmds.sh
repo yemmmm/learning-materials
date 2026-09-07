@@ -1,14 +1,15 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 09:50
-# Context: 昨日 RBAC 迁移已修复旧 workspace 401；今日用户新加入另一 workspace 后进入工作流仍报白名单 401，怀疑新成员加入路径未写入角色绑定
+# Time: 2026-09-07 11:14
+# Context: Dify 添加外部知识库报 missing dataset_id or pipeline_id in request path，怀疑是 Dify 转发给外部知识库服务的请求路径不对，需从 api 日志确认实际请求 URL 和外部服务返回
 # Cmds: 3 条
+# 注意：在 Dify 的 docker-compose 目录下执行
 
-# 1. 看 RBAC 服务最近的拒绝日志（拿 scene/reason/tenant_id，确认是否仍是 whitelist 拒绝）
-docker-compose logs --tail=300 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -15
+# 1. 看 api 容器里这个报错的上下文（谁抛的、请求了什么 URL）
+docker-compose logs --tail=1000 api 2>&1 | grep -B8 -A8 -i 'missing dataset_id' | tail -40
 
-# 2. member-roles 迁移 dry-run（默认不落库；若显示新 workspace 成员待迁移，即坐实"新加入成员无绑定"）
-docker-compose exec -T api flask rbac-migrate-member-roles 2>&1 | tail -20
+# 2. 过滤 api 日志中外部知识库相关的请求/错误（看 actual 请求路径和返回码）
+docker-compose logs --tail=1000 api 2>&1 | grep -iE 'external_knowledge|/retrieval|dataset_id|pipeline_id' | tail -20
 
-# 3. 确认当前 api/rbac 镜像版本（3.12.0 还是 3.12.1，后者修了多个 RBAC bug）
-docker ps --format '{{.Names}} {{.Image}}' | grep -iE 'api|rbac' | head -5
+# 3. 报错发生时的完整 ERROR 日志（带 traceback）
+docker-compose logs --since 60m api 2>&1 | grep -iE 'error|exception' | tail -20
