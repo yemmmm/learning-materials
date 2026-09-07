@@ -1,27 +1,14 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 07:00
-# Context: 上轮 exec -e 传变量失败（KeyError T）。本轮重写脚本：不依赖环境变量，遍历【全部租户】的全部 app，每租户自动用 owner 作操作者执行官方枚举任务
-# Cmds: 15 条（1-14 逐行写脚本，15 运行，16 清理）
+# Time: 2026-09-07 09:50
+# Context: 昨日 RBAC 迁移已修复旧 workspace 401；今日用户新加入另一 workspace 后进入工作流仍报白名单 401，怀疑新成员加入路径未写入角色绑定
+# Cmds: 3 条
 
-# 1-14. 逐行写入修复脚本（每行一条，逐条粘贴执行）
-echo "from app_factory import create_app" > /tmp/fix_all.py
-echo "wsgi, app = create_app(); app.app_context().push()" >> /tmp/fix_all.py
-echo "from extensions.ext_database import db" >> /tmp/fix_all.py
-echo "from models.model import App" >> /tmp/fix_all.py
-echo "from models.account import TenantAccountJoin" >> /tmp/fix_all.py
-echo "from tasks.initialize_created_app_rbac_access_task import initialize_created_app_rbac_access_task as t" >> /tmp/fix_all.py
-echo "ts=[r[0] for r in db.session.query(App.tenant_id).distinct().all()]; print(len(ts),'tenants')" >> /tmp/fix_all.py
-echo "for tn in ts:" >> /tmp/fix_all.py
-echo "  o=db.session.query(TenantAccountJoin.account_id).filter(TenantAccountJoin.tenant_id==tn, TenantAccountJoin.role=='owner').first()" >> /tmp/fix_all.py
-echo "  op=str(o[0]) if o else ''" >> /tmp/fix_all.py
-echo "  ids=[str(r[0]) for r in db.session.query(App.id).filter(App.tenant_id==tn).all()]" >> /tmp/fix_all.py
-echo "  print(tn, len(ids), 'apps, owner', op)" >> /tmp/fix_all.py
-echo "  for i in ids: t.apply(args=(tn, op, i))" >> /tmp/fix_all.py
-echo "print('all-done')" >> /tmp/fix_all.py
+# 1. 看 RBAC 服务最近的拒绝日志（拿 scene/reason/tenant_id，确认是否仍是 whitelist 拒绝）
+docker-compose logs --tail=300 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -15
 
-# 15. 运行（全部租户全部 app，幂等无害；量大可能跑较久，每个租户会打印一行进度）
-docker-compose exec -T api sh -c 'cd /app/api && python -' < /tmp/fix_all.py
+# 2. member-roles 迁移 dry-run（默认不落库；若显示新 workspace 成员待迁移，即坐实"新加入成员无绑定"）
+docker-compose exec -T api flask rbac-migrate-member-roles 2>&1 | tail -20
 
-# 16. 确认 all-done 后清理临时脚本
-rm -f /tmp/fix_all.py /tmp/fix_rbac.py
+# 3. 确认当前 api/rbac 镜像版本（3.12.0 还是 3.12.1，后者修了多个 RBAC bug）
+docker ps --format '{{.Names}} {{.Image}}' | grep -iE 'api|rbac' | head -5
