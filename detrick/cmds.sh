@@ -1,12 +1,12 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-07 11:27
-# Context: 已确认报错是 Dify EE 已知 bug（v3.12.1 修复），最后验证服务器当前 Dify 版本是否 <= 3.12.0，以闭环"升级即可修复"的结论
+# Time: 2026-09-07 14:26
+# Context: 新建 Agent 后他人访问被拒。判别是"成员绑定又空了(bug)"还是"Agent 默认访问范围=特定成员(设计)"。
+# 用法：下次复现时【先跑这两条，再跑迁移命令】，把输出带回
 # Cmds: 2 条
-# 注意：在 Dify 的 docker-compose 目录下执行
 
-# 1. 看 api 容器实际使用的镜像 tag（确认版本）
-docker ps --format '{{.Names}}\t{{.Image}}' | grep -iE 'api|worker' | head -5
+# 1. 看拒绝日志的 scene 和 reason（若 reason 仍是 not in the resource whitelist，看 scene 是 agent 专属还是通用 app scene）
+docker-compose logs --tail=100 dify-enterprise-rbac 2>&1 | grep 'check-access denied' | tail -10
 
-# 2. 容器内 pyproject.toml 的版本号（镜像 tag 可能被本地重打过，以代码内版本为准）
-docker-compose exec -T api sh -c 'grep -m1 ^version /app/api/pyproject.toml' 2>&1 | head -3
+# 2. 关键判别：dry-run 看是否有待迁移成员（0 pending = 绑定没问题，拒绝来自 Agent 默认访问范围，属设计行为，去应用的企业访问控制里改范围即可；有 pending = 又是绑定 bug）
+docker-compose exec -T api flask rbac-migrate-member-roles 2>&1 | tail -20
