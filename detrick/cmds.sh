@@ -1,51 +1,71 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-08
-# Context: admin访问他人Agent，GET /console/api/agent/<id>/chat-messages返回403；核对APP_VIEW_LAYOUT检查及本次拒绝。
-# Cmds: 3 条（只读，每条最多30行）
-# 在原Compose目录直接粘贴到当前shell；不要新开bash运行，docker-compose可能是shell函数。
+# Time: 2026-09-08 22:04
+# Context: admin读取他人Agent返回403；API已启用RBAC、接口检查APP_VIEW_LAYOUT，日志NO_MATCH。本轮直接检查目标授权。
+# Cmds: 2 条（设置目标 + 只读检查；预期输出约9行）
+# 在Compose目录的同一个原shell中依次粘贴；不需要Token，不修改角色/白名单/数据库。
 
-# 1. 核对实际API服务版本和RBAC开关；回传未包含普通api服务，不据此判断它不存在。最多10行，不输出私有仓库地址。
-docker-compose ps -q | xargs -r docker inspect | python3 -c '
-import json,sys
-rows=json.load(sys.stdin)
-count=0
-for row in rows:
- c=row.get("Config",{}); name=c.get("Labels",{}).get("com.docker.compose.service","")
- if "api" not in name: continue
- env=dict(x.split("=",1) for x in c.get("Env",[]) if "=" in x)
- print(json.dumps({"service":name,"image":c.get("Image","").rsplit("/",1)[-1],"RBAC_ENABLED":env.get("RBAC_ENABLED","UNSET"),"ENTERPRISE_ENABLED":env.get("ENTERPRISE_ENABLED","UNSET")}))
- count+=1
- if count>=10: break
-'
+# 1. 输入目标Agent ID与当前登录账号ID。Agent ID取失败URL，账号ID取account/profile响应的id；输出最多1行。
+read -r -p 'Agent UUID: ' DTR_AGENT_ID; read -r -p 'Current account UUID: ' DTR_ACCOUNT_ID
 
-# 2. 从已确认的api_websocket镜像核对该接口装饰器；这是同镜像代码证据，不证明HTTP路由由它承接。最多27行。
-docker-compose exec -T api_websocket python - <<'PYCODE'
-from pathlib import Path
-p=Path("/app/api/controllers/console/app/message.py")
-if not p.exists():
- print("SOURCE_NOT_FOUND: /app/api/controllers/console/app/message.py")
-else:
- lines=p.read_text().splitlines()
- for i,line in enumerate(lines):
-  if "class AgentChatMessageListApi" in line:
-   print("FILE="+str(p))
-   for j in range(max(0,i-1),min(len(lines),i+25)): print(str(j+1)+":"+lines[j])
-   break
- else: print("HANDLER_NOT_FOUND: AgentChatMessageListApi")
+# 2. 自动解析Agent所属工作空间和授权App，核对角色、白名单、成员策略，并检查三个权限点；最多30行。
+# 普通API服务按现有Compose为api；若真实名称不同，只替换下面的api。
+# 日志中的新增拒绝可能由本探针产生，不能冒充刚才浏览器请求的原始日志。
+docker-compose exec -T -e DTR_AGENT_ID="$DTR_AGENT_ID" -e DTR_ACCOUNT_ID="$DTR_ACCOUNT_ID" api python - <<'PYCODE' | tail -30
+import os,json,logging
+from uuid import UUID
+logging.disable(logging.CRITICAL)
+def emit(kind, **data): print(json.dumps({"check":kind,**data},ensure_ascii=True,default=str))
+def main():
+ from configs import dify_config
+ from sqlalchemy import create_engine,text
+ from services.enterprise.base import EnterpriseRequest
+ agent_id=str(UUID(os.environ["DTR_AGENT_ID"]))
+ account_id=str(UUID(os.environ["DTR_ACCOUNT_ID"]))
+ # 只执行SELECT；显式只读事务，不调用App工厂或创建/修复Agent会话。
+ engine=create_engine(dify_config.SQLALCHEMY_DATABASE_URI)
+ with engine.connect() as conn:
+  conn.execute(text("SET TRANSACTION READ ONLY"))
+  agent=conn.execute(text("SELECT a.tenant_id,a.app_id,a.scope,a.backing_app_id,p.maintainer,p.status AS app_status FROM agents a LEFT JOIN apps p ON p.id=a.app_id AND p.tenant_id=a.tenant_id WHERE a.id=:id"),{"id":agent_id}).mappings().first()
+  if not agent:
+   emit("STOP",reason="AGENT_NOT_FOUND"); return
+  tenant_id=str(agent["tenant_id"])
+  member=conn.execute(text("SELECT role FROM tenant_account_joins WHERE tenant_id=:t AND account_id=:a"),{"t":tenant_id,"a":account_id}).first()
+  app_id=str(agent["app_id"]) if agent["app_id"] else None
+  emit("target",agent_id=agent_id,account_id=account_id,tenant_id=tenant_id,authz_app_id=app_id,scope=agent["scope"],has_separate_backing_app=bool(agent["backing_app_id"] and str(agent["backing_app_id"])!=app_id),is_maintainer=str(agent["maintainer"])==account_id,app_status=agent["app_status"],in_workspace=member is not None,legacy_role=member[0] if member else None)
+  if not member or not app_id:
+   emit("STOP",reason="MEMBER_OR_AUTHZ_APP_MISSING"); return
+ def call(label,method,endpoint,**kwargs):
+  try:
+   data=EnterpriseRequest.send_inner_rbac_request(method,"/rbac/"+endpoint,tenant_id=tenant_id,account_id=account_id,timeout=10,**kwargs)
+   if not isinstance(data,dict):
+    emit(label,error="UNEXPECTED_RESPONSE_TYPE",response_type=type(data).__name__); return None
+   return data
+  except Exception as exc:
+   # 不打印异常正文，避免连接串、请求头或业务内容进入回传。
+   emit(label,error=type(exc).__name__,status=getattr(exc,"status_code",None)); return None
+ role_data=call("roles","GET","members/rbac-roles",params={"account_id":account_id})
+ keys={"agent.manage","app.acl.view_layout","app.acl.edit"}
+ if role_data is not None:
+  roles=role_data.get("roles") or []
+  emit("roles",count=len(roles),items=[{"id":r.get("id"),"role_tag":r.get("role_tag"),"category":r.get("category"),"relevant_permission_keys":sorted(keys.intersection(r.get("permission_keys") or []))} for r in roles[:6]])
+ whitelist=call("whitelist","GET","apps/whitelist",params={"app_id":app_id})
+ if whitelist is not None:
+  ids=whitelist.get("account_ids")
+  emit("whitelist",account_ids_present=isinstance(ids,list),count=len(ids) if isinstance(ids,list) else None,contains_account=account_id in ids if isinstance(ids,list) else None)
+ policies=call("policies","GET","apps/user-access-policies",params={"app_id":app_id})
+ if policies is not None:
+  rows=[r for r in (policies.get("data") or []) if (r.get("account") or {}).get("account_id")==account_id]
+  emit("policies",scope=policies.get("scope"),target_rows=len(rows),policy_keys=[p.get("policy_key") for r in rows for p in (r.get("access_policies") or [])][:8])
+ for scene in ("agent_manage","app_view_layout","app_edit"):
+  payload={"tenant_id":tenant_id,"account_id":account_id,"scene":scene}
+  if scene!="agent_manage": payload.update(resource_type="app",resource_id=app_id)
+  data=call(scene,"POST","check-access",json=payload)
+  if data is not None:
+   summary={k:data[k] for k in ("allowed","reason","matched_role_ids","account_role_ids","whitelist_denial") if k in data}
+   emit(scene,allowed_present="allowed" in data,**summary)
+try:
+ main()
+except Exception as exc:
+ emit("STOP",error=type(exc).__name__)
 PYCODE
-
-# 3. 重新打开目标Agent触发403后立即执行；提取最近3分钟权限字段，最多10条，不输出业务正文或认证头。
-docker-compose logs --no-color --since=3m --tail=150 dify-enterprise-rbac 2>&1 | python3 -c '
-import sys,re,json
-keys="scene|reason|account_id|tenant_id|resource_id|resource_type|account_role_ids|matched_role_ids|whitelist_denial|allowed"
-q=chr(34)
-pattern=re.compile(q+"("+keys+")"+q+r"\s*:\s*(\[[^\]]*\]|"+q+r"[^"+q+r"]*"+q+r"|true|false|null)")
-rows=[]
-for line in sys.stdin:
- if not re.search(r"denied|whitelist_denial|unauthorized|forbidden",line,re.I): continue
- fields={k:json.loads(v) for k,v in pattern.findall(line)}
- if fields: rows.append(fields)
-for row in rows[-10:]: print(json.dumps(row,ensure_ascii=True))
-if not rows: print("NO_MATCH: no extracted RBAC denial; check service name and failed browser request path/status.")
-'

@@ -227,3 +227,13 @@
 - 来源：https://github.com/langgenius/dify/blob/60a18fa/api/controllers/console/app/message.py 、https://github.com/langgenius/dify/blob/60a18fa/api/controllers/common/wraps.py 、https://github.com/langgenius/dify/blob/60a18fa/api/services/conversation_service.py 。web正文获取失败，通过raw.githubusercontent.com对应固定版本路径成功取到源码。
 - 判断：优先核查RBAC或传统角色层；会话归属在此公开基线应为404，与当前403不符。属于静态推断，尚未确认私有镜像源码与本次拒绝调用，未定位生产根因。
 - 本轮3条只读取证：API服务实际开关；已确认api_websocket镜像中的接口装饰器；刚复现的RBAC字段。另询问composer/config-drafts等读取是否也403，区分聊天历史加载与编辑接口整体失败。未授予权限、回填白名单、迁移角色或重启服务。
+
+### AGENT-20260908 第3轮：开关和装饰器已确认，日志未匹配
+
+- 用户回传8d049bb：两个API服务均3.12.1，两个开关均true；api_websocket的message.py:164-186确认AgentChatMessageListApi含APP_VIEW_LAYOUT检查。OCR错行不视为实际源码缺陷。第3条只返回NO_MATCH。
+- NO_MATCH仅表明旧脚本在最近3分钟/150行里未提取到指定JSON拒绝字段；不证明未调用RBAC、不证明权限正常，也可能日志格式/窗口/目标不同。停止重复使用同一个日志筛选作为唯一证据。
+- 公开60a18fa的controllers/common/wraps.py:19-66：资源维护者短路放行，其余调用RBACService.CheckAccess.check；返回allowed为false时抛通用Forbidden。rbac_service.py:1696-1731读取内部check-access响应的allowed。角色名称admin不能替代这次资源判定。
+- 2026-09-08补查关键词agent maintainer permission 403，发现https://github.com/langgenius/dify/issues/39379 ，已读正文：多个资源创建入口未初始化访问控制，维护者能访问，其他人403；列出Agent duplicate。当前Open且无关联PR，未确认企业版修复版本。本次Agent如何创建、资源策略状态未知，故为高相关候选，不能认定同根因；区别于#39736的后加入成员快照问题。
+- 下一轮改为目标探针：输入失败URL的Agent ID和当前account/profile的账号ID；SELECT解析agents.app_id及tenant_id，检查成员存在、维护者及传统角色；通过API自身EnterpriseRequest调用GET成员RBAC角色/应用白名单/成员策略和POST check-access(agent_manage/app_view_layout/app_edit)。不写数据库/角色/白名单，不创建会话，不使用硬编码密钥。
+- 注意authz_app_id与Agent ID/hidden backing_app_id区别；解析规则依据当前公开基线peek_authz_app_id返回agent.app_id。直接内部检查不包含维护者短路，以target.is_maintainer结合解释。探针派生Agent租户，不冒充浏览器实际请求租户证明。
+- 输出上限30行，敏感异常正文省略；探针可产生新的权限拒绝日志。仍需用户回传后判断角色绑定/资源策略/其他访问链路，未实施修复。

@@ -33,3 +33,5 @@
 
 - 用户为工作空间admin。api_websocket、worker、worker_beat镜像为dify-ee-api:3.12.1，web为dify-ee-web:3.12.1，collector和rbac均3.12.1。私有仓库域名不记录或推送。
 - 回传没有普通api服务完整行，存在一行不完整字符；不据此判断api服务缺失或全部服务版本一致。与此前环境A是否同一环境仍待确认。
+
+- 2026-09-08 第3轮用户回传：命令1两个API服务均3.12.1，RBAC_ENABLED和ENTERPRISE_ENABLED均true。已确认的api_websocket源码存在AgentChatMessageListApi及APP_VIEW_LAYOUT装饰器。回传有OCR错行/拼写损坏，不能据此报告源码语法错误。
