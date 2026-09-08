@@ -144,3 +144,13 @@
 - 新关键词先搜索：access-mode+whitelist、WebApp public权限。官方文档存在WEBAPP_PUBLIC_ACCESS_ENABLED开关，但仅凭public目标和401不能认定该开关是根因；暂未查到同根因修复。#38232是接口合同迁移事项，不是本次401修复证据。
 - 本轮固定上述身份，只读查询真实RBAC角色、应用白名单/用户策略，并显式check-access查看/发布scene。诊断check-access可能产生新拒绝日志，要与原WebApp POST区分；不预设enterprise必然使用发布scene。
 - normal是传统成员角色存储，不直接改成admin。尚未进行任何授权修改。
+
+
+### 2026-09-08 白名单与查看/发布判定通过，转查访问配置与Enterprise链路
+
+- e11e1c3用户回传：目标app/account沿用上一节；member_roles=2，权限列表OCR截断，不能证明每项有效权限。白名单13人且has_account=true；scope=all、目标行1、策略default。
+- 显式app_view_layout和app_release_and_version均allowed=true。这排除了该次诊断上下文中的缺白名单和这两项判定拒绝，不能代表Enterprise实际POST上下文或其他scene。
+- 原POST响应已补齐：code=401、reason=ErrUnauthorized、message=unauthorized to access this resource、metadata={}。错误不区分token、角色、资源策略等，不能据此判断登录过期。
+- 补查搜索dify + ErrUnauthorized + access-mode、webapp + app.acl.access_config、unauthorized to access this resource，未发现可核实同根因的官方Issue；不据搜索缺失排除产品缺陷。
+- 参考60a18fa api/core/rbac/entities.py确认独立scene APP_ACCESS_CONFIG=app_access_config；下一轮仅检查此scene及Enterprise的RBAC_INNER_BASE_URL和API目标是否同源、内部密钥是否一致、public开关状态。不重复授予白名单或改normal角色。
+- 源码参考：https://github.com/langgenius/dify/blob/60a18fa/api/core/rbac/entities.py 。尚无原POST关联的scene/tenant日志，根因未确认。

@@ -1,11 +1,11 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-08 17:41
-# Context: WebApp POST access-mode public返回401；已确认app/workspace/account及成员normal。同时间有whitelist关键词，核对本app有效资源权限，不改成员角色。
+# Time: 2026-09-08
+# Context: 目标app白名单含账号/default策略，查看和发布check-access通过；Enterprise POST仍ErrUnauthorized。核对独立访问配置权限及Enterprise RBAC路由。
 # Cmds: 2 条
-# 已固定本次app和账号；直接在同一环境当前终端粘贴。只读查询，不修改WebApp访问范围或授权。
+# 在原部署目录、当前已定义docker-compose函数的终端分别粘贴。只读，不修改访问范围。
 
-# 1. 当前账号RBAC角色、目标app白名单和个人策略（输出不包含账号姓名/凭据）。
+# 1. 检查独立的app_access_config权限；诊断调用不等于原POST实际使用的scene。输出最多3行。
 docker-compose exec -T api python - <<'PY'
 import os,json,urllib.request,urllib.parse,urllib.error,sys
 T="a5bcd310-2e74-4f89-9a32-70a56694cb35"
@@ -24,40 +24,32 @@ def call(path,params=None,payload=None):
  except urllib.error.HTTPError as e:print(path+" HTTP="+str(e.code))
  except Exception as e:print(path+" FAILED="+type(e).__name__)
  return None
-r=call("members/rbac-roles",{"account_id":A})
-if isinstance(r,dict):
- roles=r.get("roles",[]);print("member_roles="+str(len(roles)))
- for x in roles[:8]:print(json.dumps({"role_id":x.get("id"),"role_tag":x.get("role_tag"),"permission_keys":x.get("permission_keys",[])},ensure_ascii=True))
-r=call("apps/whitelist",{"app_id":APP})
-if isinstance(r,dict):print(json.dumps({"whitelist_count":len(r.get("account_ids") or []),"has_account":A in (r.get("account_ids") or [])}))
-r=call("apps/user-access-policies",{"app_id":APP})
-if isinstance(r,dict):
- rows=r.get("data") or [];target=[v for v in rows if (v.get("account") or {}).get("account_id")==A]
- print(json.dumps({"scope":r.get("scope"),"response_rows":len(rows),"target_rows_in_response":len(target),"pagination_present":bool(r.get("pagination"))}))
- for v in target[:2]:print(json.dumps({"target_policy_ids":[p.get("id") for p in (v.get("access_policies") or [])]},ensure_ascii=True))
-PY
-
-# 2. 对同一账号/app执行“查看”和“发布版本”权限检查。POST check-access只做判定，不授予权限；不代表enterprise端实际采用相同scene。
-docker-compose exec -T api python - <<'PY'
-import os,json,urllib.request,urllib.parse,urllib.error,sys
-T="a5bcd310-2e74-4f89-9a32-70a56694cb35"
-A="dc81582c-3934-4d8f-b034-9cb7809dce2b"
-APP="daeaaeb3-6875-4f73-adad-0f1312dbd5ce"
-root=os.environ.get("ENTERPRISE_RBAC_API_URL","").rstrip("/")
-secret=os.environ.get("ENTERPRISE_API_SECRET_KEY","")
-if not root or not secret:print("RBAC_URL_OR_SECRET_UNSET");sys.exit(1)
-headers={"Enterprise-Api-Secret-Key":secret,"X-Inner-Tenant-Id":T,"X-Inner-Account-Id":A,"Content-Type":"application/json"}
-def call(path,params=None,payload=None):
- url=root+"/rbac/"+path
- if params:url+="?"+urllib.parse.urlencode(params)
- req=urllib.request.Request(url,data=json.dumps(payload).encode() if payload is not None else None,headers=headers,method="POST" if payload is not None else "GET")
- try:
-  with urllib.request.urlopen(req,timeout=10) as res:return json.load(res)
- except urllib.error.HTTPError as e:print(path+" HTTP="+str(e.code))
- except Exception as e:print(path+" FAILED="+type(e).__name__)
- return None
-for scene in ("app_view_layout","app_release_and_version"):
+for scene in ("app_access_config",):
  r=call("check-access",payload={"tenant_id":T,"account_id":A,"resource_type":"app","resource_id":APP,"scene":scene})
  if isinstance(r,dict):print(json.dumps({"diagnostic_scene":scene,"allowed":r.get("allowed","MISSING")}))
 print("NOTE These are explicit diagnostic checks, not the failed enterprise POST itself")
 PY
+
+# 2. 比较API和Enterprise的RBAC目标及内部密钥，仅输出相等/配置状态，不输出密钥或内部主机。最多8行。
+docker inspect $(docker-compose ps -q api dify-enterprise) | python3 -c '
+import sys,json
+from urllib.parse import urlsplit
+rows=json.load(sys.stdin); services={}
+for row in rows:
+ cfg=row.get("Config") or {}; service=(cfg.get("Labels") or {}).get("com.docker.compose.service")
+ if service in ("api","dify-enterprise"):
+  services.setdefault(service,[]).append(dict(x.split("=",1) for x in (cfg.get("Env") or []) if "=" in x))
+if any(len(services.get(k,[]))!=1 for k in ("api","dify-enterprise")):
+ print("EXPECTED_ONE_API_AND_ONE_ENTERPRISE");sys.exit(1)
+a=services["api"][0];e=services["dify-enterprise"][0]
+x=a.get("ENTERPRISE_RBAC_API_URL","");y=e.get("RBAC_INNER_BASE_URL","")
+def shape(label,value):
+ u=urlsplit(value);print(json.dumps({"target":label,"set":bool(value),"scheme":u.scheme,"path":u.path}))
+shape("api.ENTERPRISE_RBAC_API_URL",x);shape("enterprise.RBAC_INNER_BASE_URL",y)
+u=urlsplit(x);v=urlsplit(y)
+print("rbac_same_origin="+str(bool(x and y) and (u.scheme,u.hostname,u.port)==(v.scheme,v.hostname,v.port)))
+k="ENTERPRISE_API_SECRET_KEY"
+print("inner_secret="+("EQUAL" if a.get(k) and a.get(k)==e.get(k) else "MISSING_OR_DIFFERENT"))
+for k in ("WEBAPP_PUBLIC_ACCESS_ENABLED",):
+ value=e.get(k);print("enterprise."+k+"="+(value if value in ("true","false","True","False","1","0") else "UNSET" if value is None else "OTHER_VALUE"))
+'
