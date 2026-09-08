@@ -19,9 +19,15 @@
 - ws 配置是候选线索；页面协议及浏览器实际连接状态未确认。
 - 参考公开源码60a18fa：发布读取已存储草稿；WebApp访问范围调用enterprise/webapp接口。尚未验证服务器完整源码一致性，不能直接作为根因。
 
+### 2026-09-08 后续回传（命令提交7a647d7）
+
+- 再次回传相同草稿/发布时刻和旧版414字符；draft/current的PROMPT行仍缺失。缺行不等于0字符，用户开头“112”无字段上下文，未解释为长度。
+- 实际workflow控制器指纹d4eb1fccf9d3aebd；DraftWorkflowApi GET/POST和PublishedWorkflowApi GET均标记APP_VIEW_LAYOUT，发布POST标记APP_RELEASE_AND_VERSION。不能将草稿保存直接归因于缺APP_EDIT；装饰器输出不代表已验证所有内部检查。
+- 本轮改成两个独立只读命令，分别仅输出DRAFT和CURRENT的一行提示词统计，固定应用43c6d3bb…和节点llm。待证据到齐后再区分持久化与界面问题。
+
 ### 下一步
 
-将每个快照和节点长度放在同一短行，补齐草稿与当前发布值；取到WebApp 401的实际请求和脱敏Response；确认浏览器页面协议、Socket.IO连接情况。下一轮 cmds.sh 已固定同一app，以短行补取草稿/当前版长度，并读取实际保存/发布鉴权装饰器。禁止将其他app的拒绝日志当作本app证据。
+将每个快照和节点长度放在同一短行，补齐草稿与当前发布值；取到WebApp 401的实际请求和脱敏Response；确认浏览器页面协议、Socket.IO连接情况。实际鉴权装饰器已取证，不再重复索取。禁止将其他app的拒绝日志当作本app证据。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 
