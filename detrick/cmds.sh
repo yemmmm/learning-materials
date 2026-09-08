@@ -13,7 +13,8 @@ docker-compose ps -q | xargs -r docker inspect --format '{{index .Config.Labels 
 docker-compose logs --no-color --since=3m --tail=150 dify-enterprise-rbac 2>&1 | python3 -c '
 import sys,re,json
 keys="scene|reason|account_id|tenant_id|resource_id|resource_type|account_role_ids|matched_role_ids|whitelist_denial|allowed"
-pattern=re.compile(r""("+keys+r")"\s*:\s*(\[[^\]]*\]|"(?:\\.|[^"\\])*"|true|false|null)")
+q=chr(34)
+pattern=re.compile(q+"("+keys+")"+q+r"\s*:\s*(\[[^\]]*\]|"+q+r"[^"+q+r"]*"+q+r"|true|false|null)")
 rows=[]
 for line in sys.stdin:
  if not re.search(r"denied|whitelist_denial|unauthorized|forbidden",line,re.I): continue
