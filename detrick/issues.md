@@ -68,9 +68,16 @@
 - 参考：https://immerjs.github.io/immer/pitfalls/；Dify参考文件见此前条目。
 - 下一步只取两个前端证据：POST中prompt_template的精确JSON结构（正文可改成占位符，保留字段名和括号），default-workflow-block-configs请求状态及LLM completion_model.prompt结构。不再重复数据库计数字数、worker或WebSocket握手检查。
 
+### 2026-09-08 空数组已确认，最小丢失机制复现
+
+- 用户确认POST prompt_template=[]；默认completion_model.prompt是含text和edition_type的对象。默认配置请求状态仍未明确回传。
+- 本地按参考代码与其声明依赖Immer11.1.15 production复现：给空数组写text，内存可读到新文本，JSON却为[]；给旧角色数组写text，JSON仅保留旧条目；正确对象能保留新文本。3项断言通过。这与现场现象高度吻合，但远程前端构建、数组生成来源和修复仍未验收。
+- 详细证据、源码链接、复现与修复边界见completion-prompt-diagnosis.md。
+- 下一步在临时节点、默认模板加载后，进行Completion→Chat→Completion切换并重新输入测试文本；核对POST变为对象及保存/发布后重开。只作为有边界的诊断和候选绕过，不声称已修复。
+
 ### 下一步
 
-提示词已缩小到前端Completion编辑到draft请求负载之间。补齐空负载的精确结构及默认模板加载状态后，决定修复初始化/模型切换还是编辑状态更新；远程前端镜像版本仍待完整回传。WebApp401保持独立，仍需access-mode方法和Response。
+Completion数组写入text后序列化丢失的机制已在本地参考实现复现；优先用临时节点验证模板结构重置能否修复，再追溯数组初始化来源和核对实际web构建。WebApp401保持独立，仍需access-mode方法和Response。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 
