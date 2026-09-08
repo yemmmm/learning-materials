@@ -1,48 +1,38 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-08
-# Context: 查看/发布/访问配置检查通过，API与Enterprise RBAC同源且密钥一致；捕获原WebApp POST的拒绝上下文。
+# Context: Enterprise写方法401，三项API RBAC判定允许；本机3.12.0静态证据显示Enterprise自身RBAC_ENABLED未设时退回传统角色。确认现场与Compose有效配置。
 # Cmds: 2 条
+# 在原部署目录当前终端粘贴；只读，不重启，不改变授权。
 
-# 1. 在原部署目录当前终端执行，记录取证起点。然后在浏览器清空Network，重新打开权限设置并复现一次原失败操作。
-# 请记录access-mode GET/POST各自状态，以及POST时间/响应中的request-id或trace-id（若有），不复制Cookie/Authorization。
-DETRICK_WEBAPP_SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-echo "capture_since=$DETRICK_WEBAPP_SINCE"
+# 1. 当前API/Enterprise容器的RBAC开关，输出最多4行（不输出其他环境变量）。
+docker inspect $(docker-compose ps -q api dify-enterprise) | python3 -c '
+import sys,json
+rows=json.load(sys.stdin)
+if not rows:print("NO_CONTAINERS");sys.exit(1)
+for r in rows[:4]:
+ c=r.get("Config") or {};e=dict(x.split("=",1) for x in c.get("Env",[]) if "=" in x)
+ v=e.get("RBAC_ENABLED");v=v if v in ("true","false","True","False","TRUE","FALSE","1","0","") else "UNSET" if v is None else "INVALID_VALUE"
+ print(json.dumps({"source":"running_container","service":(c.get("Labels") or {}).get("com.docker.compose.service"),"image_tag":c.get("Image","").rsplit(":",1)[-1],"RBAC_ENABLED":v}))
+'
 
-# 2. 复现后在同一终端执行。仅采集起点之后的Enterprise/RBAC日志，输出最后20条相关结构化摘要，不打印原始日志。
-# 本轮不再运行check-access，避免与浏览器原请求混淆。无记录不等于没有权限检查。
-docker-compose logs --no-color --timestamps --since "${DETRICK_WEBAPP_SINCE:?先执行命令1并复现}" --tail=600 dify-enterprise dify-enterprise-rbac 2>&1 | python3 -c '
-import sys,json,re
-from collections import deque
-out=deque(maxlen=20); total=0; parsed=0; matched=0; unparsed=0
-keys={"ts","timestamp","caller","trace_id","traceId","request_id","requestId","span_id","tenant_id","tenantId","account_id","accountId","resource_id","resourceId","resource_type","scene","account_role_ids","matched_role_ids","status","code","method","operation","path","route","reason"}
-markers=("access-mode","unauthorized","whitelist","check-access denied","permission denied")
-def fields(x,dst):
- if not isinstance(x,dict):return
- for k,v in x.items():
-  if k in keys and isinstance(v,(str,int,bool,list)):
-   if k in ("path","route"):v=str(v).split("?",1)[0]
-   if k=="reason" and not re.fullmatch(r"[A-Za-z0-9_ .:-]{1,180}",str(v)):v="REASON_REDACTED"
-   dst[k]=v[:8] if isinstance(v,list) else str(v)[:180]
-  elif isinstance(v,dict):fields(v,dst)
-for line in sys.stdin:
- total+=1; low=line.lower(); flags=[m for m in markers if m in low]
- start=line.find("{"); obj=None
- if start>=0:
-  try:obj=json.JSONDecoder().raw_decode(line[start:])[0]
-  except ValueError:pass
- d={};fields(obj,d)
- if obj is not None:parsed+=1
- if not flags and d.get("status")!="401" and d.get("code")!="401":continue
- matched+=1
- if obj is None:unparsed+=1
- prefix=line.split("|",1)[0]
- service="rbac" if "rbac" in prefix else "enterprise"
- d["source"]=service;d["markers"]=flags;d["structured"]=obj is not None
- if not d.get("ts") and not d.get("timestamp"):
-  t=re.search(r"\d{4}-\d{2}-\d{2}T[0-9:.]+Z",line)
-  if t:d["ts"]=t.group(0)
- out.append(d)
-print(json.dumps({"input_lines":total,"parsed_json":parsed,"matched":matched,"unparsed_matches":unparsed,"shown":len(out)}))
-for d in out:print(json.dumps(d,ensure_ascii=True))
+# 2. Compose合并后的有效RBAC配置，仅解析指定字段，不输出完整Compose（可能含凭据）。输出最多2行。
+# 必须仍在同一部署目录；本条不启动应用，仅在现有API容器内用PyYAML解析stdin。
+docker-compose config 2>/dev/null | docker-compose exec -T api python -c '
+import sys,json
+try:
+ import yaml
+ d=yaml.safe_load(sys.stdin)
+ if not isinstance(d,dict) or not isinstance(d.get("services"),dict):
+  print("COMPOSE_CONFIG_UNAVAILABLE");sys.exit(1)
+ for service in ("api","dify-enterprise"):
+  cfg=d["services"].get(service)
+  if cfg is None:print(service+" SERVICE_MISSING");continue
+  env=cfg.get("environment") or {}
+  if isinstance(env,list):env=dict((x.split("=",1)+[None])[:2] for x in env)
+  v=env.get("RBAC_ENABLED");state="UNSET" if "RBAC_ENABLED" not in env else "NULL" if v is None else str(v)
+  if state not in ("UNSET","NULL","true","false","True","False","TRUE","FALSE","1","0",""):state="INVALID_VALUE"
+  print(json.dumps({"source":"compose_resolved","service":service,"RBAC_ENABLED":state}))
+except Exception as e:
+ print("CONFIG_READ_FAILED="+type(e).__name__);sys.exit(1)
 '
