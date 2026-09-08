@@ -1,28 +1,49 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-08 16:53
-# Context: 刷新复发；参考协同初始化把Completion对象转换成[]，本地已复现。只读核对线上web镜像及编译包是否包含同样转换。
+# Time: 2026-09-08 16:58
+# Context: 上轮CHUNKS_NOT_FOUND只说明预设静态目录不适用。先获取web实际目录，再有限深度自动发现嵌套chunks并核对转换代码。
 # Cmds: 2 条
-# 在同一受影响环境当前终端逐块粘贴；不重启、不改配置、不操作工作流。
+# 同一终端逐块粘贴；只读，不重启、不改工作流/配置。命令2有扫描上限，找不到也不代表代码不存在。
 
-# 1. 实际web镜像和挂载目标（挂载源不输出），最多8行。
+# 1. 镜像、配置工作目录以及Node当前目录/PID1目录；仅输出路径，最多18行。
 docker inspect $(docker-compose ps -q web) | python3 -c '
 import json,sys
 for r in json.load(sys.stdin):
- print("image="+r.get("Config",{}).get("Image",""))
- print("image_id="+r.get("Image",""))
- print("mount_targets="+json.dumps([m.get("Destination") for m in r.get("Mounts",[])]))
-' | head -8
+ c=r.get("Config",{});print("image="+c.get("Image",""));print("workdir="+c.get("WorkingDir",""))
+' | head -6
+docker-compose exec -T web node - <<'JS'
+const fs=require('node:fs');
+console.log('node_cwd='+process.cwd());
+try{console.log('pid1_cwd='+fs.readlinkSync('/proc/1/cwd'))}catch{console.log('pid1_cwd=unavailable')}
+try{console.log('cwd_dirs='+fs.readdirSync(process.cwd(),{withFileTypes:true}).filter(e=>e.isDirectory()).map(e=>e.name).slice(0,12).join(','))}catch{console.log('cwd_dirs=unavailable')}
+JS
 
-# 2. 扫描已部署前端静态JS，最多3个候选、11行；仅输出字段列表及附近转换代码，不读取业务数据。
+# 2. 在应用目录等有限范围自动查找，深度<=6/目录<=1200；扫描JS<=2500个，最多3个候选代码片段。
 docker-compose exec -T web node - <<'JS'
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
-const roots=[path.join(process.cwd(),'.next/static/chunks'),'/app/web/.next/static/chunks','/app/.next/static/chunks'];
-const root=roots.find(p=>fs.existsSync(p));
-if(!root){console.log('CHUNKS_NOT_FOUND');process.exit(0)}
-let visited=0,hits=0,skipped=0;const todo=[root];
+let initCwd='';try{initCwd=fs.readlinkSync('/proc/1/cwd')}catch{}
+const seeds=[process.cwd(),initCwd,'/app','/opt','/srv','/usr/src/app','/usr/share/nginx/html','/workspace','/var/www'].filter(x=>x&&x!=='/');
+const queue=seeds.map(p=>[p,0]),seen=new Set(),chunkRoots=new Set();let checked=0;
+while(queue.length&&checked<1200&&chunkRoots.size<4){
+ const [dir,depth]=queue.shift();let real;
+ try{real=fs.realpathSync(dir)}catch{continue}
+ if(seen.has(real))continue;seen.add(real);checked++;
+ for(const candidate of [path.join(dir,'.next/static/chunks'),path.join(dir,'static/chunks')]){
+  try{if(fs.statSync(candidate).isDirectory())chunkRoots.add(fs.realpathSync(candidate))}catch{}
+ }
+ if(depth>=6)continue;
+ let entries;try{entries=fs.readdirSync(dir,{withFileTypes:true})}catch{continue}
+ for(const e of entries){
+  if(!e.isDirectory()||['node_modules','.git','cache','.cache','certs','certificates','ca-certificates'].includes(e.name))continue;
+  queue.push([path.join(dir,e.name),depth+1]);
+ }
+}
+console.log('discovery_dirs='+checked+' chunk_roots='+chunkRoots.size);
+for(const r of chunkRoots)console.log('CHUNKS '+r);
+if(!chunkRoots.size){console.log('NOT_FOUND within bounded search; report command 1 paths');process.exit(0)}
+let visited=0,hits=0,skipped=0;const todo=[...chunkRoots],scannedDirs=new Set();
 while(todo.length&&visited<2500&&hits<3){
- const dir=todo.pop();
+ const dir=todo.pop();if(scannedDirs.has(dir))continue;scannedDirs.add(dir);
  for(const e of fs.readdirSync(dir,{withFileTypes:true})){
   const p=path.join(dir,e.name);
   if(e.isDirectory()){todo.push(p);continue}

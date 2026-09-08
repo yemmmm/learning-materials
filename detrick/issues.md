@@ -82,6 +82,11 @@
 - 提取真实源码的转换循环做本地适配器测试：Completion basic/Jinja对象均变[]，Chat列表不变。仅为prompt_template对象添加普通值写入分支后3类数据和再次加载对照通过；未执行真实CRDT集成和线上验收。
 - 本轮cmds.sh两条只读命令核对web镜像/挂载目标、静态JS内列表字段及数组转换。详细记录与候选修复见completion-prompt-diagnosis.md。
 
+### 2026-09-08 线上包定位尚未命中
+
+- 命令466e008回传：mount_target指向证书目录；命令2 CHUNKS_NOT_FOUND。仅表示预设/app/web、/app及执行cwd下的.next/static/chunks不适用，不证明疑似转换代码不存在。
+- 本轮改为读取web实际WorkingDir、Node cwd及PID1 cwd；在应用目录有限深度搜索嵌套.next/static/chunks，再扫描同样的转换代码。默认不扫描整个根文件系统、不读环境或进程参数。
+
 ### 下一步
 
 优先核实线上静态JS是否包含协同初始化对prompt_template的无条件列表化，再针对该点修复并做真实刷新/保存验收；默认模板时序降为次要假设。WebApp401独立排查。

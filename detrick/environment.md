@@ -12,6 +12,8 @@
 - 宿主机 docker-compose 是用户当前 shell 中的函数；直接粘贴命令块执行，避免 Python subprocess 或新 bash 调用该函数。宿主 Python 不支持 capture_output；使用兼容写法。
 - 对照环境 B：此前用户报告为 3.12.0；本轮尚无 B 的此问题专项证据。不能将 B 或本机配置套用到 A。
 
+- 2026-09-08 web目录排查：用户回传挂载目标为/usr/local/share/ca-certification（按原文记录，不猜改路径）；前轮3个预设chunks路径未找到。web实际工作目录及完整镜像行尚待回传，不认定代码缺失或镜像被挂载覆盖。
+
 ## 取证方式
 
 - 封闭服务器无法由助手直连；2–3 条有输出上限的命令写入 cmds.sh，用户执行回传。
