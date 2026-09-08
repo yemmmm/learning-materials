@@ -99,3 +99,15 @@ n.has(t) ? this.syncList(e,t,Array.isArray(a)?a:[]) : r.set(t,J(a))
 修复交付建议：由厂商提供匹配部署版本的web修复镜像，或在对应版本源码修复populateNodeContainer并重新构建web。不要仅修改一个命中的chunk：存在多个候选及多个静态根，且扫描未穷尽。修复API/worker或修改环境变量无法替代这处数据结构转换修复。
 
 必须验收：Completion basic/Jinja对象在初始化、刷新、保存、发布后仍为对象且文本不变；Chat角色数组保持；同节点Chat/Completion切换；两个浏览器协同加载/编辑。当前未发布修复、未修改任何远程文件。旧提示词仅在历史快照确实保留时可恢复，新编辑从未进入请求的内容不能从数据库承诺找回。
+
+## 公开Issue/PR检索（2026-09-08）
+
+本轮检索GitHub官方仓库的公开Issue/PR、网页索引以及ee.dify.ai企业版发布页。关键词涵盖completion/prompt/refresh/disappear、prompt_template+collaboration、populateNodeContainer、completion+Loro。GitHub搜索API后续触发403限流，已用网页搜索补查；这不是穷尽性证明，不能断言无人报告或厂商没有内部工单。
+
+结论：未找到明确描述Completion对象在协同初始化中变成[]的同根因公开Issue或修复PR，也未确认包含此修复的企业版版本。
+
+- https://github.com/langgenius/dify/issues/11874 ：0.14.0 ChatFlow编辑后配置回退/页面闪动，Closed as not planned；示例为chat模型，未定位到本次转换，只是相似症状。
+- https://github.com/langgenius/dify/issues/40041 ：刷新后有效插件输出变量被误标无效；描述指向Lexical命令只传播到第一个变量块，与文本对象被清空不同，不能作为相同问题或修复证据。
+- https://ee.dify.ai/releases/v3.12.1/ ：本次读取的发布说明未列出该Completion提示词修复；页面确认社区基线1.16.1、提交60a18fa。不能由未列出推断厂商没有私有补丁。
+
+可向厂商提供既有现场复现、打包代码和最小测试，标题建议：Completion prompt_template objects are coerced to [] during collaboration initialization, causing prompt loss after refresh。尚未发送Issue或外部消息。
