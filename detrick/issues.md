@@ -44,9 +44,18 @@
 - 此请求不是 /workflows/draft；尚无证据说明草稿保存也发生401，两个症状继续分别定位。
 - 下一项关键证据：access-mode请求的Request Method、Response原文中的错误码/消息以及appId，用于关联目标应用；不收集Cookie或Authorization。
 
+### 2026-09-08 模型模式与提示词结构不一致
+
+- 新回传：目标节点data.model.mode=completion；点击节点无Console新错误；socket.io返回101。101仅证明WebSocket升级成功，不证明协同事件或保存成功。
+- 已有数据：prompt_template为system/user两项列表，GET返回旧文本，界面Prompt为空。当前节点的模式与提示词结构不匹配，作为空白显示的高置信原因；尚未验证远程前端构建完全匹配参考源码，尚未修复验收。
+- 参考公开源码60a18fa：use-config.ts以model.mode==chat决定Chat分支；components/config-prompt.tsx第260–264行completion分支读payload.text（或jinja2_text），不会读取列表条目的text。第142–147行编辑时按单个PromptItem写入，同样与列表结构冲突。不能仅据源码断言实际服务器必然抛错或必然丢弃某字段。
+- 源码：https://github.com/langgenius/dify/blob/60a18fa/web/app/components/workflow/nodes/llm/components/config-prompt.tsx
+- 用户此前纠正access-mode401来自更改WebApp权限操作的残留，进入编排页未观察到该请求；401继续独立排查。
+- 下一步确认具体模型/供应商的真实类型，在备份或复制的应用中验证：真实Chat模型应使用chat+列表；真实Completion模型应使用completion+单个提示词对象。不直接批量改库，不盲目将全部模型设成chat。验收包含编辑显示、保存后重开、发布后重开和实际节点执行。
+
 ### 下一步
 
-WebApp分支先取Network中access-mode请求的方法和Response（完整路径/appId可帮助关联），不要用其他app的app_view_layout日志替代。提示词分支已确认GET返回system/user旧文本；继续核对data.model.mode、编辑器初始化和协同保存。页面协议与Socket.IO状态仍未知，未将ws配置认定为根因。
+提示词：优先验证并修复节点mode与prompt_template结构不一致，先确认供应商/模型类型；上游为何生成此组合（历史模型切换、配置或迁移等）仍未定位，不把候选原因当结论。WebApp分支仍需access-mode请求的方法和Response，独立处理。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 

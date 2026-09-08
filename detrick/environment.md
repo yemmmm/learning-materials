@@ -8,6 +8,7 @@
 - API、api_websocket：RBAC_ENABLED=true、ENTERPRISE_ENABLED=true；WebSocket 服务存在。
 - API/WebSocket database、auth 比较：different_keys=[]、both_unset=[]。仅证明上一轮脚本所列变量一致；Redis 比较行未回传，尚未确认。
 - web 容器 NEXT_PUBLIC_SOCKET_URL：ws 协议、内部主机、空路径。控制台页面协议和浏览器实际 Socket.IO 地址未确认，不能据此直接判定 mixed-content。
+- 2026-09-08 浏览器回传：受影响编排页socket.io状态101，点击LLM节点无新Console错误；此证据仅限本次观察，不代表协同保存已验收。
 - 宿主机 docker-compose 是用户当前 shell 中的函数；直接粘贴命令块执行，避免 Python subprocess 或新 bash 调用该函数。宿主 Python 不支持 capture_output；使用兼容写法。
 - 对照环境 B：此前用户报告为 3.12.0；本轮尚无 B 的此问题专项证据。不能将 B 或本机配置套用到 A。
 
