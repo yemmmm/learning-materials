@@ -26,3 +26,5 @@
 - 2026-09-08 新静态证据纠正：本机3.12.0 Enterprise程序读取自身RBAC_ENABLED，未设置会关闭该RBAC分支。此前只确认API=true不足以认定整条链路开启；现场Enterprise当前值待新一轮确认，不能把Go Enterprise未设该变量一概当作正常。此结论不泛化到独立rbac服务。
 
 - 2026-09-08 c829013用户回传确认：环境A运行容器与Compose有效配置均API RBAC_ENABLED=true、Enterprise未设置。用户文字服务名enterprise-aoi与前轮dify-enterprise不一致，修复通过镜像名识别真实服务；尚未收到修复后的环境状态。
+
+- 2026-09-08 最终用户回传：环境A的Enterprise变量名纠正为RBAC_ENABLED，执行修复命令后WebApp权限修改恢复。视为业务修复已确认；未额外回传新的inspect原文，不把其他环境状态或全量回归记为完成。后续部署保持API与Enterprise均启用原已使用的企业RBAC。

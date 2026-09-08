@@ -1,7 +1,7 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-08
-# Context: 用户确认变量名只是消息笔误；命令1明确ENTERPRISE_RBAC_NOT_TRUE_CHECK_EDITED_CONFIG。比较运行容器与当前Compose解析值及文件上下文。
+# Context: 本次WebApp权限修改401已修复；以下保留只读配置对照。其他环境修复步骤见webapp-access-mode-diagnosis.md，完整修复命令见41e5a08版本。
 # Cmds: 2 条
 # 在刚才执行失败命令的同一终端、同一目录粘贴；本轮只读，不重建服务，不输出完整环境/Compose。
 
