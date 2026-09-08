@@ -1,62 +1,43 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-08
-# Context: 现场API运行/Compose均RBAC=true，Enterprise运行/Compose均UNSET。修复Enterprise配置缺失，再验证WebApp写权限。
+# Context: 用户确认变量名只是消息笔误；命令1明确ENTERPRISE_RBAC_NOT_TRUE_CHECK_EDITED_CONFIG。比较运行容器与当前Compose解析值及文件上下文。
 # Cmds: 2 条
-# 先编辑当前docker-compose实际使用的Compose文件：找到镜像为dify-ee-enterprise的服务，在已有environment映射下增加：
-#   RBAC_ENABLED: "true"
-# 不重复创建environment键，不改api或独立rbac服务，不修改数据库角色。
-# 若已有environment是列表格式，则追加列表项：- RBAC_ENABLED=true
-# 保存前保留原文件副本以便回退；只新增上述一个配置项。
-# 下列命令在原部署目录同一终端分别粘贴，不使用source，不需要在新bash中调用docker-compose。
+# 在刚才执行失败命令的同一终端、同一目录粘贴；本轮只读，不重建服务，不输出完整环境/Compose。
 
-# 1. 只读核验合并后的API/Enterprise均开启RBAC，并从Enterprise镜像识别真实Compose服务名，避免名称拼写差异。
-DETRICK_ENTERPRISE_SERVICE=$(docker-compose config 2>/dev/null | docker-compose exec -T api python -c '
-import sys
+# 1. 读取当前目录、运行容器RBAC值及创建时的Compose文件标签。最多4行；标签记录的是创建时文件，不保证等于这次调用。
+docker inspect $(docker-compose ps -q) | python3 -c '
+import os,sys,json
+rows=json.load(sys.stdin)
+print(json.dumps({"shell_cwd":os.getcwd(),"shell_COMPOSE_FILE":os.environ.get("COMPOSE_FILE","UNSET")}))
+selected=[]
+for r in rows:
+ c=r.get("Config") or {};l=c.get("Labels") or {}
+ image=c.get("Image","").split("@",1)[0].rsplit("/",1)[-1].split(":",1)[0]
+ if l.get("com.docker.compose.service")=="api" or image=="dify-ee-enterprise":selected.append(r)
+if not selected:print("NO_API_OR_ENTERPRISE_CONTAINER")
+for r in selected[:3]:
+ c=r["Config"];l=c.get("Labels") or {};e=dict(x.split("=",1) for x in c.get("Env",[]) if "=" in x)
+ print(json.dumps({"source":"running_container","service":l.get("com.docker.compose.service"),"rbac_present":"RBAC_ENABLED" in e,"rbac_value":repr(e.get("RBAC_ENABLED"))[:80],"created_with_workdir":l.get("com.docker.compose.project.working_dir"),"created_with_files":l.get("com.docker.compose.project.config_files")},ensure_ascii=True))
+'
+
+# 2. 原样展示当前Compose解析后的RBAC值和类型，便于区分未设置、false、空值、额外引号或空格。最多4行。
+docker-compose config 2>/dev/null | docker-compose exec -T api python -c '
+import sys,json
 try:
  import yaml
  d=yaml.safe_load(sys.stdin)
- if not isinstance(d,dict) or not isinstance(d.get("services"),dict):raise ValueError("CONFIG_UNAVAILABLE")
- services=d["services"]
- matches=[(k,v) for k,v in services.items() if str(v.get("image","")).split("@",1)[0].rsplit("/",1)[-1].split(":",1)[0]=="dify-ee-enterprise"]
- if len(matches)!=1:raise ValueError("EXPECTED_ONE_ENTERPRISE_SERVICE")
- name,enterprise=matches[0]
- def enabled(service):
-  env=service.get("environment") or {}
+ if not isinstance(d,dict) or not isinstance(d.get("services"),dict):print("CONFIG_UNAVAILABLE");sys.exit(1)
+ rows=[]
+ for name,c in d["services"].items():
+  image=str(c.get("image","")).split("@",1)[0].rsplit("/",1)[-1].split(":",1)[0]
+  if name!="api" and image!="dify-ee-enterprise":continue
+  env=c.get("environment") or {};kind=type(env).__name__
   if isinstance(env,list):env=dict((x.split("=",1)+[None])[:2] for x in env)
-  return str(env.get("RBAC_ENABLED","")).lower() in ("true","1")
- if not enabled(services.get("api",{})):raise ValueError("API_RBAC_NOT_TRUE")
- if not enabled(enterprise):raise ValueError("ENTERPRISE_RBAC_NOT_TRUE_CHECK_EDITED_CONFIG")
- print(name)
-except ValueError as e:
- allowed={"CONFIG_UNAVAILABLE","EXPECTED_ONE_ENTERPRISE_SERVICE","API_RBAC_NOT_TRUE","ENTERPRISE_RBAC_NOT_TRUE_CHECK_EDITED_CONFIG"}
- print(str(e) if str(e) in allowed else "CONFIG_PARSE_FAILED",file=sys.stderr);sys.exit(1)
-except Exception as e:
- print("CONFIG_READ_FAILED="+type(e).__name__,file=sys.stderr);sys.exit(1)
-')
-if [ -n "$DETRICK_ENTERPRISE_SERVICE" ]; then
-  printf 'CONFIG_READY service=%s RBAC_ENABLED=true
-' "$DETRICK_ENTERPRISE_SERVICE"
-else
-  echo 'STOP: 配置未通过检查，不执行命令2'
-fi
-
-# 2. 仅在命令1输出CONFIG_READY后执行。重建Enterprise服务会造成该服务短暂不可用；不重建API/worker/RBAC。
-# 使用up重建以加载新环境变量，单纯restart不会加载；输出最多12行启动日志和4行容器状态。
-if [ -z "${DETRICK_ENTERPRISE_SERVICE:-}" ]; then
-  echo 'STOP: 先修正配置并通过命令1'
-elif (set -o pipefail; docker-compose up -d --no-deps --no-build --force-recreate "$DETRICK_ENTERPRISE_SERVICE" 2>&1 | tail -12); then
-  docker inspect $(docker-compose ps -q "$DETRICK_ENTERPRISE_SERVICE") | python3 -c '
-import sys,json
-rows=json.load(sys.stdin)
-if not rows:print("NO_ENTERPRISE_CONTAINER");sys.exit(1)
-for r in rows[:4]:
- c=r.get("Config") or {};s=r.get("State") or {};e=dict(x.split("=",1) for x in c.get("Env",[]) if "=" in x)
- value=e.get("RBAC_ENABLED");value=value if value in ("true","false","True","False","1","0") else "UNSET_OR_OTHER"
- print(json.dumps({"service":(c.get("Labels") or {}).get("com.docker.compose.service"),"status":s.get("Status"),"health":(s.get("Health") or {}).get("Status","NO_HEALTHCHECK"),"RBAC_ENABLED":value}))
+  value=env.get("RBAC_ENABLED")
+  row={"source":"compose_resolved","service":name,"environment_type":kind,"rbac_present":"RBAC_ENABLED" in env,"rbac_value":repr(value)[:80],"rbac_type":type(value).__name__,"passes_previous_check":str(value).lower() in ("true","1")}
+  rows.append(row)
+ print(json.dumps({"selected_services":len(rows)}))
+ for row in rows[:3]:print(json.dumps(row,ensure_ascii=True))
+except Exception as e:print("CONFIG_READ_FAILED="+type(e).__name__);sys.exit(1)
 '
-else
-  echo 'RECREATE_FAILED: 请回传以上错误摘要'
-fi
-# 容器running且RBAC_ENABLED=true后，在原账号/原workspace/原app复测POST access-mode。
-# 若成功，退出重进确认所选访问范围保留。回传POST状态及持久化结果；容器running不是业务验收成功。
