@@ -37,9 +37,16 @@
 - 节点编辑器Prompt显示为空；Process Data中存在疑似很早写入的提示词。Process Data具体所在界面尚未确认；若来自上次运行，则是执行记录，不可当作当前草稿响应。
 - 当前最小证据缺口是浏览器GET workflows/draft响应的目标llm节点：两项prompt_template各自role、text是否为空/旧/新，以及data.model.mode。无需继续重复数据库字数统计，不以此判断根因已定位。
 
+### 2026-09-08 浏览器响应与Console新证据
+
+- 用户回传GET草稿节点的两个角色分别为system、user，text为旧提示词。结合编辑器显示空：已观察到接口内容和编辑器显示不一致；预期新提示词不在本次草稿响应内，仍需区分未保存与后续覆盖。
+- Console显示401，资源路径被截断为 /console/api/enter...p/app/access-mode:1。参考接口定义对应 /enterprise/webapp/app/access-mode，GET读取访问范围、POST修改；完整请求路径和方法仍需Network核实。末尾:1是Console来源行号形式，不当作接口路径。
+- 此请求不是 /workflows/draft；尚无证据说明草稿保存也发生401，两个症状继续分别定位。
+- 下一项关键证据：access-mode请求的Request Method、Response原文中的错误码/消息以及appId，用于关联目标应用；不收集Cookie或Authorization。
+
 ### 下一步
 
-CURRENT已确认，编辑器仍为空。浏览器只读重进应用，取GET workflows/draft响应中llm节点prompt_template是否非空、是否含预期新编辑（无需发送正文）。若响应有内容而界面空，则检查前端渲染/协同初始化；若只有旧内容，则检查编辑保存链路。WebApp401仍需具体请求路径、方法和脱敏Response；页面协议与Socket.IO状态仍未知。实际鉴权装饰器已取证，不再重复索取。
+WebApp分支先取Network中access-mode请求的方法和Response（完整路径/appId可帮助关联），不要用其他app的app_view_layout日志替代。提示词分支已确认GET返回system/user旧文本；继续核对data.model.mode、编辑器初始化和协同保存。页面协议与Socket.IO状态仍未知，未将ws配置认定为根因。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 
