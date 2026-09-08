@@ -113,3 +113,25 @@
 ## 已验证解决的问题
 
 当前记录没有足够验收证据可列入此类。后续定位完成时在对应条目记录根因、修复和验收，不将推测或脚本发布视为已解决。
+
+## WEBAPP-20260908：恢复access-mode 401专项定位
+
+状态：排查中，2026-09-08用户要求优先解决；Completion缺陷已定位待修复，新Agent/成员授权旧任务继续暂停。
+
+### 检索先行
+
+已更新两处detrick-troubleshoot skill，要求新问题先搜索已有Issue/PR/官方说明；后续有关键新证据时补查，并记录匹配程度。
+
+搜索关键词：dify access-mode 401、webapp permission admin 401、access-mode unauthorized；优先GitHub官方仓库和ee.dify.ai。
+
+- https://github.com/langgenius/dify/discussions/20904 发布记录列出PR20785“only enterprise version request app access mode”；这是非企业版请求边界的历史修复，与本次企业版、同账号部分workspace异常不直接吻合。PR页面本轮读取失败，未将其当作已确认同根因。
+- https://github.com/langgenius/dify/issues/39736 涉及后来加入成员访问旧资源，属于既有暂停问题的相关资料，不等同WebApp访问范围管理接口401。
+- 暂未搜索到可直接套用的同根因修复。
+
+### 当前已知与缺口
+
+- 发生在点击修改WebApp访问范围操作时；Console路径截断为/console/api/enter...p/app/access-mode。实际GET/POST、Response、目标appId仍未收到。
+- 同一admin账号不同workspace表现不同。旧的app_view_layout拒绝日志app不一致，不能直接关联本次请求。
+- 下一步同时取得Network精确请求（方法/Response/appId）及新cmds.sh只读结果：目标app的tenant与账号成员关系、同时段enterprise/rbac拒绝元数据。
+- 命令中的账号默认沿用此前dc81582c…，要求用户确认是否本次登录账号；不把传统tenant_account_joins.role/current当作有效RBAC角色或本次请求上下文证明。
+- 尚未改配置、回填权限或发出外部消息。后续按实际错误原因定位，不能仅凭401推定token过期或admin无效。
