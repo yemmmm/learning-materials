@@ -24,3 +24,5 @@
 - 2026-09-08 环境A，416aba6用户回传：API ENTERPRISE_RBAC_API_URL path=/inner/api；Enterprise RBAC_INNER_BASE_URL已设置、path空，两者同源；ENTERPRISE_API_SECRET_KEY比较相等。Enterprise WEBAPP_PUBLIC_ACCESS_ENABLED未设置，不能据此认定关闭。
 
 - 2026-09-08 新静态证据纠正：本机3.12.0 Enterprise程序读取自身RBAC_ENABLED，未设置会关闭该RBAC分支。此前只确认API=true不足以认定整条链路开启；现场Enterprise当前值待新一轮确认，不能把Go Enterprise未设该变量一概当作正常。此结论不泛化到独立rbac服务。
+
+- 2026-09-08 c829013用户回传确认：环境A运行容器与Compose有效配置均API RBAC_ENABLED=true、Enterprise未设置。用户文字服务名enterprise-aoi与前轮dify-enterprise不一致，修复通过镜像名识别真实服务；尚未收到修复后的环境状态。

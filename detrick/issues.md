@@ -171,3 +171,12 @@
 - 用精确方法名和401补查公开Issue，未找到同根因。转静态检查本机3.12.0 Enterprise镜像，发现Update调用IsDifyUserAllowedToChangeAppSettings，该函数确实读Enterprise自身RBAC_ENABLED；未设置/解析失败时返回传统角色admin/owner/editor比较结果，normal拒绝。更正此前Enterprise的RBAC_ENABLED未设可以忽略的判断。
 - 官方3.12.1 tgz同时存在shared.env有RBAC_ENABLED=true但dify-enterprise未引用该文件的配置传递缺口；根.env可本地补充，不能直接认定合并程序造成。具体镜像hash、地址和边界见webapp-access-mode-diagnosis.md。
 - 下一轮确认现场运行容器及Compose解析结果。高可信根因候选，尚未修改配置、重建服务或完成验收。待确认后最小候选是只为Enterprise服务显式启用RBAC，不回填角色/白名单。
+
+
+### 2026-09-08 配置缺失现场确认，交付最小修复
+
+- c829013用户回传：两条命令均API RBAC=true、Enterprise UNSET；说明不是仅容器未重建，当前Compose有效配置同样缺失。
+- 用户将服务写成enterprise-aoi，与原脚本dify-enterprise不一致；不猜改真实服务名。修复命令从当前Compose中镜像名dify-ee-enterprise识别唯一服务。
+- 状态：配置缺失已确认，401修复尚待执行与验收；3.12.1具体分支仍未反汇编，根因闭环以现场复测为准。
+- 最小变更：实际Enterprise服务已有environment增加RBAC_ENABLED: "true"；检查Compose生效后只重建该服务。无角色/白名单数据修改，不给独立rbac服务泛加开关。提示重建期间Enterprise短暂不可用。
+- 已交付2条命令：解析当前配置并核验/识别服务；仅重建该服务并读取实际环境状态。还需原POST成功及退出重进权限设置仍保留的验收结果。

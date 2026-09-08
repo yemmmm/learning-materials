@@ -36,3 +36,10 @@ https://langgenius.github.io/dify-enterprise-docker-compose/dify-docker-compose-
 若Enterprise未设置/false且API=true：候选最小修复为在dify-enterprise现有environment映射中增加RBAC_ENABLED: "true"（不新建第二个environment键），只重建该服务，使授权模式与已启用的RBAC配置一致。必须先确认部署目录/合并结果；本轮没有修改或重启现场。
 若Compose已经true而容器未设置，应排查容器未重建或实际配置文件选择不同。
 复测同app修改权限、退出重进读取范围，并核对原授权边界；现场仍401时继续查实际上下文与3.12.1实现。不要把tenant_account_joins.normal改admin，不用白名单批量回填。
+
+
+## 现场配置确认与修复交付（2026-09-08）
+
+c829013回传：API运行/Compose均true，Enterprise运行/Compose均unset，配置缺失已确认。待执行修复：在实际Enterprise服务已有environment中显式加入RBAC_ENABLED: "true"，检查合并结果后执行up -d --no-deps --no-build --force-recreate，仅重建该服务。不要只restart；不要修改normal成员行。
+
+cmds.sh已交付操作与环境验证，服务名从镜像识别。现场验收仍待用户执行：同账号/同workspace/同app POST access-mode成功，退出重进访问范围保持；若仍401继续检查实际身份/3.12.1分支。没有声称修复已完成。
