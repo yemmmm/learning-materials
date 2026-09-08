@@ -75,9 +75,16 @@
 - 详细证据、源码链接、复现与修复边界见completion-prompt-diagnosis.md。
 - 下一步在临时节点、默认模板加载后，进行Completion→Chat→Completion切换并重新输入测试文本；核对POST变为对象及保存/发布后重开。只作为有边界的诊断和候选绕过，不声称已修复。
 
+### 2026-09-08 刷新复发：发现协同初始化无条件列表化
+
+- 用户验证切换Chat再切回后结构正确且保存正常；直接刷新再次失效，故切模型绕过不持久。
+- 参考collaboration-manager.ts的populateNodeContainer将prompt_template列入listFields，非数组一律传[]给syncList。这是比模板加载时序更直接、且与刷新复发吻合的原因；远程打包代码仍待核对。
+- 提取真实源码的转换循环做本地适配器测试：Completion basic/Jinja对象均变[]，Chat列表不变。仅为prompt_template对象添加普通值写入分支后3类数据和再次加载对照通过；未执行真实CRDT集成和线上验收。
+- 本轮cmds.sh两条只读命令核对web镜像/挂载目标、静态JS内列表字段及数组转换。详细记录与候选修复见completion-prompt-diagnosis.md。
+
 ### 下一步
 
-Completion数组写入text后序列化丢失的机制已在本地参考实现复现；优先用临时节点验证模板结构重置能否修复，再追溯数组初始化来源和核对实际web构建。WebApp401保持独立，仍需access-mode方法和Response。
+优先核实线上静态JS是否包含协同初始化对prompt_template的无条件列表化，再针对该点修复并做真实刷新/保存验收；默认模板时序降为次要假设。WebApp401独立排查。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 

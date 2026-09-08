@@ -51,3 +51,33 @@ console.log(JSON.stringify(result)) // []
 长期修复需确保模型mode与prompt_template的运行时结构一致；空数组可以按Completion默认对象初始化；已有非空角色列表不能静默丢弃或随意拼接，需要明确转换规则并保留旧内容。不要只做TypeScript断言，也不要把真实Completion模型标为Chat。至少覆盖空数组、非空历史列表、正确对象、默认配置延迟加载和模型切换的回归测试。
 
 验收尚未完成。数据库补写不能代替前端修复，权限回填不适用于该文本丢失机制。
+
+## 后续：刷新复发与协同初始化转换（2026-09-08）
+
+用户确认切Chat再切回Completion后，POST结构和保存恢复；但刷新后再次失效，每次都需重新切换。此绕过并非持久修复。
+
+在参考[collaboration-manager.ts](https://github.com/langgenius/dify/blob/60a18fa/web/app/components/workflow/collaboration/core/collaboration-manager.ts)的populateNodeContainer中找到更上游的确定性转换：
+
+```ts
+const listFields = new Set(['variables', 'prompt_template', 'parameters'])
+// ...
+if (listFields.has(key))
+  this.syncList(container, key, Array.isArray(value) ? value : [])
+else dataContainer.set(key, toLoroValue(value))
+```
+
+prompt_template被无条件列为列表字段；Completion对象转换成[]，Chat数组保留。此转换高度吻合刷新加载后复发的现象，优先于先前默认配置时序假设；线上构建是否包含同代码待本轮扫描确认。
+
+本地从下载的实际源码直接提取Object.entries转换循环，以内存适配器执行（未运行真实Loro容器）：Completion basic对象、Completion Jinja对象都变成[]；Chat列表保持。增加仅针对prompt_template非数组的对象写入分支后，3类输入保持原值，再次转换也保持；其他variables/parameters数组对照不变。测试脚本本机/tmp/dify-completion-repro/reload-shape.cjs。
+
+候选最小修复：
+
+```ts
+if (key === 'prompt_template' && !Array.isArray(value))
+  dataContainer.set(key, toLoroValue(value))
+else if (listFields.has(key))
+  this.syncList(container, key, Array.isArray(value) ? value : [])
+else dataContainer.set(key, toLoroValue(value))
+```
+
+这是供源码修复评审的建议，尚未改动部署。还须验证真实Loro容器中的对象/列表切换、初始化、刷新、协同合并和保存；不能把适配器测试等同线上修复验收。已损坏的旧数据应从历史快照或备份恢复，先修复转换以免再次覆盖。
