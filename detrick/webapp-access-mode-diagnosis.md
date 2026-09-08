@@ -82,4 +82,3 @@ https://ee.dify.ai/releases/v3.12.1/
 https://langgenius.github.io/dify-enterprise-docker-compose/dify-docker-compose-3.12.1.tgz
 
 根docker-compose.yaml中：API/worker引用envs/enterprise/shared.env，文件含RBAC_ENABLED=true。dify-enterprise的env_file仅含enterprise/core.env、db.env、redis.env、enterprise.env及可选根.env；没有引用shared.env，environment也未显式配置RBAC_ENABLED。因此可选根.env或其他本地覆盖没有补值时存在传递缺口，不应先归咎用户的合并程序。这是下载时版本包事实，不证明所有安装或镜像默认环境相同。
-
