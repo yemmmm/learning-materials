@@ -1,55 +1,48 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-08
-# Context: 目标app白名单含账号/default策略，查看和发布check-access通过；Enterprise POST仍ErrUnauthorized。核对独立访问配置权限及Enterprise RBAC路由。
+# Context: 查看/发布/访问配置检查通过，API与Enterprise RBAC同源且密钥一致；捕获原WebApp POST的拒绝上下文。
 # Cmds: 2 条
-# 在原部署目录、当前已定义docker-compose函数的终端分别粘贴。只读，不修改访问范围。
 
-# 1. 检查独立的app_access_config权限；诊断调用不等于原POST实际使用的scene。输出最多3行。
-docker-compose exec -T api python - <<'PY'
-import os,json,urllib.request,urllib.parse,urllib.error,sys
-T="a5bcd310-2e74-4f89-9a32-70a56694cb35"
-A="dc81582c-3934-4d8f-b034-9cb7809dce2b"
-APP="daeaaeb3-6875-4f73-adad-0f1312dbd5ce"
-root=os.environ.get("ENTERPRISE_RBAC_API_URL","").rstrip("/")
-secret=os.environ.get("ENTERPRISE_API_SECRET_KEY","")
-if not root or not secret:print("RBAC_URL_OR_SECRET_UNSET");sys.exit(1)
-headers={"Enterprise-Api-Secret-Key":secret,"X-Inner-Tenant-Id":T,"X-Inner-Account-Id":A,"Content-Type":"application/json"}
-def call(path,params=None,payload=None):
- url=root+"/rbac/"+path
- if params:url+="?"+urllib.parse.urlencode(params)
- req=urllib.request.Request(url,data=json.dumps(payload).encode() if payload is not None else None,headers=headers,method="POST" if payload is not None else "GET")
- try:
-  with urllib.request.urlopen(req,timeout=10) as res:return json.load(res)
- except urllib.error.HTTPError as e:print(path+" HTTP="+str(e.code))
- except Exception as e:print(path+" FAILED="+type(e).__name__)
- return None
-for scene in ("app_access_config",):
- r=call("check-access",payload={"tenant_id":T,"account_id":A,"resource_type":"app","resource_id":APP,"scene":scene})
- if isinstance(r,dict):print(json.dumps({"diagnostic_scene":scene,"allowed":r.get("allowed","MISSING")}))
-print("NOTE These are explicit diagnostic checks, not the failed enterprise POST itself")
-PY
+# 1. 在原部署目录当前终端执行，记录取证起点。然后在浏览器清空Network，重新打开权限设置并复现一次原失败操作。
+# 请记录access-mode GET/POST各自状态，以及POST时间/响应中的request-id或trace-id（若有），不复制Cookie/Authorization。
+DETRICK_WEBAPP_SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+echo "capture_since=$DETRICK_WEBAPP_SINCE"
 
-# 2. 比较API和Enterprise的RBAC目标及内部密钥，仅输出相等/配置状态，不输出密钥或内部主机。最多8行。
-docker inspect $(docker-compose ps -q api dify-enterprise) | python3 -c '
-import sys,json
-from urllib.parse import urlsplit
-rows=json.load(sys.stdin); services={}
-for row in rows:
- cfg=row.get("Config") or {}; service=(cfg.get("Labels") or {}).get("com.docker.compose.service")
- if service in ("api","dify-enterprise"):
-  services.setdefault(service,[]).append(dict(x.split("=",1) for x in (cfg.get("Env") or []) if "=" in x))
-if any(len(services.get(k,[]))!=1 for k in ("api","dify-enterprise")):
- print("EXPECTED_ONE_API_AND_ONE_ENTERPRISE");sys.exit(1)
-a=services["api"][0];e=services["dify-enterprise"][0]
-x=a.get("ENTERPRISE_RBAC_API_URL","");y=e.get("RBAC_INNER_BASE_URL","")
-def shape(label,value):
- u=urlsplit(value);print(json.dumps({"target":label,"set":bool(value),"scheme":u.scheme,"path":u.path}))
-shape("api.ENTERPRISE_RBAC_API_URL",x);shape("enterprise.RBAC_INNER_BASE_URL",y)
-u=urlsplit(x);v=urlsplit(y)
-print("rbac_same_origin="+str(bool(x and y) and (u.scheme,u.hostname,u.port)==(v.scheme,v.hostname,v.port)))
-k="ENTERPRISE_API_SECRET_KEY"
-print("inner_secret="+("EQUAL" if a.get(k) and a.get(k)==e.get(k) else "MISSING_OR_DIFFERENT"))
-for k in ("WEBAPP_PUBLIC_ACCESS_ENABLED",):
- value=e.get(k);print("enterprise."+k+"="+(value if value in ("true","false","True","False","1","0") else "UNSET" if value is None else "OTHER_VALUE"))
+# 2. 复现后在同一终端执行。仅采集起点之后的Enterprise/RBAC日志，输出最后20条相关结构化摘要，不打印原始日志。
+# 本轮不再运行check-access，避免与浏览器原请求混淆。无记录不等于没有权限检查。
+docker-compose logs --no-color --timestamps --since "${DETRICK_WEBAPP_SINCE:?先执行命令1并复现}" --tail=600 dify-enterprise dify-enterprise-rbac 2>&1 | python3 -c '
+import sys,json,re
+from collections import deque
+out=deque(maxlen=20); total=0; parsed=0; matched=0; unparsed=0
+keys={"ts","timestamp","caller","trace_id","traceId","request_id","requestId","span_id","tenant_id","tenantId","account_id","accountId","resource_id","resourceId","resource_type","scene","account_role_ids","matched_role_ids","status","code","method","operation","path","route","reason"}
+markers=("access-mode","unauthorized","whitelist","check-access denied","permission denied")
+def fields(x,dst):
+ if not isinstance(x,dict):return
+ for k,v in x.items():
+  if k in keys and isinstance(v,(str,int,bool,list)):
+   if k in ("path","route"):v=str(v).split("?",1)[0]
+   if k=="reason" and not re.fullmatch(r"[A-Za-z0-9_ .:-]{1,180}",str(v)):v="REASON_REDACTED"
+   dst[k]=v[:8] if isinstance(v,list) else str(v)[:180]
+  elif isinstance(v,dict):fields(v,dst)
+for line in sys.stdin:
+ total+=1; low=line.lower(); flags=[m for m in markers if m in low]
+ start=line.find("{"); obj=None
+ if start>=0:
+  try:obj=json.JSONDecoder().raw_decode(line[start:])[0]
+  except ValueError:pass
+ d={};fields(obj,d)
+ if obj is not None:parsed+=1
+ if not flags and d.get("status")!="401" and d.get("code")!="401":continue
+ matched+=1
+ if obj is None:unparsed+=1
+ prefix=line.split("|",1)[0]
+ service="rbac" if "rbac" in prefix else "enterprise"
+ d["source"]=service;d["markers"]=flags;d["structured"]=obj is not None
+ if not d.get("ts") and not d.get("timestamp"):
+  t=re.search(r"\d{4}-\d{2}-\d{2}T[0-9:.]+Z",line)
+  if t:d["ts"]=t.group(0)
+ out.append(d)
+print(json.dumps({"input_lines":total,"parsed_json":parsed,"matched":matched,"unparsed_matches":unparsed,"shown":len(out)}))
+for d in out:print(json.dumps(d,ensure_ascii=True))
 '

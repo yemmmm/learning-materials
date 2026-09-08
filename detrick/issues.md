@@ -154,3 +154,11 @@
 - 补查搜索dify + ErrUnauthorized + access-mode、webapp + app.acl.access_config、unauthorized to access this resource，未发现可核实同根因的官方Issue；不据搜索缺失排除产品缺陷。
 - 参考60a18fa api/core/rbac/entities.py确认独立scene APP_ACCESS_CONFIG=app_access_config；下一轮仅检查此scene及Enterprise的RBAC_INNER_BASE_URL和API目标是否同源、内部密钥是否一致、public开关状态。不重复授予白名单或改normal角色。
 - 源码参考：https://github.com/langgenius/dify/blob/60a18fa/api/core/rbac/entities.py 。尚无原POST关联的scene/tenant日志，根因未确认。
+
+
+### 2026-09-08 三项诊断允许，Enterprise同源；转原请求日志
+
+- 416aba6回传：app_access_config allowed=true（用户文本为字符串true，按允许值理解，未取得原始JSON）；API目标path=/inner/api，Enterprise RBAC_INNER_BASE_URL设置且path空，rbac_same_origin=True，inner_secret=EQUAL。
+- Enterprise WEBAPP_PUBLIC_ACCESS_ENABLED=UNSET。官方3.12.0说明此开关默认保持开放：https://ee.dify.ai/releases/v3.12.0/ 。因此未设置不是已证实配置缺陷；尚未读取当前二进制的配置解析逻辑，不直接补变量或重启。
+- 补查上述开关及access-mode ErrUnauthorized，未找到同根因Issue。当前API显式诊断通过不能证明浏览器POST携带相同身份/workspace，也不能证明Enterprise走相同校验路径。
+- 下一轮仅记录复现起点，再采集Enterprise/RBAC原请求错误的时间、caller、scene、身份及trace摘要；需同时回传GET/POST状态。无匹配日志不证明未调用RBAC。尚未修复或调整访问范围。
