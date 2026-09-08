@@ -60,9 +60,17 @@
 - 最小实验：同一workspace的临时Chatflow，全新添加LLM节点、选择同一Completion模型，输入DIAG_COMPLETION_20260908；先不发布，等保存后重进。浏览器看default-workflow-block-configs请求状态，以及POST workflows/draft负载中的mode、prompt_template形状和标记。随后才测试发布是否改变结果。无须运行模型。
 - cmds.sh两条只读命令用于服务镜像核对、临时应用草稿结构/标记前后快照；不修改原应用。临时app ID由用户填入。
 
+### 2026-09-08 编辑后POST草稿负载已为空
+
+- 用户回传：不发布也会丢失，编辑后等待Network出现draft请求，其Payload内prompt_template已为空。此证据将本次提示词缺失的首个已观察故障点前移到前端请求构造之前/之中；发布不是触发条件，也不能由数据库/worker解释请求内一开始就没有文本。
+- “为空”的精确JSON形态尚未回传，可能为数组、对象、空text、null或字段缺失；不猜测是哪一种。测试是否使用全新临时节点未单独明确，不扩大为所有新建Completion节点必现。
+- 参考编辑回调handleCompletionPromptChange使用Immer produce(payload as PromptItem)，给draft.text或jinja2_text赋值；TypeScript断言不转换运行时数组。若输入仍是数组，写入自定义属性不受数组契约支持；Immer官方说明数组仅支持索引/length，自定义属性不保留。这支持结构冲突假设，但未在远程实际构建复现该具体丢失机制。
+- 参考：https://immerjs.github.io/immer/pitfalls/；Dify参考文件见此前条目。
+- 下一步只取两个前端证据：POST中prompt_template的精确JSON结构（正文可改成占位符，保留字段名和括号），default-workflow-block-configs请求状态及LLM completion_model.prompt结构。不再重复数据库计数字数、worker或WebSocket握手检查。
+
 ### 下一步
 
-提示词：用户已确认真实Completion类型，优先在全新节点验证初始化/保存结构，区分遗留数据和可复现的代码路径问题；上游为何生成此组合（历史模型切换、配置或迁移等）仍未定位，不把候选原因当结论。WebApp分支仍需access-mode请求的方法和Response，独立处理。
+提示词已缩小到前端Completion编辑到draft请求负载之间。补齐空负载的精确结构及默认模板加载状态后，决定修复初始化/模型切换还是编辑状态更新；远程前端镜像版本仍待完整回传。WebApp401保持独立，仍需access-mode方法和Response。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 
