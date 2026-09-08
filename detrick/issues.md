@@ -216,3 +216,14 @@
 - https://github.com/langgenius/dify/issues/41324 ：composer读取接口缺权限装饰器，与本次拒绝访问方向不同，不作为根因。
 - https://ee.dify.ai/releases/v3.12.1/ ：已查看，没有找到直接对应他人新建Agent访问拒绝的修复说明；Owner权限列表显示修复不能证明本次已修复。https://ee.dify.ai/releases/v3.12.0/ 同时作为版本对照。未取得匹配修复PR。
 - 本轮脚本仅机械校验，未在封闭现场运行；待回传后给出对应赋权入口或最小修复。
+
+### AGENT-20260908 第2轮：admin、chat-messages GET 403
+
+- 用户明确为查看/编辑他人Agent受限，工作空间角色admin；GET /console/api/agent/<agent_id>/chat-messages?conversation_id=<conversation_id> 返回403及Werkzeug通用Forbidden描述。未提供具体ID，本轮不猜补。
+- 已回传服务镜像标签均3.12.1，普通api完整行及第1轮RBAC拒绝输出尚未收到。角色名称不替代本次真实权限匹配证据。
+- 2026-09-08补查关键词：agent chat-messages 403、chat-messages created_by；没有找到精确匹配修复Issue/PR，不等于缺陷不存在。
+- 本轮直接获取官方60a18fa源码（官方3.12.1说明指向该社区基线）：api/controllers/console/app/message.py:164-186，AgentChatMessageListApi.get先edit_permission_required，再APP_VIEW_LAYOUT RBAC检查；_list_chat_messages:388-409在会话不匹配时转404。api/services/conversation_service.py:166-183按当前账号筛会话。
+- api/controllers/common/wraps.py:69-105在RBAC开启时执行检查；:135-160将agent_id映射到授权App ID。不得把URL中的Agent ID直接当白名单App ID。api/controllers/console/wraps.py:417-429在RBAC关闭时检查传统编辑角色，失败也为403。
+- 来源：https://github.com/langgenius/dify/blob/60a18fa/api/controllers/console/app/message.py 、https://github.com/langgenius/dify/blob/60a18fa/api/controllers/common/wraps.py 、https://github.com/langgenius/dify/blob/60a18fa/api/services/conversation_service.py 。web正文获取失败，通过raw.githubusercontent.com对应固定版本路径成功取到源码。
+- 判断：优先核查RBAC或传统角色层；会话归属在此公开基线应为404，与当前403不符。属于静态推断，尚未确认私有镜像源码与本次拒绝调用，未定位生产根因。
+- 本轮3条只读取证：API服务实际开关；已确认api_websocket镜像中的接口装饰器；刚复现的RBAC字段。另询问composer/config-drafts等读取是否也403，区分聊天历史加载与编辑接口整体失败。未授予权限、回填白名单、迁移角色或重启服务。

@@ -28,3 +28,8 @@
 - 2026-09-08 c829013用户回传确认：环境A运行容器与Compose有效配置均API RBAC_ENABLED=true、Enterprise未设置。用户文字服务名enterprise-aoi与前轮dify-enterprise不一致，修复通过镜像名识别真实服务；尚未收到修复后的环境状态。
 
 - 2026-09-08 最终用户回传：环境A的Enterprise变量名纠正为RBAC_ENABLED，执行修复命令后WebApp权限修改恢复。视为业务修复已确认；未额外回传新的inspect原文，不把其他环境状态或全量回归记为完成。后续部署保持API与Enterprise均启用原已使用的企业RBAC。
+
+## Agent访问403专项环境（2026-09-08用户回传）
+
+- 用户为工作空间admin。api_websocket、worker、worker_beat镜像为dify-ee-api:3.12.1，web为dify-ee-web:3.12.1，collector和rbac均3.12.1。私有仓库域名不记录或推送。
+- 回传没有普通api服务完整行，存在一行不完整字符；不据此判断api服务缺失或全部服务版本一致。与此前环境A是否同一环境仍待确认。
