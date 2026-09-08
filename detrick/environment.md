@@ -14,6 +14,8 @@
 
 - 2026-09-08 web目录排查：用户回传挂载目标为/usr/local/share/ca-certification（按原文记录，不猜改路径）；前轮3个预设chunks路径未找到。web实际工作目录及完整镜像行尚待回传，不认定代码缺失或镜像被挂载覆盖。
 
+- 2026-09-08 实际web路径：node_cwd=/app，pid1_cwd=/app/targets/next/web，cwd_dirs=targets；已找到/app/targets/next/web/.next/static/chunks。扫描发现2个chunks根，第二个路径未回传。后续使用已确认目录，避免重复猜测。
+
 ## 取证方式
 
 - 封闭服务器无法由助手直连；2–3 条有输出上限的命令写入 cmds.sh，用户执行回传。

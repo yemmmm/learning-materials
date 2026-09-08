@@ -1,6 +1,6 @@
 # Completion提示词消失：诊断与最小复现
 
-日期：2026-09-08。状态：本地复现直接丢失机制；远程构建匹配、数组来源和修复验收尚未完成。WebApp access-mode 401为独立问题。
+日期：2026-09-08。状态：线上静态包已确认同类错误转换，定位到前端协同初始化；待修复及线上验收。扫描只核对关键代码，不代表整份参考源码与线上完全相同。WebApp access-mode 401为独立问题。
 
 ## 现场证据
 
@@ -81,3 +81,21 @@ else dataContainer.set(key, toLoroValue(value))
 ```
 
 这是供源码修复评审的建议，尚未改动部署。还须验证真实Loro容器中的对象/列表切换、初始化、刷新、协同合并和保存；不能把适配器测试等同线上修复验收。已损坏的旧数据应从历史快照或备份恢复，先修复转换以免再次覆盖。
+
+## 线上代码确认（2026-09-08，命令98d46cf）
+
+用户回传node_cwd=/app、pid1_cwd=/app/targets/next/web；已发现静态目录/app/targets/next/web/.next/static/chunks。
+
+扫描器先要求new Set中同时包含variables、prompt_template、parameters，再输出附近转换。命中collaboration-manager-DGhvCEJY.js，回传指纹3754f2e301bf8be7，代码为：
+
+```js
+n.has(t) ? this.syncList(e,t,Array.isArray(a)?a:[]) : r.set(t,J(a))
+```
+
+另外命中2个打包文件的等价转换，文件名/指纹存在OCR疑点，未猜补。scanned=2106、candidates=3、skipped_large=0，扫描在3个候选处停止，不能据此认定只有3处代码副本。chunk_roots=2，第二个目录未回传。
+
+结合已验证的运行规律与本地复现，定位结果为：前端协同节点初始化将Completion对象错误列表化成[]，后续Completion编辑向数组写入text而JSON不保留该属性。不是发布动作导致，也不由RBAC、worker或数据库保存失败解释。
+
+修复交付建议：由厂商提供匹配部署版本的web修复镜像，或在对应版本源码修复populateNodeContainer并重新构建web。不要仅修改一个命中的chunk：存在多个候选及多个静态根，且扫描未穷尽。修复API/worker或修改环境变量无法替代这处数据结构转换修复。
+
+必须验收：Completion basic/Jinja对象在初始化、刷新、保存、发布后仍为对象且文本不变；Chat角色数组保持；同节点Chat/Completion切换；两个浏览器协同加载/编辑。当前未发布修复、未修改任何远程文件。旧提示词仅在历史快照确实保留时可恢复，新编辑从未进入请求的内容不能从数据库承诺找回。
