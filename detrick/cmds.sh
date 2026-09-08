@@ -1,66 +1,46 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-08 14:45
-# Context: 实际草稿GET/POST均检查APP_VIEW_LAYOUT，发布POST检查APP_RELEASE_AND_VERSION；草稿和当前版提示词长度仍缺行。本轮各输出一行。
+# Time: 2026-09-08 16:10
+# Context: Chat对照正常；Completion节点mode与提示词列表结构冲突。验证全新节点初始化/保存，而非继续重复旧节点字数。
 # Cmds: 2 条
-# 同一环境同一终端完整粘贴；只读固定app，不编辑、不发布。UNKNOWN不代表空提示词。
+# 同一受影响环境直接粘贴。命令2用于临时Chatflow，须替换APP_ID；只读，不运行模型、不发布、不改库。
 
-# 1. 草稿：只输出一行状态和提示词总长度，不输出正文。
-docker-compose exec -T api python - DRAFT <<'PY'
+# 1. 核对实际前后端镜像是否混用版本；最多8行，不输出环境变量。
+docker inspect $(docker-compose ps -q) | python3 -c '
 import json,sys
+for r in json.load(sys.stdin):
+ c=r.get("Config",{}); s=c.get("Labels",{}).get("com.docker.compose.service","")
+ if s in ("api","web","api_websocket","worker"):
+  print(s+" image="+c.get("Image","")+" id="+r.get("Image","")[:23])
+' | head -8
+
+# 2. 只读临时应用草稿结构。编辑后、重进后可分别执行，输出model_mode、prompt_shape和测试标记是否存在。
+APP_ID='REPLACE_WITH_TEMP_APP_UUID'
+docker-compose exec -T api python - "$APP_ID" <<'PY'
+import json,sys,uuid
 from sqlalchemy import create_engine,text
 from configs import dify_config
-label=sys.argv[1]
+try: app_id=str(uuid.UUID(sys.argv[1]))
+except (ValueError,IndexError):
+ print("Replace APP_ID with the temporary Chatflow UUID");sys.exit(1)
 try:
  engine=create_engine(dify_config.SQLALCHEMY_DATABASE_URI)
  with engine.connect() as c:
   c.execute(text("SET TRANSACTION READ ONLY"))
   c.execute(text("SET LOCAL statement_timeout = '10s'"))
-  condition="w.version='draft'" if label=="DRAFT" else "w.id=a.workflow_id"
-  rows=c.execute(text("SELECT w.graph FROM workflows w JOIN apps a ON a.id=w.app_id AND a.tenant_id=w.tenant_id WHERE a.id=:app AND "+condition+" LIMIT 2"),{"app":"43c6d3bb-170c-478e-a53c-64c48e1668aa"}).fetchall()
-  if len(rows)!=1:
-   print(label+" snapshot_rows="+str(len(rows))); sys.exit(0)
+  rows=c.execute(text("SELECT graph,updated_at FROM workflows WHERE app_id=:app AND version='draft' LIMIT 2"),{"app":app_id}).fetchall()
+  if len(rows)!=1: print("draft_rows="+str(len(rows)));sys.exit(0)
   graph=json.loads(rows[0][0]) if isinstance(rows[0][0],str) else rows[0][0]
-  nodes=[n for n in graph.get("nodes",[]) if n.get("id")=="llm"]
-  if len(nodes)!=1:
-   print(label+" target_llm_nodes="+str(len(nodes))); sys.exit(0)
-  data=nodes[0].get("data",{}); p=data.get("prompt_template")
-  items=p if isinstance(p,list) else [p]
-  lengths=[len(x) if isinstance(x,str) else len(x["text"]) if isinstance(x,dict) and isinstance(x.get("text"),str) else None for x in items]
-  total=sum(lengths) if all(v is not None for v in lengths) else "UNKNOWN"
-  state=type(p).__name__ if "prompt_template" in data else "MISSING"
-  print(label+" prompt="+state+" items="+str(len(items))+" chars="+str(total))
+  print("draft_updated="+str(rows[0][1]))
+  nodes=[n for n in graph.get("nodes",[]) if n.get("data",{}).get("type")=="llm"]
+  for n in nodes[:8]:
+   d=n["data"];p=d.get("prompt_template"); items=p if isinstance(p,list) else [p]
+   texts=[x.get("text","") for x in items if isinstance(x,dict)]
+   has_marker=any("DIAG_COMPLETION_20260908" in v for v in texts if isinstance(v,str))
+   print("node="+str(n.get("id"))+" mode="+str(d.get("model",{}).get("mode"))+" shape="+type(p).__name__+" marker="+str(has_marker))
+  if not nodes:print("NO_LLM_NODES")
+  if len(nodes)>8:print("Additional nodes omitted")
   c.rollback()
 except Exception as e:
- print(label+" READ_FAILED="+type(e).__name__); sys.exit(1)
-PY
-
-# 2. 当前发布版：只输出一行状态和提示词总长度，不输出正文。
-docker-compose exec -T api python - CURRENT <<'PY'
-import json,sys
-from sqlalchemy import create_engine,text
-from configs import dify_config
-label=sys.argv[1]
-try:
- engine=create_engine(dify_config.SQLALCHEMY_DATABASE_URI)
- with engine.connect() as c:
-  c.execute(text("SET TRANSACTION READ ONLY"))
-  c.execute(text("SET LOCAL statement_timeout = '10s'"))
-  condition="w.version='draft'" if label=="DRAFT" else "w.id=a.workflow_id"
-  rows=c.execute(text("SELECT w.graph FROM workflows w JOIN apps a ON a.id=w.app_id AND a.tenant_id=w.tenant_id WHERE a.id=:app AND "+condition+" LIMIT 2"),{"app":"43c6d3bb-170c-478e-a53c-64c48e1668aa"}).fetchall()
-  if len(rows)!=1:
-   print(label+" snapshot_rows="+str(len(rows))); sys.exit(0)
-  graph=json.loads(rows[0][0]) if isinstance(rows[0][0],str) else rows[0][0]
-  nodes=[n for n in graph.get("nodes",[]) if n.get("id")=="llm"]
-  if len(nodes)!=1:
-   print(label+" target_llm_nodes="+str(len(nodes))); sys.exit(0)
-  data=nodes[0].get("data",{}); p=data.get("prompt_template")
-  items=p if isinstance(p,list) else [p]
-  lengths=[len(x) if isinstance(x,str) else len(x["text"]) if isinstance(x,dict) and isinstance(x.get("text"),str) else None for x in items]
-  total=sum(lengths) if all(v is not None for v in lengths) else "UNKNOWN"
-  state=type(p).__name__ if "prompt_template" in data else "MISSING"
-  print(label+" prompt="+state+" items="+str(len(items))+" chars="+str(total))
-  c.rollback()
-except Exception as e:
- print(label+" READ_FAILED="+type(e).__name__); sys.exit(1)
+ print("READ_FAILED="+type(e).__name__);sys.exit(1)
 PY

@@ -53,9 +53,16 @@
 - 用户此前纠正access-mode401来自更改WebApp权限操作的残留，进入编排页未观察到该请求；401继续独立排查。
 - 下一步确认具体模型/供应商的真实类型，在备份或复制的应用中验证：真实Chat模型应使用chat+列表；真实Completion模型应使用completion+单个提示词对象。不直接批量改库，不盲目将全部模型设成chat。验收包含编辑显示、保存后重开、发布后重开和实际节点执行。
 
+### 2026-09-08 Chat模型对照正常
+
+- 用户确认模型真实类型是Completion；新增Chat模型并配置提示词后不再出现消失。此证据支持模式相关分支，但未证明全新Completion节点也必现，不认定整个Completion功能都损坏。
+- 参考源码新线索：llm/default.ts初始mode=chat且prompt_template为列表；use-config.ts切换mode仅在defaultConfig已就绪时替换模板；use-llm-input-manager.ts初始化effect在inputs.prompt_template存在时跳过。默认配置未就绪可能保留错误结构，这是待验证候选，远程前端源码尚未核验。
+- 最小实验：同一workspace的临时Chatflow，全新添加LLM节点、选择同一Completion模型，输入DIAG_COMPLETION_20260908；先不发布，等保存后重进。浏览器看default-workflow-block-configs请求状态，以及POST workflows/draft负载中的mode、prompt_template形状和标记。随后才测试发布是否改变结果。无须运行模型。
+- cmds.sh两条只读命令用于服务镜像核对、临时应用草稿结构/标记前后快照；不修改原应用。临时app ID由用户填入。
+
 ### 下一步
 
-提示词：优先验证并修复节点mode与prompt_template结构不一致，先确认供应商/模型类型；上游为何生成此组合（历史模型切换、配置或迁移等）仍未定位，不把候选原因当结论。WebApp分支仍需access-mode请求的方法和Response，独立处理。
+提示词：用户已确认真实Completion类型，优先在全新节点验证初始化/保存结构，区分遗留数据和可复现的代码路径问题；上游为何生成此组合（历史模型切换、配置或迁移等）仍未定位，不把候选原因当结论。WebApp分支仍需access-mode请求的方法和Response，独立处理。
 
 ## RBAC-20260907：新增Agent与受邀成员访问旧应用受限
 
