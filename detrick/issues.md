@@ -135,3 +135,12 @@
 - 下一步同时取得Network精确请求（方法/Response/appId）及新cmds.sh只读结果：目标app的tenant与账号成员关系、同时段enterprise/rbac拒绝元数据。
 - 命令中的账号默认沿用此前dc81582c…，要求用户确认是否本次登录账号；不把传统tenant_account_joins.role/current当作有效RBAC角色或本次请求上下文证明。
 - 尚未改配置、回填权限或发出外部消息。后续按实际错误原因定位，不能仅凭401推定token过期或admin无效。
+
+### 2026-09-08 WebApp POST与目标身份已确认
+
+- app=daeaaeb3-6875-4f73-adad-0f1312dbd5ce，tenant=a5bcd310-2e74-4f89-9a32-70a56694cb35，account=dc81582c-3934-4d8f-b034-9cb7809dce2b；mode=advanced-chat，成员1行，传统role=normal/current=true。
+- 用户明确POST Payload为appId及accessMode=public；其中一次OCR把0写为ø，已有完整正确UUID，命令沿用确认值。Response正文仍缺，不能用发送Payload替代。
+- 同期日志约09:32:38Z：source=enterprise/status=401，access_mode_request=false，关键词可辨识unauthorized/whitelist（原文OCR损坏）。无app或scene，仍不能确定就是本次请求。
+- 新关键词先搜索：access-mode+whitelist、WebApp public权限。官方文档存在WEBAPP_PUBLIC_ACCESS_ENABLED开关，但仅凭public目标和401不能认定该开关是根因；暂未查到同根因修复。#38232是接口合同迁移事项，不是本次401修复证据。
+- 本轮固定上述身份，只读查询真实RBAC角色、应用白名单/用户策略，并显式check-access查看/发布scene。诊断check-access可能产生新拒绝日志，要与原WebApp POST区分；不预设enterprise必然使用发布scene。
+- normal是传统成员角色存储，不直接改成admin。尚未进行任何授权修改。
