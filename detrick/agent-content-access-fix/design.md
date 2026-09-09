@@ -25,8 +25,10 @@ backfill.
   at request time.
 - Cover existing, newly created, and copied roster Agents without changing their
   stored access-policy rows.
-- Cover all backend surfaces used by the `/agents/<id>` editor, including content
-  reads, draft/config writes, and debug/test conversations or logs.
+- Inventory all backend surfaces used by the `/agents/<id>` editor, and apply the
+  shortcut to the confirmed common App-gate content reads, writes, and
+  debug/test conversations or logs while preserving existing workspace/legacy
+  guard behavior on the other surfaces.
 - Preserve tenant isolation and require an active roster Agent before the special
   grant is considered.
 - Keep the current Agent list gate and the normal authentication, account,
@@ -52,7 +54,7 @@ backfill.
 
 ## Functional contract
 
-For each request in the content scope:
+For each request that reaches the patched common App-scoped gate:
 
 1. Authenticate the account and resolve the current tenant as today.
 2. Resolve the target Agent using the request's Agent identifier and the current
@@ -72,16 +74,36 @@ For each request in the content scope:
    resource grant or maintainer short-circuit continues to follow its original
    rules.
 
+Requests handled by the existing workspace-gated or legacy-gated route classes
+do not receive a new decision in this patch; their current behavior is the
+baseline that the route inventory and regression tests preserve.
+
 The content scene set is the concrete set used by the current roster-Agent
 editor and debug routes: `APP_VIEW_LAYOUT`, `APP_EDIT`, and `APP_TEST_AND_RUN`.
 The implementation must not treat every App permission as an Agent-content
 permission.
 
-The same rule applies to the console UI's direct backend requests. The list
-endpoint remains workspace-scoped, and existing route guards and legacy edit
-checks remain in place. This change does not retrofit guards onto unrelated or
-previously unguarded routes; it only changes the common App-scoped decision for
-the confirmed console content scenes below.
+The rule applies to the console UI's direct backend requests that reach the
+common App-scoped RBAC gate. The current route inventory has three distinct
+classes, and the patch must preserve that distinction:
+
+- **Common App gate (patched):** routes such as the Agent chat-message/history
+  reads, build-chat finalization, and audio/runtime checks that call
+  `rbac_permission_required(APP, ...)` or `enforce_rbac_access(...)` with one
+  of the three content scenes. These receive the console roster shortcut.
+- **Existing workspace gate (unchanged):** the Agents list and routes that
+  already check workspace `agent.manage`. Their current guard remains the
+  authority and needs no duplicate shortcut.
+- **Legacy/login/edit/tenant guard (unchanged):** Agent config-inspector,
+  drive, sandbox, detail, and build-draft surfaces that currently rely on
+  their existing login/edit/tenant checks rather than the common App gate.
+  This requirement does not retrofit them or turn their existing baseline
+  behavior into a new universal deny rule.
+
+Workflow-only, published-channel, API-key, deletion, and publishing routes
+remain out of the special path. Revocation tests for the new shortcut apply to
+the patched Common App gate class; the other classes are compared with their
+pre-change behavior.
 
 ## Authorization boundaries
 
@@ -105,8 +127,10 @@ roster path.
 
 ## Implementation shape
 
-Keep the patch local to the common authorization boundary and the small set of
-roster routes exposed by the route inventory.
+Keep the patch to the common authorization boundary. The route inventory is
+still required to prove which surfaces are patched, unchanged workspace-gated,
+unchanged legacy-gated, or out of scope; it is not a request to retrofit every
+Agent endpoint.
 
 1. In the common RBAC enforcement path, add a narrow helper that first requires
    `has_request_context()` and an exact `request.blueprint == "console"` match.
@@ -119,11 +143,13 @@ roster routes exposed by the route inventory.
    never use a workflow-only parent or hidden runtime backing App as proof that
    the target is a roster Agent.
 2. Keep the existing roster route guards, legacy edit checks, and the Agents page
-   contract. The reviewed route inventory shows the relevant list/editor/debug
-   requests reach the common enforcement path, so this requirement needs no
-   frontend patch or per-route permission rewrite. Keep publish, delete, API
-   access, and API-key routes on their current permission stack; in particular,
-   do not replace `APP_RELEASE_AND_VERSION` with the content shortcut.
+   contract. The reviewed route inventory classifies the list as an existing
+   workspace gate, config-inspector/drive/sandbox/detail/build-draft surfaces as
+   legacy guards, and the chat/build-chat/audio content surfaces as the common
+   App gate. This requirement needs no frontend patch or per-route permission
+   rewrite. Keep publish, delete, API access, and API-key routes on their
+   current permission stack; in particular, do not replace
+   `APP_RELEASE_AND_VERSION` with the content shortcut.
 3. Inspect the Agents page data requests and route list for resource filtering.
    The backend list must return all active roster Agents for a caller who passes
    the workspace gate. No client-side whitelist filter may hide those items.
@@ -151,8 +177,10 @@ explicit.
   response; do not convert it to an authorization success.
 - Foreign tenant or workflow-only Agent: do not apply the special grant; let the
   normal route resolution and authorization behavior decide the response.
-- Caller without `agent.manage`: preserve existing App whitelist behavior and
-  its 403 response where no explicit App access exists.
+- Caller without `agent.manage`: on the patched Common App gate class, preserve
+  existing App whitelist behavior and its 403 response where no explicit App
+  access exists. On existing workspace/legacy guard classes, preserve the
+  baseline route behavior rather than adding a new denial rule.
 - RBAC service unavailable or returns an error: preserve the current failure
   behavior; do not fail open to the Agent special path.
 - OpenAPI, non-console blueprints, and calls without a Flask request context:
@@ -179,9 +207,12 @@ may remain until separately audited.
 ## Acceptance criteria
 
 - A member with workspace `agent.manage` can list and open every active roster
-  Agent in the same workspace even when the Agent whitelist excludes them.
-- The same member can load editor content, save a draft/config change, and use
-  the roster Agent debug/test flow; a refreshed page retains the change.
+  Agent in the same workspace even when the Agent whitelist excludes them,
+  through the existing Agents list/workspace gate.
+- On every patched Common App gate content route, the same member can load the
+  editor/debug content and complete the covered save/test request with the
+  whitelist excluded; a refreshed page retains the change. Existing legacy
+  routes retain their pre-change behavior.
 - The decision works for an existing Agent, a newly created Agent, and a copied
   Agent without adding whitelist rows, and stops working after `agent.manage` is
   revoked.
@@ -213,3 +244,17 @@ may remain until separately audited.
    roster endpoint and has no hidden resource-whitelist filter. If route/source
    review finds an additional filter or a second backend surface, add it to the
    reviewed route inventory and tests before implementation.
+
+## Review dispositions
+
+- **Finding 1 — invalid against the confirmed scope:** some Agent
+  config-inspector, drive, sandbox, detail, and build-draft routes use only
+  legacy/login/edit/tenant guards and do not reach the common App gate. The
+  requirement adds a workspace shortcut to the confirmed Common App gate; it
+  does not retrofit unrelated guards or impose a universal `agent.manage`
+  denial. Their baseline behavior is preserved and tested as unchanged.
+- **Finding 2 — accepted-high and addressed:** the common gate also serves
+  OpenAPI. The design now requires `has_request_context()` and the exact
+  `request.blueprint == "console"` condition before the roster shortcut; the
+  shared plan compares identical App/scene requests through console, OpenAPI,
+  non-console, and no-request-context paths.

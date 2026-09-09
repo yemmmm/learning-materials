@@ -41,12 +41,27 @@ debug/test conversation, logs, and content file/skill operations. For each route
 record its identifier source (`agent_id`, `app_id`, or workflow node), current
 decorators, content scene, and whether it is in scope.
 
-The inventory must prove:
+The inventory must classify every discovered route into one of these classes:
+
+- **Common App gate (patched):** Agent chat-message/history, build-chat
+  finalization, audio/runtime, and any other route that actually calls the
+  common App-scoped gate with `APP_VIEW_LAYOUT`, `APP_EDIT`, or
+  `APP_TEST_AND_RUN`.
+- **Existing workspace gate (unchanged):** the Agents list and routes already
+  checking workspace `agent.manage`.
+- **Legacy/login/edit/tenant guard (unchanged):** config-inspector, drive,
+  sandbox, detail, build-draft, or other routes that do not reach the common
+  App gate today.
+- **Out of scope:** workflow-only, workflow composer, published channel,
+  API-key, delete, and publish routes.
+
+The inventory must then prove:
 
 - the list is gated by workspace `agent.manage` and is not filtered by resource
   whitelist;
-- every in-scope route either reaches the common roster override or has an
-  explicit workspace `agent.manage` check;
+- every patched Common App gate route is covered by the strict console
+  shortcut, while existing workspace and legacy classes retain their current
+  guards and behavior;
 - workflow-only, workflow composer, published channel, API-key, delete, and
   publish routes retain their intended existing checks;
 - no frontend permission atom hides a roster Agent after the list response.
@@ -62,13 +77,13 @@ the route's existing 403/404 behavior.
 
 | Case | Target | Caller/permission | Whitelist | Expected |
 | --- | --- | --- | --- | --- |
-| A1 | same-tenant active roster Agent | `agent_manager` has `agent.manage` | excludes caller | allow view, edit, debug |
-| A2 | same target after role grant | caller newly gains `agent.manage` | excludes caller | allow on next request, no migration |
-| A3 | same target after role revoke | caller loses `agent.manage` | excludes caller | special grant stops on next request |
-| A4 | existing roster Agent | ordinary member, no App grant | excludes caller | deny as before |
-| A5 | existing roster Agent | ordinary member with explicit App grant | excludes caller | preserve existing explicit grant |
-| A6 | newly created roster Agent | `agent_manager` | excludes caller | allow |
-| A7 | copied roster Agent | `agent_manager` | excludes caller | allow |
+| A1 | same-tenant active roster Agent on patched Common App route | `agent_manager` has `agent.manage` | excludes caller | allow covered view, edit, debug scenes |
+| A2 | same patched route after role grant | caller newly gains `agent.manage` | excludes caller | allow on next request, no migration |
+| A3 | same patched Common App route after role revoke | caller loses `agent.manage` | excludes caller | special grant stops on next request; existing resource/maintainer rules remain |
+| A4 | patched Common App route | ordinary member, no App grant | excludes caller | deny as before |
+| A5 | patched Common App route | ordinary member with explicit App grant | excludes caller | preserve existing explicit grant |
+| A6 | newly created roster Agent on patched route | `agent_manager` | excludes caller | allow |
+| A7 | copied roster Agent on patched route | `agent_manager` | excludes caller | allow |
 | A8 | workflow-only Agent | `agent_manager` | any | no roster override; parent workflow rule applies |
 | A9 | same ID under foreign tenant | `agent_manager` in current tenant | any | no cross-tenant grant; route resolution/deny remains bounded |
 | A10 | inactive/unknown Agent | `agent_manager` | any | no grant; existing not-found/deny behavior |
@@ -118,10 +133,12 @@ Exercise representative real handlers in the isolated API container:
 - debug conversation refresh and debug/test/log read;
 - any agent-drive content read/write route found by the route inventory.
 
-For `agent_manager`, each in-scope route must succeed against the excluded
-whitelist. For `ordinary_member`, the special path must not allow access. For
-the explicit-App-grant control, preserve the prior result. Verify saved content
-survives a new session or handler request.
+For `agent_manager`, each patched Common App gate route must succeed against the
+excluded whitelist. Existing workspace-gated and legacy-gated routes must match
+their pre-change result; they are not converted into a new universal
+`agent.manage` denial rule. For `ordinary_member`, the special path must not
+allow access on patched routes. For the explicit-App-grant control, preserve the
+prior result. Verify saved content survives a new session or handler request.
 
 ## Regression and boundary tests
 
@@ -135,6 +152,8 @@ Run the following at stable implementation state:
 - resource whitelist contains caller versus excludes caller;
 - `APP_VIEW_LAYOUT`, `APP_EDIT`, and `APP_TEST_AND_RUN` separately;
 - RBAC enabled versus disabled;
+- existing workspace-gated and legacy-gated Agent routes versus their recorded
+  baseline behavior;
 - console versus OpenAPI/non-console/no-request-context calls using the same
   App ID and scenes, proving the new shortcut cannot cross the API boundary;
 - non-target ordinary App, workflow, dataset/knowledge-base, and snippet paths;
