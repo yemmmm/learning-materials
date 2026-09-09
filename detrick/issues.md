@@ -275,3 +275,10 @@
 - 运行API自身EnterpriseRequest，以该admin本人作为操作账号，使用容器有效内部RBAC配置；不伪装维护者、不关闭权限检查、不改数据库授权表。scope必须specific；已有非default个人策略则停止；否则仅向目标账号分配default，或已存在则跳过写入。
 - 写后核对scope仍specific、白名单包含该账号、app_view_layout和app_edit均allowed=true；业务验收仍需实际打开Agent并保存编辑。脚本交付不是现场修复成功，状态保持已定位待修复。
 - 机械验证：Shell/Python语法通过；7组模拟覆盖新增授权、已存在default、已有自定义策略、非admin、范围改变、App映射不符、写后权限仍拒绝。验证仅新增授权场景允许一个目标PUT，保护分支不写入；不代表封闭现场已成功执行。
+
+### AGENT-20260908 第8轮：回传为只读诊断输出，当前App目标发生差异
+
+- 用户报告Agent仍打不开，回传包含roles、whitelist、agent_manage及查看/编辑权限。app_view_layout和app_edit均allowed=false，reason为账号不在资源白名单；agent_manage仍true。
+- 核对当前脚本：此输出组合与只读cmds.sh一致；grant-agent-member-access.sh不输出roles、whitelist或agent_manage，而是write/verify/result。本次没有写入脚本执行证据，不能认定修复已执行后失败；也不能仅凭缺回传断言从未执行过其他修复。
+- 本次authz_app_id可辨识前缀c9a698，与旧修复脚本固定92714548不同；完整值含疑似字母l/数字1的OCR歧义，不猜补UUID。Agent、账号、租户完整字段未回传，不能判断是换了Agent、环境或其他映射差异。
+- 已请求当前目标的完整/agents/<UUID>页面路径。原修复脚本只适用于已绑定的旧Agent/App组合，不自动改成对本次不完整新ID赋权。等待目标确认后再给对应修复，不追加与已确认白名单原因无关的排查。
