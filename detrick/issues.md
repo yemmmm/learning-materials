@@ -358,3 +358,14 @@
 - 不修改源码的已有资源修复方向已确认：通过正式RBAC资源成员授权接口，将应获授权的成员纳入对应Agent关联App的资源访问策略；此前3.12.1单Agent+单账号default授权已业务验证。若推广到所有Agents页面成员，应按同工作空间实际agent_manage=true筛选，并检查其App操作权限；不能把“所有能进Agents”替换成“工作空间所有账号”，也不能把名单全改成Owner。
 - 未来新建/复制Agent以及新增/撤销成员的自动授权尚未验证；当前没有已确认、仅针对Agent且满足用户规则的全局配置项。资源为何形成specific/空成员属于默认策略或初始化路径的后续问题，不能仅凭本轮数据断言产品缺陷，也不能将一次性回填称为系统根治。
 - 本轮不再索取相同角色/默认规则输出，不生成源码补丁或配置写操作。保留cmds.sh作为只读复查，结论及非源码处理边界见agent-access-diagnosis.md。沿用此前官方检索结果与固定源码接口证据。
+
+
+### AGENT-20260908 第17轮：在线检索发现直接相关Issue及Agent专用权限改造
+
+- 检索日期2026-09-09；本轮仅在线检索与记录，不修改产品源码、运行配置或远端授权。GitHub状态通过页面及公开API核实。
+- [Issue #39379](https://github.com/langgenius/dify/issues/39379)：仍open，报告多个App/Dataset创建入口未初始化资源RBAC，导致其他成员403，明确列出Agent duplicate路径。与现场空资源成员/无个人策略、其他用户被白名单拒绝高度相关；报告基于社区main，未证明现场普通新建Agent与其具体入口完全相同。关联#39569虽在正文引用此Issue，但它仅处理Dataset旧权限检查，且closed未合并，不能称Agent修复。
+- [PR #41768](https://github.com/langgenius/dify/pull/41768)：2026-09-07合并main，新增Agent独立RBAC/ACL场景及权限管理API；PR说明新建、复制、composer保存等入口统一初始化成员与创建者授权，支持自动包含新成员；提供旧Agent权限及角色迁移。它要求配套langgenius/rbac#124，前端“访问权限”标签页本身不在该PR范围内。迁移对原App手选成员名单保留人工核对，不能理解为无条件开放全部资源。新守卫部署与迁移需配套，不把PR中的迁移命令作为现有EE3.12.0/3.12.1可执行命令。
+- [Issue #39736](https://github.com/langgenius/dify/issues/39736)：closed，描述All members仅保存当时成员、后加入者无法访问旧资源。与用户未来成员目标相关，但scope=all与现场specific不同。关闭关联[PR #39735](https://github.com/langgenius/dify/pull/39735)仅补Dataset切换all时的当前成员授权，不能称整个自动同步问题已解决。
+- [PR #41363](https://github.com/langgenius/dify/pull/41363)：2026-08-27合并，新增成员同步到App/Dataset白名单；代码仅处理automatic_include_workspace_members=true资源。#41768继续将Agent接入成员同步。均未证明现场镜像包含这些改动。
+- [EE3.12.1官方发布说明](https://ee.dify.ai/releases/v3.12.1/)明确Owner一直拥有完整访问权限，该条修复的是权限列表显示；这为A是Owner且可访问的现象提供官方语义依据，但现场请求具体放行分支仍缺完整输出。说明未确认包含#41768；截至本轮未查到该Agent改造对应的企业版发布确认。
+- 当前判断：上游存在与本案吻合的资源权限初始化缺口及后续Agent权限改造线索，不能仅归因于某个.env开关，也尚不能宣布精确根因或全局修复完成。不修改源码的后续应让厂商确认#41768对应的受支持EE版本、配套RBAC、权限入口及存量迁移范围。
