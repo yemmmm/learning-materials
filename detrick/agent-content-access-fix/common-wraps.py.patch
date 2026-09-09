@@ -1,0 +1,108 @@
+--- a/controllers/common/wraps.py
++++ b/controllers/common/wraps.py
+@@ -1,6 +1,7 @@
+ from collections.abc import Callable
+ from functools import wraps
+ 
++from flask import has_request_context, request
+ from sqlalchemy import select
+ from werkzeug.exceptions import Forbidden, NotFound
+ 
+@@ -8,6 +9,7 @@
+ from core.rbac import RBACPermission, RBACResourceScope
+ from extensions.ext_database import db
+ from libs.login import current_account_with_tenant
++from models.agent import APP_BACKED_AGENT_SOURCES, Agent, AgentScope, AgentStatus
+ from models.dataset import Dataset
+ from models.model import App
+ from services.agent.roster_service import AgentRosterService
+@@ -55,6 +57,15 @@
+         resource_id = _extract_resource_id(resource_type, tenant_id, path_args)
+         if _is_resource_owned_by_current_user(tenant_id, account_id, resource_type, resource_id):
+             return
++        if _is_console_roster_agent_content_access_allowed(
++            tenant_id=tenant_id,
++            account_id=account_id,
++            resource_type=resource_type,
++            resource_id=resource_id,
++            scene=scene,
++            path_args=path_args,
++        ):
++            return
+     allowed = RBACService.CheckAccess.check(
+         tenant_id,
+         account_id,
+@@ -132,6 +143,73 @@
+     return False
+ 
+ 
++_AGENT_CONTENT_SCENES = frozenset(
++    {
++        RBACPermission.APP_VIEW_LAYOUT,
++        RBACPermission.APP_EDIT,
++        RBACPermission.APP_TEST_AND_RUN,
++    }
++)
++
++
++def _is_console_roster_agent_content_access_allowed(
++    *,
++    tenant_id: str,
++    account_id: str,
++    resource_type: RBACResourceScope,
++    resource_id: str,
++    scene: RBACPermission,
++    path_args: dict[str, object] | None = None,
++) -> bool:
++    """Apply workspace Agent access only to console roster content checks.
++
++    Agent routes use the common App gate because their runtime is backed by an
++    App row.  The workspace Agent permission must not become a general App
++    bypass, so this helper requires the console blueprint, a tenant-scoped
++    active roster Agent, and one of the three content scenes.  The existing App
++    RBAC check remains the fallback when any condition or the workspace check
++    is not satisfied.
++    """
++    if (
++        resource_type != RBACResourceScope.APP
++        or scene not in _AGENT_CONTENT_SCENES
++        or not has_request_context()
++        or request.blueprint != "console"
++    ):
++        return False
++
++    matched_args = {**(request.view_args or {}), **(path_args or {})}
++    agent_id = matched_args.get("agent_id")
++    app_id = matched_args.get("app_id")
++    if not agent_id and not app_id:
++        return False
++
++    agent_stmt = select(Agent.id).where(
++        Agent.tenant_id == tenant_id,
++        Agent.scope == AgentScope.ROSTER,
++        Agent.status == AgentStatus.ACTIVE,
++        Agent.source.in_(APP_BACKED_AGENT_SOURCES),
++        Agent.app_id == resource_id,
++    )
++    if agent_id:
++        agent_stmt = agent_stmt.where(Agent.id == str(agent_id))
++    elif not app_id or str(app_id) != resource_id:
++        return False
++
++    if db.session.scalar(agent_stmt) is None:
++        return False
++
++    return bool(
++        RBACService.CheckAccess.check(
++            tenant_id,
++            account_id,
++            scene=RBACPermission.AGENT_MANAGE,
++            resource_type=None,
++            resource_id=None,
++        )
++    )
++
++
+ def _extract_resource_id(
+     resource_type: RBACResourceScope, tenant_id: str, path_args: dict[str, object] | None = None
+ ) -> str:
