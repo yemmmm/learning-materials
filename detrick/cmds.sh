@@ -1,5 +1,6 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
+# ARCHIVED 2026-09-09：用户确认本轮排查闭环；以下为历史只读探针，无需继续执行或回传。
 # Time: 2026-09-09
 # Context: A是Owner，B是Admin且被资源白名单拒绝；只读检查工作空间默认App授权规则能否解释/处理非Owner的Agent访问。
 # Cmds: 2条；只在3.12.0用B账号+A创建且B打不开的Agent执行一次。保持原部署目录、当前shell中的docker-compose函数。
