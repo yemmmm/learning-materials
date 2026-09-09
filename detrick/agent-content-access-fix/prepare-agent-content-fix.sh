@@ -22,7 +22,6 @@ if [ -e "$OUTPUT_DIR/wraps.original.py" ] || [ -e "$OUTPUT_DIR/wraps.patched.py"
 fi
 
 umask 077
-mkdir -p "$OUTPUT_DIR"
 stage=$(mktemp -d "${TMPDIR:-/tmp}/dify-agent-content-fix.XXXXXX")
 cleanup() {
   find "$stage" -type f -delete 2>/dev/null || true
@@ -55,9 +54,12 @@ if ! docker run --rm --network none --entrypoint python \
 fi
 
 patched_sha256=$(sha256sum "$stage/app/controllers/common/wraps.py" | awk '{print $1}')
+mkdir -p "$OUTPUT_DIR"
+chmod 0755 "$OUTPUT_DIR"
 cp "$stage/wraps.original.py" "$OUTPUT_DIR/wraps.original.py"
 cp "$stage/app/controllers/common/wraps.py" "$OUTPUT_DIR/wraps.patched.py"
-chmod 0600 "$OUTPUT_DIR/wraps.original.py" "$OUTPUT_DIR/wraps.patched.py"
+chmod 0600 "$OUTPUT_DIR/wraps.original.py"
+chmod 0644 "$OUTPUT_DIR/wraps.patched.py"
 
 cat > "$OUTPUT_DIR/agent-content-access.override.yml" <<'EOF'
 version: "3.8"
@@ -69,13 +71,13 @@ services:
     volumes:
       - "${AGENT_FIX_OUTPUT_DIR:?set AGENT_FIX_OUTPUT_DIR to the preparation directory}/wraps.patched.py:/app/api/controllers/common/wraps.py:ro"
 EOF
-chmod 0600 "$OUTPUT_DIR/agent-content-access.override.yml"
+chmod 0644 "$OUTPUT_DIR/agent-content-access.override.yml"
 
 printf '%s\n' "source_sha256=$actual_sha256" > "$OUTPUT_DIR/manifest.txt"
 printf '%s\n' "patched_sha256=$patched_sha256" >> "$OUTPUT_DIR/manifest.txt"
 printf '%s\n' "source_path=$SOURCE_PATH" >> "$OUTPUT_DIR/manifest.txt"
 printf '%s\n' "api_image=$API_IMAGE" >> "$OUTPUT_DIR/manifest.txt"
-chmod 0600 "$OUTPUT_DIR/manifest.txt"
+chmod 0644 "$OUTPUT_DIR/manifest.txt"
 
 printf '%s\n' "prepared=$OUTPUT_DIR"
 printf '%s\n' "source_sha256=$actual_sha256"
