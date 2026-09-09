@@ -67,18 +67,21 @@ For each request in the content scope:
    without requiring an additional App-scoped view/edit/test permission.
 5. If it is not allowed, preserve the existing authorization path. This preserves
    any explicitly granted App access for members who do not have `agent.manage`
-   and avoids silently revoking unrelated existing access.
+   and avoids silently revoking unrelated existing access. Revoking
+   `agent.manage` therefore stops only the new workspace shortcut; an existing
+   resource grant or maintainer short-circuit continues to follow its original
+   rules.
 
 The content scene set is the concrete set used by the current roster-Agent
 editor and debug routes: `APP_VIEW_LAYOUT`, `APP_EDIT`, and `APP_TEST_AND_RUN`.
 The implementation must not treat every App permission as an Agent-content
 permission.
 
-The same rule applies to direct backend requests and to UI requests. The list
-endpoint remains workspace-scoped, and direct detail/content endpoints must not
-become an unguarded bypass: routes that currently lack a workspace Agent gate
-must receive the existing workspace `agent.manage` check or an equivalent
-route-level guard.
+The same rule applies to the console UI's direct backend requests. The list
+endpoint remains workspace-scoped, and existing route guards and legacy edit
+checks remain in place. This change does not retrofit guards onto unrelated or
+previously unguarded routes; it only changes the common App-scoped decision for
+the confirmed console content scenes below.
 
 ## Authorization boundaries
 
@@ -91,6 +94,7 @@ The special grant is made only when all of these are true:
 | Agent state | The Agent is active, and the normal backing-resource resolution still applies. |
 | Caller | The caller has current workspace `agent.manage`. |
 | Operation | The route is an identified roster content view, edit, or debug/test operation. |
+| Request origin | The shortcut requires `has_request_context()` and `request.blueprint == "console"`; OpenAPI and non-request callers never enter it. |
 | RBAC state | With RBAC disabled, existing no-op behavior is retained; with RBAC enabled, the workspace decision is live. |
 
 The target is identified from a trusted route `agent_id` wherever possible. A
@@ -104,8 +108,9 @@ roster path.
 Keep the patch local to the common authorization boundary and the small set of
 roster routes exposed by the route inventory.
 
-1. In the common RBAC enforcement path, add a narrow helper that recognizes an
-   Agent request, loads the tenant-filtered Agent, and checks
+1. In the common RBAC enforcement path, add a narrow helper that first requires
+   `has_request_context()` and an exact `request.blueprint == "console"` match.
+   It then recognizes an Agent request, loads the tenant-filtered Agent, and checks
    `scope == ROSTER`, `source in APP_BACKED_AGENT_SOURCES`, `status == ACTIVE`,
    and the Agent's own `app_id == resource_id`. For an eligible content scene,
    query workspace `AGENT_MANAGE` before the current App resource check. An
@@ -113,12 +118,12 @@ roster routes exposed by the route inventory.
    When a request has `agent_id`, resolve the actual roster Agent directly;
    never use a workflow-only parent or hidden runtime backing App as proof that
    the target is a roster Agent.
-2. Keep the existing roster route guards and the Agents page contract. The
-   reviewed route inventory shows the relevant list/editor/debug requests reach
-   the common enforcement path, so this requirement needs no frontend patch or
-   per-route permission rewrite. Keep publish, delete, API access, and API-key
-   routes on their current permission stack; in particular, do not replace
-   `APP_RELEASE_AND_VERSION` with the content shortcut.
+2. Keep the existing roster route guards, legacy edit checks, and the Agents page
+   contract. The reviewed route inventory shows the relevant list/editor/debug
+   requests reach the common enforcement path, so this requirement needs no
+   frontend patch or per-route permission rewrite. Keep publish, delete, API
+   access, and API-key routes on their current permission stack; in particular,
+   do not replace `APP_RELEASE_AND_VERSION` with the content shortcut.
 3. Inspect the Agents page data requests and route list for resource filtering.
    The backend list must return all active roster Agents for a caller who passes
    the workspace gate. No client-side whitelist filter may hide those items.
@@ -133,10 +138,12 @@ roster routes exposed by the route inventory.
    affected services and retain an explicit removal/restore procedure.
 
 The common module is the only expected production change because the observed
-failure is the same App-scoped gate used by multiple content requests and the
-current list/frontend paths already use workspace `agent.manage`. It must not be
-used as a blanket "all Agent paths are allowed" switch; the Agent query, source,
-scene set, tenant, status, and resource-id match remain explicit.
+failure is the same App-scoped gate used by multiple console content requests
+and the current list/frontend paths already use workspace `agent.manage`. The
+blueprint guard is essential because the same helper serves OpenAPI. It must not
+be used as a blanket "all Agent paths are allowed" switch; the request origin,
+Agent query, source, scene set, tenant, status, and resource-id match remain
+explicit.
 
 ## Error behavior
 
@@ -148,6 +155,8 @@ scene set, tenant, status, and resource-id match remain explicit.
   its 403 response where no explicit App access exists.
 - RBAC service unavailable or returns an error: preserve the current failure
   behavior; do not fail open to the Agent special path.
+- OpenAPI, non-console blueprints, and calls without a Flask request context:
+  preserve the original App/resource authorization result.
 - Version fingerprint mismatch during deployment: stop before writing or
   restarting any service and report the mismatch.
 

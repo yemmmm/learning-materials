@@ -74,6 +74,8 @@ the route's existing 403/404 behavior.
 | A10 | inactive/unknown Agent | `agent_manager` | any | no grant; existing not-found/deny behavior |
 | A11 | ordinary App or dataset | `agent_manager` | any | unchanged ordinary resource authorization |
 | A12 | same roster Agent with RBAC disabled | any authenticated caller | any | preserve existing RBAC-disabled behavior |
+| A13 | same App ID and content scene through OpenAPI | any caller | excludes caller | preserve original OpenAPI resource authorization; no workspace shortcut |
+| A14 | same App ID and scene in a non-console blueprint or without request context | any caller | excludes caller | preserve original authorization; no workspace shortcut |
 
 ## Component tests
 
@@ -96,6 +98,9 @@ model query and a stubbed external RBAC response:
 5. RBAC disabled remains a no-op.
 6. Repeated requests re-evaluate the workspace decision; no cached member list
    or data backfill is used.
+7. With the same tenant/account/App ID/scene, a Flask `console` request can use
+   the roster shortcut, while an OpenAPI request, a different blueprint, and a
+   call outside a Flask request context use the original resource check.
 
 Use call assertions to prove the workspace check has no resource ID and that a
 successful roster override does not call the resource whitelist check. Do not
@@ -130,6 +135,8 @@ Run the following at stable implementation state:
 - resource whitelist contains caller versus excludes caller;
 - `APP_VIEW_LAYOUT`, `APP_EDIT`, and `APP_TEST_AND_RUN` separately;
 - RBAC enabled versus disabled;
+- console versus OpenAPI/non-console/no-request-context calls using the same
+  App ID and scenes, proving the new shortcut cannot cross the API boundary;
 - non-target ordinary App, workflow, dataset/knowledge-base, and snippet paths;
 - published WebApp and Backend API calls, API-key list/create/delete, and
   delete/publish controls, proving they retain the pre-change result;
