@@ -380,3 +380,15 @@
 - 上游证据沿用第17轮2026-09-09检索：#39379（open，创建路径RBAC初始化遗漏，含Agent复制）；#41768（9月7日合并main，Agent独立ACL、初始化与迁移，需配套RBAC，未含权限前端标签页）；#39736/#41363为成员同步相关线索。社区合并不等于EE3.12.0/3.12.1已包含修复。
 - 后续仅在用户重新提出时恢复：核实官方支持的企业版、配套RBAC与Agent权限入口、旧数据迁移，再按明确范围验证现有/新建/复制Agent和新成员。保留已验证脚本和诊断文档供复用，不重复发起相同角色/白名单探针。
 - 归档：issues.md为完整时间线，agent-access-diagnosis.md为结论与边界，environment.md保留两环境回传，grant-agent-member-access.sh保留单点修复。上轮上游检索提交8af7c35。
+
+
+## N8N-TLS-20260909：远端worker外部HTTPS证书验证失败
+
+- 状态：待现场取证；未修复、未验证。
+- 用户报错文字为 enable to verify the first certification，并提示Node.js --use-system-ca；疑似标准错误 unable to verify the first certificate，准确code待确认。
+- 初步假设：失败worker的出站CA信任或所见证书链与主服务器worker不同。浏览器到Traefik的服务器身份认证与worker出站CA信任独立；Redis连接不会同步CA。不能据此认定是Redis TLS。
+- 2026-09-09检索：n8n custom certificate authority / Node --use-system-ca NODE_EXTRA_CA_CERTS / n8n issues unable to verify the first certificate / n8n pull certificate CA worker。
+- 官方n8n文档支持从1.42.0起挂载/opt/custom-certificates，PEM公有证书、不需要私钥；现场版本未知。旧文档URL失效，新文档页面读取失败，已通过官方仓库原文核验：https://github.com/n8n-io/n8n-docs/blob/main/docs/deploy/host-n8n/configure-n8n/basic-configuration/configuration-examples/configure-custom-ssl-certificate-authorities.md
+- Node官方：https://nodejs.org/api/cli.html#node_extra_ca_certsfile ，NODE_EXTRA_CA_CERTS在启动时读取；--use-system-ca需要相应版本且CA位于容器可见系统信任库，宿主机安装不等于容器生效。
+- https://github.com/n8n-io/n8n/issues/15584 ：相似报错，但发生于Redis TLS/启动，closed as not planned；非已确认同根因，无可用修复版本证据。PR检索返回OpenAI mTLS #27309，标题/范围为客户端证书功能，与当前普通HTTPS服务端验证不匹配；不作为修复依据。
+- 本轮3条命令：选择worker/目标；版本和运行进程CA环境摘要；继承运行worker环境进行严格直连TLS握手。两台用相同目标比较。探针不发送HTTP业务请求，也不覆盖节点代理、自定义CA及重定向；成功不是工作流验收。

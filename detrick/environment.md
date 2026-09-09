@@ -63,3 +63,10 @@
 - B具备agent.manage及App查看/编辑/调试权限，目标资源为specific且没有B的成员策略；查看与调试明确被资源白名单拒绝。
 - 工作空间存在full_access/can_edit/can_view_and_use等App访问规则，部分绑定回传损坏；不得将操作权限匹配与目标资源白名单开放混为一谈。
 - workspace_policy输出的permission_keys是筛选后的交集，空列表不代表完整策略为空。
+
+
+## n8n分布式环境（2026-09-09，用户描述，脱敏）
+
+- 主服务器：main、worker、Traefik、Redis；另一服务器：worker，连接主服务器Redis。
+- 用户报告外部访问任务分派到另一服务器时发生证书验证错误；服务器名证书部署在主服务器，n8n使用服务器名访问。
+- 未确认n8n/Node版本、证书实际挂载位置、失败目标、代理及两台worker的CA配置；本机配置不作为远端事实。
