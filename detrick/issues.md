@@ -334,3 +334,15 @@
 - role.permission_keys中的agent_manage与脚本筛选键agent.manage不一致，可能为转写/OCR或运行脚本差异；以实际check-access agent_manage=true为授权证据，不猜改角色键。
 - cmds.sh改为2条、只在3.12.0执行的双向只读对照：A访问B创建的目标，B访问A创建的目标。支持Agent UUID或/agents/...URL，严格UUID校验不猜补OCR；账号仅接受UUID/邮箱。为输入、数据库、角色/策略查询增加stage及安全文件/行号，避免再次只收到无位置ValueError。
 - 当前待验证：特殊账号是否为实际App维护者/Owner、是否有资源default/自定义策略或白名单授权，及两个Agent的资源范围差异。继续不修改源码，不预先改开关或批量补白名单；沿用此前检索线索，本轮不扩大网络检索。
+
+
+### AGENT-20260908 第15轮：Owner与Admin差异已确认，继续核对默认资源授权配置
+
+- 3.12.0双向对照：A只有一个global_system_default/owner角色；B报告4个角色，回传可辨识admin、normal及含App查看/编辑/调试权限的自定义角色，第四条未回传，不补写。
+- A访问目标为active/roster/agent_app，资源scope=specific、白名单不包含A、个人策略无行；用户确认能访问，四个scene的matched_roles均1。A的allowed/reason与membership未回传，不能把matched_roles=1写成allowed=true，也不能仅凭创建者不同排除维护者关系。Owner特殊授权是目前最有力解释，精确放行分支保留未核实。
+- B访问另一个active/roster/agent_app目标：agent_manage明确true；app_view_layout/app_edit明确因account is not in the resource whitelist拒绝，白名单不包含B。调试仅回传角色计数，未补写allowed结论。
+- 结论：本次不对称不能作为“3.12.0全员正常、3.12.1有某个全局开关错误”的证据。B缺的不是已列出的App权限键，继续增加相同角色权限或删除normal角色不是已证实修复；当前已确认阻塞为资源白名单。
+- 2026-09-09补查关键词Dify Enterprise owner/admin/resource whitelist与官方GitHub/企业文档；公开资料未直接确认本部署Owner检查分支或仅Agent适用的全局白名单开关。https://enterprise-docs.dify.ai/en/3.12.x/deploy/checklist 及索引可访问，但本轮不把部署说明当作RBAC授权依据；common.json固定版本raw读取失败，main本地化文件不足以证明运行时行为。
+- 已读固定60a18fa的RBACService.WorkspaceAccess.app_matrix：GET /rbac/workspace/apps/access-policy，返回policy与role/account绑定。这是下一步配置核对入口，仅只读输出；工作空间App规则可能覆盖普通App/工作流，不能直接按Agent需求全局修改。
+- cmds.sh保留两个命令块，改为仅B访问A的一次探针；合并已知权限输出，额外读取第一页最多6个工作空间App访问规则及与B的角色/账号匹配。不写配置/源码/白名单，不重复要求完整双向检查。
+- 用户目标仍为Agents页面成员均可访问Agent内容。已有单目标default授权仅证明现有资源数据修复有效；全量现有Agent与未来Agent/成员的持续授权，仍需核对默认规则能力，不承诺单次回填自动解决未来资源。

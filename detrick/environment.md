@@ -50,3 +50,9 @@
 - 3.12.0：api/api_websocket的RBAC_ENABLED和ENTERPRISE_ENABLED均true；dify-enterprise两变量均UNSET。该环境的账号/资源详情探针为ValueError，尚未取得角色/白名单策略证据。
 - 3.12.1：api/api_websocket两变量均true；dify-enterprise RBAC_ENABLED=true、ENTERPRISE_ENABLED未设置。两边该配置差异已确认，但不是Agent访问差异根因的充分证据。
 - 前端及collector/rbac等服务所示UNSET按原样记录，不由其他服务的配置要求推断其错误；3.12.0回传未含独立rbac服务行，也不能认定该服务不存在。
+
+
+## 3.12.0账号不对称对照结果（2026-09-09，第15轮）
+
+- A角色：global_system_default/owner；其可访问的别人创建的Agent为active/roster/agent_app，资源访问scope=specific且白名单不包含A。维护者关系及check-access的allowed/reason缺回传，Owner特权解释尚未核实具体分支。
+- B角色：回传计数4，可见admin、normal及自定义App查看/编辑/调试权限。B有agent_manage，但查看/编辑目标Agent被资源白名单拒绝。不存在“3.12.0所有成员都能访问所有Agent”的已验证基线。

@@ -1,17 +1,16 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-09
-# Context: 3.12.0同环境账号访问不对称；原探针ValueError未定位。只读核对实际可访问账号与反向拒绝，禁止源码修改。
-# Cmds: 2条；本轮只需3.12.0，不重查已确认的服务开关。保持原部署目录、同一shell中的docker-compose函数。
-# 第一次：A（能看别人Agent的账号）+B创建且A能打开的Agent。
-# 第二次：B（不能看A的Agent的账号）+A创建且B打不开的Agent。回传注明A看B/B看A。
+# Context: A是Owner，B是Admin且被资源白名单拒绝；只读检查工作空间默认App授权规则能否解释/处理非Owner的Agent访问。
+# Cmds: 2条；只在3.12.0用B账号+A创建且B打不开的Agent执行一次。保持原部署目录、当前shell中的docker-compose函数。
+# 聚焦工作空间访问规则；不创建策略、不修改绑定，也不把工作空间App规则直接改成对所有资源开放。
 # 不写配置、角色、白名单或数据库；鉴权探针可能产生检查日志。不要回传Token/Cookie/邮箱。
 
 # 1. 输入目标Agent UUID或完整/agents/...地址，以及当前访问者邮箱/账号UUID。等待每次提示后输入，再执行命令2。
 read -r -p 'Target Agent UUID or /agents/... URL: ' DTR_AGENT_ID
 read -r -p 'Visitor email (or account UUID): ' DTR_ACCOUNT_ID
 
-# 2. 只读比较维护者关系、角色、白名单、个人策略和实际鉴权；最多30行。输入错误会明确标记字段，其他错误标记阶段和代码行，不打印敏感异常正文。
+# 2. 只读比较工作空间访问规则、账号角色匹配及目标Agent的授权；最多30行。输入错误会明确标记字段，其他错误标记阶段和代码行，不打印敏感异常正文。
 docker-compose exec -T -e DTR_AGENT_ID="$DTR_AGENT_ID" -e DTR_ACCOUNT_ID="$DTR_ACCOUNT_ID" api python - <<'PYCODE' | tail -30
 import os,json,logging,traceback
 from urllib.parse import urlsplit
@@ -32,7 +31,7 @@ def main():
  from configs import dify_config
  from sqlalchemy import create_engine,text
  from services.enterprise.base import EnterpriseRequest
- emit("probe",version="AGENT_ASYMMETRY_V2")
+ emit("probe",version="AGENT_DEFAULT_ACCESS_V1")
  emit("effective_api_flags",RBAC_ENABLED=dify_config.RBAC_ENABLED,ENTERPRISE_ENABLED=dify_config.ENTERPRISE_ENABLED)
  stage="parse_agent_reference"
  raw_agent=os.environ.get("DTR_AGENT_ID","")
@@ -88,8 +87,7 @@ def main():
  keys={"agent.manage","app.acl.view_layout","app.acl.edit","app.acl.test_and_run"}
  if role_data is not None:
   roles=role_data.get("roles") or []
-  emit("roles",count=len(roles),shown=min(len(roles),6))
-  for r in roles[:6]: emit("role",id=r.get("id"),role_tag=r.get("role_tag"),category=r.get("category"),permission_keys=sorted(keys.intersection(r.get("permission_keys") or [])))
+  emit("roles",count=len(roles),role_tags=[r.get("role_tag") for r in roles[:8]],permission_keys=sorted({k for r in roles for k in (r.get("permission_keys") or []) if k in keys}))
  stage="read_whitelist"
  whitelist=call("whitelist","GET","apps/whitelist",params={"app_id":app_id})
  if whitelist is not None:
@@ -107,7 +105,22 @@ def main():
   data=call(scene,"POST","check-access",json=payload)
   if data is not None:
    emit(scene,allowed=data.get("allowed","MISSING"),reason=data.get("reason","MISSING"))
-   emit(scene,matched_roles=len(data["matched_role_ids"]) if isinstance(data.get("matched_role_ids"),list) else "MISSING",account_roles=len(data["account_role_ids"]) if isinstance(data.get("account_role_ids"),list) else "MISSING")
+ stage="workspace_app_access_rules"
+ matrix=call("workspace_access_rules","GET","workspace/apps/access-policy",params={"page_number":1,"results_per_page":6})
+ if matrix is not None:
+  items=matrix.get("items")
+  if not isinstance(items,list):
+   emit("workspace_access_rules",error="UNEXPECTED_ITEMS_SHAPE")
+  else:
+   caller_roles={r.get("id") for r in (role_data or {}).get("roles") or []}
+   emit("workspace_access_rules",returned=len(items),shown=min(len(items),6),pagination=matrix.get("pagination"))
+   for item in items[:6]:
+    policy=item.get("policy") or {}
+    linked_roles=item.get("roles") or []
+    linked_accounts=item.get("accounts") or []
+    emit("workspace_policy",id=policy.get("id"),policy_key=policy.get("policy_key"),resource_type=policy.get("resource_type"),permission_keys=sorted(keys.intersection(policy.get("permission_keys") or [])))
+    emit("workspace_binding",policy_id=policy.get("id"),role_count=len(linked_roles),account_count=len(linked_accounts),matching_role_ids=[r.get("role_id") for r in linked_roles if r.get("role_id") in caller_roles],contains_account=any(a.get("account_id")==account_id for a in linked_accounts))
+
 try:
  main()
 except Exception as exc:
