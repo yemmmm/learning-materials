@@ -1,7 +1,7 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-09
-# Context: 已定位：指定成员范围未包含目标账号。先由创建者在关联App的access-config页添加成员；本只读探针保留用于赋权后验收。
+# Context: 已定位指定成员白名单拒绝；新版Agent无内容授权UI入口。单成员修复见grant-agent-member-access.sh，本文件仍为只读验收。
 # Cmds: 2 条（设置目标 + 只读检查；预期输出约16行）
 # 在Compose目录的同一个原shell中依次粘贴；不需要Token，不修改角色/白名单/数据库。
 

@@ -206,7 +206,7 @@
 
 ## AGENT-20260908：无法访问他人创建的Agent且不清楚赋权入口
 
-状态：2026-09-09已定位直接拒绝原因（指定成员访问范围未包含目标账号），待通过UI添加成员并验证。创建时是否漏初始化仍未确认；未与其他历史问题合并根因。
+状态：2026-09-09已定位直接拒绝原因（指定成员访问范围未包含目标账号），新版Agent现场无内容授权UI入口，待执行单成员RBAC授权并验证。创建时是否漏初始化仍未确认；未与其他历史问题合并根因。
 
 - 2026-09-08 用户描述：别人创建的agent，自己没有访问权限，也不知道如何赋权。尚不清楚顶层Agents/工作室应用/发布后聊天入口、当前角色、报错路径及是否与已修复WebApp环境相同。
 - 已询问访问入口及工作空间角色；第一轮只读命令核对当前镜像和刚复现的RBAC拒绝字段。未修改角色、白名单或服务配置。
@@ -265,3 +265,13 @@
 - 若通用页面空白/跳走/403，先回传该页面表现，再考虑使用相同正式Console单成员接口；尚未交付或执行服务端绕过式赋权，不应直接改成所有成员或运行全量回填。
 - 验收：原探针whitelist.contains_account=true，目标成员策略default，app_view_layout/app_edit allowed=true；用户实际能打开Agent并保存一次编辑。当前状态为已定位待赋权，未验证解决。
 - 来源：https://github.com/langgenius/dify/blob/60a18fa/web/app/components/app/access-config/index.tsx 、https://github.com/langgenius/dify/blob/60a18fa/web/app/components/access-rules-editor/add-access-subject-popover.tsx 、https://github.com/langgenius/dify/blob/60a18fa/web/service/access-control/use-app-access-config.ts 。本轮沿用已检索Issue结果，无新的创建路径证据，不宣称#39379或#39736已命中。
+
+### AGENT-20260908 第7轮：纠正新版Agent UI建议，提供固定目标单成员授权
+
+- 用户明确新版Agent路由为/agents/<id>，其/agents/<id>/config仅有WebApp和Backend API权限控制，无Agent内容本身的访问控制。撤回上一轮将通用/app/<id>/access-config当作新版Agent可用赋权入口的建议：该建议只有通用路由源码证据，现场可用性不足，不再要求用户寻找该入口。用户未明确回传通用URL的HTTP状态，不补写为404或403。
+- 白名单直接拒绝结论不变；新版UI缺少入口与资源初始化是否有缺陷分别记录，尚未确认创建路径根因。
+- 复核正式Console单成员PUT控制器调用RBACService.AppAccess.replace_user_access_policies；服务使用PUT /rbac/apps/user-access-policies，params为app_id、account_id，body access_policy_ids=[default]、account_ids=[]。默认策略为按角色权限，不是全员开放。
+- 新增grant-agent-member-access.sh，明确为写操作，与原只读cmds.sh分开。目标固定Agent 01a07f83-4f8b-7d24-b87b-1fa54a15dabe，校验关联App 92714548-25b2-4c14-85e9-11598059fa8e；用户输入邮箱解析账号，必须是该工作空间成员且实际绑定global_system_default/admin。
+- 运行API自身EnterpriseRequest，以该admin本人作为操作账号，使用容器有效内部RBAC配置；不伪装维护者、不关闭权限检查、不改数据库授权表。scope必须specific；已有非default个人策略则停止；否则仅向目标账号分配default，或已存在则跳过写入。
+- 写后核对scope仍specific、白名单包含该账号、app_view_layout和app_edit均allowed=true；业务验收仍需实际打开Agent并保存编辑。脚本交付不是现场修复成功，状态保持已定位待修复。
+- 机械验证：Shell/Python语法通过；7组模拟覆盖新增授权、已存在default、已有自定义策略、非admin、范围改变、App映射不符、写后权限仍拒绝。验证仅新增授权场景允许一个目标PUT，保护分支不写入；不代表封闭现场已成功执行。
