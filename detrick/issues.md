@@ -206,7 +206,7 @@
 
 ## AGENT-20260908：无法访问他人创建的Agent且不清楚赋权入口
 
-状态：新问题，待现场证据；与暂停的旧Agent任务可能相关，尚未合并根因。
+状态：2026-09-09已定位直接拒绝原因（指定成员访问范围未包含目标账号），待通过UI添加成员并验证。创建时是否漏初始化仍未确认；未与其他历史问题合并根因。
 
 - 2026-09-08 用户描述：别人创建的agent，自己没有访问权限，也不知道如何赋权。尚不清楚顶层Agents/工作室应用/发布后聊天入口、当前角色、报错路径及是否与已修复WebApp环境相同。
 - 已询问访问入口及工作空间角色；第一轮只读命令核对当前镜像和刚复现的RBAC拒绝字段。未修改角色、白名单或服务配置。
@@ -251,3 +251,17 @@
 - policies行缺失；最后两条只有account_role_ids尾部，缺check名称、allowed、reason、matched_role_ids完整字段，无法分别判断app_view_layout/app_edit拒绝原因。Agent scope=roster不是RBAC访问范围scope。
 - 判断：重点指向目标资源授权层，角色完全缺失已与当前证据不符；是否白名单造成本次403仍需补齐最终判定。未授权修复或变更访问范围。
 - 将权限结果拆为短行，输出allowed、reason、whitelist_denial、匹配角色数量，避免长UUID数组造成回传截断。用户可保留原shell的目标变量，仅重跑第2条；若变量丢失重新输入原Agent ID/邮箱。
+
+### AGENT-20260908 第6轮：确认指定成员白名单拒绝，交付单成员赋权入口
+
+- 2026-09-09用户回传7660875：角色包含role_tag=admin、category=global_system_default；policies.scope=specific、policy_keys=[]。app_view_layout和app_edit的reason均明确为account is not in the resource whitelist。结合前轮contains_account=false，直接拒绝原因已定位为该资源未授权目标成员。
+- Agent UUID本轮完整为01a07f83-4f8b-7d24-b87b-1fa54a15dabe；关联授权App沿用上一轮完整回传92714548-25b2-4c14-85e9-11598059fa8e。当前账号UUID有缺字/空格，租户UUID截断，继续通过邮箱和只读查询解析，不猜补。target_rows及matched_roles值θ疑似0，未按精确数值采信；allowed字段未回传，拒绝依据为明确reason及前轮白名单结果。
+- 新增源码核对（固定公开60a18fa）：
+  - web/features/agent-v2/agent-detail/access/page.tsx展示WebApp/API/工作流引用接入，navigation.tsx未提供通用资源权限导航；不能把Agent接入页的发布访问设置当作编辑授权。
+  - web/app/(commonLayout)/app/(appDetailLayout)/[appId]/access-config/page.tsx提供通用资源权限页；layout-main.tsx对access-config检查canAccessConfig，无Agent mode统一跳转。api/controllers/console/app/app.py的AppApi.get使用get_app_model(mode=None)，维护者可通过资源检查。
+  - web/app/components/app/access-config/index.tsx接入AccessRulesEditor；add-access-subject-popover.tsx添加成员调用默认策略；constants.ts中DEFAULT_ACCESS_POLICY_ID=default。zh-Hans/permission.json把默认策略显示为“按角色权限”，成员范围显示“指定成员”，下方“个人权限设置”。
+  - web/service/access-control/use-app-access-config.ts使用PUT /console/api/workspaces/current/rbac/apps/<APP_ID>/users/<ACCOUNT_ID>/access-policies，body={"access_policy_ids":["default"]}。此为单成员策略赋值，不替换其他成员列表，不修改scope。角色已有查看/编辑权限时应先用按角色权限，不直接给全功能自定义策略。
+- 给用户的操作：请Agent创建者/维护者在所属工作空间登录，打开当前Dify站点（保留已有部署前缀）下 /app/92714548-25b2-4c14-85e9-11598059fa8e/access-config；保持指定成员，在个人权限设置点击添加并选择目标用户，采用按角色权限。添加操作即通过接口写入，等待成功后刷新确认成员存在。随后目标用户重开Agent并验证chat-messages、编辑保存。通用页面及接口已源码核对，未在现场UI验收。
+- 若通用页面空白/跳走/403，先回传该页面表现，再考虑使用相同正式Console单成员接口；尚未交付或执行服务端绕过式赋权，不应直接改成所有成员或运行全量回填。
+- 验收：原探针whitelist.contains_account=true，目标成员策略default，app_view_layout/app_edit allowed=true；用户实际能打开Agent并保存一次编辑。当前状态为已定位待赋权，未验证解决。
+- 来源：https://github.com/langgenius/dify/blob/60a18fa/web/app/components/app/access-config/index.tsx 、https://github.com/langgenius/dify/blob/60a18fa/web/app/components/access-rules-editor/add-access-subject-popover.tsx 、https://github.com/langgenius/dify/blob/60a18fa/web/service/access-control/use-app-access-config.ts 。本轮沿用已检索Issue结果，无新的创建路径证据，不宣称#39379或#39736已命中。
