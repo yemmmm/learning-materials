@@ -70,3 +70,12 @@
 - 主服务器：main、worker、Traefik、Redis；另一服务器：worker，连接主服务器Redis。
 - 用户报告外部访问任务分派到另一服务器时发生证书验证错误；服务器名证书部署在主服务器，n8n使用服务器名访问。
 - 未确认n8n/Node版本、证书实际挂载位置、失败目标、代理及两台worker的CA配置；本机配置不作为远端事实。
+
+
+### n8n第1轮回传（2026-09-09，用户提供）
+
+- 两台受测worker：n8n 2.31.7、Node v24.16.0，runtime_worker_env=FOUND。两台各列出两个worker及runner，不能将单个worker探针概括为所有副本。
+- 主服务器受测worker：NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt，HTTP_PROXY/HTTPS_PROXY/NO_PROXY=SET；CA文件129个PEM。用户回传sha256疑似缺位，不保存为精确指纹。直连探针ENOTFOUND。
+- 另一服务器受测worker：NODE_EXTRA_CA_CERTS及代理变量均UNSET，CA文件128个PEM；直连探针UNABLE_TO_VERIFY_LEAF_SIGNATURE（用户小写回传）。
+- 两台SSL_CERT_FILE/SSL_CERT_DIR/NODE_USE_SYSTEM_CA均UNSET、CA_flags为空、custom_CA_dir=ENOENT。用户文本中个别变量带空格/OCR字符，不据此认定实际变量拼错。
+- 同一原工作流在主服务器是否成功、探针目标是否完全相同、节点是否实际采用环境代理，待用户确认。

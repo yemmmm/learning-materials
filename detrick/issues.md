@@ -392,3 +392,13 @@
 - Node官方：https://nodejs.org/api/cli.html#node_extra_ca_certsfile ，NODE_EXTRA_CA_CERTS在启动时读取；--use-system-ca需要相应版本且CA位于容器可见系统信任库，宿主机安装不等于容器生效。
 - https://github.com/n8n-io/n8n/issues/15584 ：相似报错，但发生于Redis TLS/启动，closed as not planned；非已确认同根因，无可用修复版本证据。PR检索返回OpenAI mTLS #27309，标题/范围为客户端证书功能，与当前普通HTTPS服务端验证不匹配；不作为修复依据。
 - 本轮3条命令：选择worker/目标；版本和运行进程CA环境摘要；继承运行worker环境进行严格直连TLS握手。两台用相同目标比较。探针不发送HTTP业务请求，也不覆盖节点代理、自定义CA及重定向；成功不是工作流验收。
+
+
+### N8N-TLS第2轮：确认CA与代理配置差异，尚未确认唯一根因
+
+- 2026-09-09，命令提交cb3a3bb回传：两台n8n/Node相同；远端worker无NODE_EXTRA_CA_CERTS和代理，主服务器有；CA bundle为128/129个PEM，内容不同。不能认定仅有一张新增CA，也不能判定该CA身份。
+- 主服务器探针ENOTFOUND为直连DNS失败，未到证书验证阶段；此前探针明确绕过HTTP代理，不能作为主服务器实际工作流失败证据。远端UNABLE_TO_VERIFY_LEAF_SIGNATURE证明直连目标证书链验证失败。
+- 状态：已确认环境差异与远端TLS失败；CA缺失、CA未加载、中间链不完整以及代理路径差异的贡献待验证，未修复。
+- 本轮先作单变量只读对照：远端临时Node以原环境/显式NODE_EXTRA_CA_CERTS指向现有bundle进行严格TLS握手；两台查看受测worker挂载来源。只有子进程环境改变，业务进程不变。
+- 若额外CA探针成功，支持现有bundle中CA未加载；若仍失败，不能只补环境变量，需要检查正确CA和目标/代理证书链。无论结果如何，后续均需原节点复测及所有可调度worker配置核对。
+- 向用户核实同一HTTP Request在主服务器worker是否成功及两台探针目标是否一致。沿用本问题已有官方CA说明；本轮未引入新的上游修复判断。
