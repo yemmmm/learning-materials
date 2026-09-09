@@ -384,7 +384,7 @@
 
 ## N8N-TLS-20260909：远端worker外部HTTPS证书验证失败
 
-- 状态：待现场取证；未修复、未验证。
+- 当前状态：暂停，临时归档（2026-09-09，用户要求）；未确认唯一根因、未修复、未验证。
 - 用户报错文字为 enable to verify the first certification，并提示Node.js --use-system-ca；疑似标准错误 unable to verify the first certificate，准确code待确认。
 - 初步假设：失败worker的出站CA信任或所见证书链与主服务器worker不同。浏览器到Traefik的服务器身份认证与worker出站CA信任独立；Redis连接不会同步CA。不能据此认定是Redis TLS。
 - 2026-09-09检索：n8n custom certificate authority / Node --use-system-ca NODE_EXTRA_CA_CERTS / n8n issues unable to verify the first certificate / n8n pull certificate CA worker。
@@ -402,3 +402,13 @@
 - 本轮先作单变量只读对照：远端临时Node以原环境/显式NODE_EXTRA_CA_CERTS指向现有bundle进行严格TLS握手；两台查看受测worker挂载来源。只有子进程环境改变，业务进程不变。
 - 若额外CA探针成功，支持现有bundle中CA未加载；若仍失败，不能只补环境变量，需要检查正确CA和目标/代理证书链。无论结果如何，后续均需原节点复测及所有可调度worker配置核对。
 - 向用户核实同一HTTP Request在主服务器worker是否成功及两台探针目标是否一致。沿用本问题已有官方CA说明；本轮未引入新的上游修复判断。
+
+
+### N8N-TLS临时归档（2026-09-09，用户要求）
+
+- 用户要求“这个问题先临时归档”。停止主动排查，不再索取上一轮输出；仅在用户明确恢复后继续。
+- 已确认：受测worker的n8n/Node版本相同；主服务器配置额外CA文件和代理，另一服务器未配置；CA文件分别129/128个PEM。主服务器直连ENOTFOUND，另一服务器直连证书链验证失败。
+- 未确认：唯一根因、具体缺少哪张CA、目标中间链是否完整、实际节点代理路径、主服务器同一原任务是否成功、两台探针目标是否一致及其他worker副本配置。
+- 未实施任何生产配置修改或重启；不标记已解决。最新探针f0f6698已交付但无回传，不视为已执行。
+- 恢复入口：先确认现场配置是否变化及上述目标/原任务对照，再决定是否复用f0f6698的挂载检查和现有CA加载单变量探针；原工作流复测仍未完成。
+- environment.md保留环境证据，cmds.sh标记为暂停期间的历史探针。

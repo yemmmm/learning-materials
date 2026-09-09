@@ -1,5 +1,6 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
+# ARCHIVED 2026-09-09：用户要求临时归档；问题暂停、未解决。以下历史探针无需继续执行或回传。
 # Time: 2026-09-09
 # Context: 10缺少额外CA/代理配置，11有；10直连证书失败，11直连DNS失败。验证10现有CA文件是否足够。
 # Cmds: 3 条；在原Compose目录、原shell逐块粘贴。命令1/2两台执行；命令3只在10执行。
