@@ -1,12 +1,12 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Time: 2026-09-08 22:04
+# Time: 2026-09-09
 # Context: admin读取他人Agent返回403；API已启用RBAC、接口检查APP_VIEW_LAYOUT，日志NO_MATCH。本轮直接检查目标授权。
 # Cmds: 2 条（设置目标 + 只读检查；预期输出约9行）
 # 在Compose目录的同一个原shell中依次粘贴；不需要Token，不修改角色/白名单/数据库。
 
-# 1. 输入目标Agent ID与当前登录账号ID。Agent ID取失败URL，账号ID取account/profile响应的id；输出最多1行。
-read -r -p 'Agent UUID: ' DTR_AGENT_ID; read -r -p 'Current account UUID: ' DTR_ACCOUNT_ID
+# 1. 输入目标Agent ID与当前登录邮箱（也支持账号UUID）。Agent ID取失败URL；邮箱只用于服务器内查询，不输出邮箱。
+read -r -p 'Agent UUID: ' DTR_AGENT_ID; read -r -p 'Current login email (or account UUID): ' DTR_ACCOUNT_ID
 
 # 2. 自动解析Agent所属工作空间和授权App，核对角色、白名单、成员策略，并检查三个权限点；最多30行。
 # 普通API服务按现有Compose为api；若真实名称不同，只替换下面的api。
@@ -21,11 +21,18 @@ def main():
  from sqlalchemy import create_engine,text
  from services.enterprise.base import EnterpriseRequest
  agent_id=str(UUID(os.environ["DTR_AGENT_ID"]))
- account_id=str(UUID(os.environ["DTR_ACCOUNT_ID"]))
+ account_input=os.environ["DTR_ACCOUNT_ID"].strip()
+ try: account_id=str(UUID(account_input))
+ except ValueError: account_id=None
  # 只执行SELECT；显式只读事务，不调用App工厂或创建/修复Agent会话。
  engine=create_engine(dify_config.SQLALCHEMY_DATABASE_URI)
  with engine.connect() as conn:
   conn.execute(text("SET TRANSACTION READ ONLY"))
+  if account_id is None:
+   accounts=conn.execute(text("SELECT id FROM accounts WHERE lower(email)=lower(:email) LIMIT 2"),{"email":account_input}).all()
+   if len(accounts)!=1:
+    emit("STOP",reason="EMAIL_NOT_FOUND" if not accounts else "EMAIL_MATCHES_MULTIPLE_ACCOUNTS"); return
+   account_id=str(accounts[0][0])
   agent=conn.execute(text("SELECT a.tenant_id,a.app_id,a.scope,a.backing_app_id,p.maintainer,p.status AS app_status FROM agents a LEFT JOIN apps p ON p.id=a.app_id AND p.tenant_id=a.tenant_id WHERE a.id=:id"),{"id":agent_id}).mappings().first()
   if not agent:
    emit("STOP",reason="AGENT_NOT_FOUND"); return

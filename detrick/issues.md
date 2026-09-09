@@ -237,3 +237,8 @@
 - 下一轮改为目标探针：输入失败URL的Agent ID和当前account/profile的账号ID；SELECT解析agents.app_id及tenant_id，检查成员存在、维护者及传统角色；通过API自身EnterpriseRequest调用GET成员RBAC角色/应用白名单/成员策略和POST check-access(agent_manage/app_view_layout/app_edit)。不写数据库/角色/白名单，不创建会话，不使用硬编码密钥。
 - 注意authz_app_id与Agent ID/hidden backing_app_id区别；解析规则依据当前公开基线peek_authz_app_id返回agent.app_id。直接内部检查不包含维护者短路，以target.is_maintainer结合解释。探针派生Agent租户，不冒充浏览器实际请求租户证明。
 - 输出上限30行，敏感异常正文省略；探针可产生新的权限拒绝日志。仍需用户回传后判断角色绑定/资源策略/其他访问链路，未实施修复。
+
+### AGENT-20260908 第4轮：支持登录邮箱定位账号
+
+- 2026-09-09 用户反馈找不到账号UUID，尚未回传目标探针结果。
+- cmds.sh改为接受当前登录邮箱或原账号UUID；邮箱通过参数化SELECT匹配accounts.email，唯一命中后使用账号ID继续原检查。无匹配/多匹配时停止，不猜选账号；邮箱不写入资料库或诊断输出。权限取证范围不变，仍只读。
