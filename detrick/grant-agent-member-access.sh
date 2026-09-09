@@ -1,9 +1,9 @@
 #!/bin/bash
 # === Detrick Targeted Agent Member Grant ===
 # Time: 2026-09-09
-# Context: 新版Agents无内容权限UI入口；本Agent指定成员名单未包含目标admin，查看/编辑均被白名单拒绝。
+# Context: 已验证单Agent+单账号的数据修复；支持手动指定其它同类Agent，不修复创建流程，也不批量赋权。
 # Cmds: 2 条（设置账号 + 单成员授权并验证）
-# 适用：本次EE 3.12.1、固定Agent（关联App从数据库查询）、目标已有builtin admin角色、scope=specific。
+# 适用：本次EE 3.12.1、手动指定Agent（关联App从数据库查询）、目标已有builtin admin角色、scope=specific。
 # 重要：第2条会写入该账号在该App上的default（按角色权限）策略；不会给全员开放。
 # 其他账号不变、角色不变、scope不变。发现目标已有自定义成员策略时停止，不覆盖。
 # API服务用当前配置的内部RBAC接口及密钥；操作账号为输入邮箱解析出的admin本人，不冒用创建者。
@@ -11,11 +11,11 @@
 # 在原Compose目录直接复制两个命令块到同一个现有shell；docker-compose可能是shell函数，不要新开bash执行。
 # 单条输出最多30行；不输出邮箱、Cookie、Token或密钥。执行后还需实际打开Agent并保存一次编辑验证。
 
-# 1. 输入此前排查的登录邮箱，也支持完整账号UUID；无须重新填写Agent ID。
-read -r -p 'Current admin login email (or UUID): ' DTR_ACCOUNT_ID
+# 1. 明确选择要授权的Agent UUID，再输入你的登录邮箱（也支持账号UUID）。每次只处理一个Agent。
+read -r -p 'Target Agent UUID: ' DTR_AGENT_ID; read -r -p 'Current admin login email (or UUID): ' DTR_ACCOUNT_ID
 
-# 2. 【写操作】只给本次固定Agent上的目标账号添加default策略，然后检查白名单、查看和编辑权限。
-docker-compose exec -T -e DTR_ACCOUNT_ID="$DTR_ACCOUNT_ID" api python - <<'PYCODE' | tail -30
+# 2. 【写操作】先确认同类白名单拒绝，再仅给所选Agent上的目标账号添加default策略并验收。
+docker-compose exec -T -e DTR_AGENT_ID="$DTR_AGENT_ID" -e DTR_ACCOUNT_ID="$DTR_ACCOUNT_ID" api python - <<'PYCODE' | tail -30
 import os,json,logging
 from uuid import UUID
 logging.disable(logging.CRITICAL)
@@ -24,7 +24,7 @@ def main():
  from configs import dify_config
  from sqlalchemy import create_engine,text
  from services.enterprise.base import EnterpriseRequest
- agent_id="01a08416-ff62-74e1-b8eb-308f31dcf146"
+ agent_id=str(UUID(os.environ["DTR_AGENT_ID"].strip()))
  account_input=os.environ["DTR_ACCOUNT_ID"].strip()
  try: account_id=str(UUID(account_input))
  except ValueError: account_id=None
@@ -47,7 +47,7 @@ def main():
   emit("target",authz_app_id=app_id)
   emit("target",account_id=account_id)
   if not member or not app_id or agent["scope"]!="roster" or agent["app_status"]!="normal":
-   emit("STOP",reason="MEMBER_OR_FIXED_AGENT_APP_CHECK_FAILED"); return
+   emit("STOP",reason="MEMBER_OR_AGENT_APP_CHECK_FAILED"); return
  def call(method,endpoint,**kwargs):
   data=EnterpriseRequest.send_inner_rbac_request(method,"/rbac/"+endpoint,tenant_id=tenant_id,account_id=account_id,timeout=10,**kwargs)
   if not isinstance(data,dict): raise ValueError("Unexpected response type")
@@ -62,6 +62,17 @@ def main():
  policies=[p for r in rows for p in (r.get("access_policies") or [])]
  if any(p.get("policy_key")!="default" and p.get("id")!="default" for p in policies):
   emit("STOP",reason="EXISTING_CUSTOM_MEMBER_POLICY_PRESERVED"); return
+ needs_grant=False
+ for scene in ("app_view_layout","app_edit"):
+  check=call("POST","check-access",json={"tenant_id":tenant_id,"account_id":account_id,"scene":scene,"resource_type":"app","resource_id":app_id})
+  emit("before_"+scene,allowed=check.get("allowed","MISSING"))
+  if check.get("allowed") is True: continue
+  if check.get("allowed") is False and check.get("reason")=="account is not in the resource whitelist":
+   needs_grant=True
+  else:
+   emit("STOP",reason="DIFFERENT_OR_UNCONFIRMED_DENIAL",scene=scene); return
+ if not needs_grant:
+  emit("result",status="ALREADY_ALLOWED_NO_CHANGE"); return
  emit("change",app_id=app_id,account_id=account_id,scope="specific",add_policy="default",actor="same_admin_account")
  if policies:
   emit("write",result="SKIPPED_DEFAULT_ALREADY_ASSIGNED")
