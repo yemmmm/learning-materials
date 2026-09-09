@@ -282,3 +282,10 @@
 - 核对当前脚本：此输出组合与只读cmds.sh一致；grant-agent-member-access.sh不输出roles、whitelist或agent_manage，而是write/verify/result。本次没有写入脚本执行证据，不能认定修复已执行后失败；也不能仅凭缺回传断言从未执行过其他修复。
 - 本次authz_app_id可辨识前缀c9a698，与旧修复脚本固定92714548不同；完整值含疑似字母l/数字1的OCR歧义，不猜补UUID。Agent、账号、租户完整字段未回传，不能判断是换了Agent、环境或其他映射差异。
 - 已请求当前目标的完整/agents/<UUID>页面路径。原修复脚本只适用于已绑定的旧Agent/App组合，不自动改成对本次不完整新ID赋权。等待目标确认后再给对应修复，不追加与已确认白名单原因无关的排查。
+
+### AGENT-20260908 第9轮：用户确认当前目标Agent，重新绑定单成员修复
+
+- 用户明确当前页面/agents/01a08416-ff62-74e1-b8eb-308f31dcf146。以本条完整UUID作为唯一当前修复目标，替代旧Agent 01a07f83-4f8b-7d24-b87b-1fa54a15dabe。
+- grant-agent-member-access.sh更新为固定当前Agent；通过已有只读数据库查询获取其agents.app_id，不沿用旧App 92714548，不猜补c9a698开头的OCR损坏UUID。仍须目标App存在且normal、Agent scope=roster、账号属于该工作空间且RBAC builtin admin、资源范围specific。
+- target输出拆为Agent ID、关联App ID、账号ID三条短行，方便核对。其余操作仍是仅给输入邮箱对应账号添加default策略，保留其他成员/角色/访问范围及已有自定义策略。
+- 提示用户本轮使用grant-agent-member-access.sh中的两个命令块，并回传write/verify/app_view_layout/app_edit/result；cmds.sh仍只是只读检查。未收到真实写入及业务验收结果，状态仍为已定位待修复。

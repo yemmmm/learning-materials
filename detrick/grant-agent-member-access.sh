@@ -3,7 +3,7 @@
 # Time: 2026-09-09
 # Context: 新版Agents无内容权限UI入口；本Agent指定成员名单未包含目标admin，查看/编辑均被白名单拒绝。
 # Cmds: 2 条（设置账号 + 单成员授权并验证）
-# 适用：本次EE 3.12.1、固定Agent及关联App、目标已有builtin admin角色、scope=specific。
+# 适用：本次EE 3.12.1、固定Agent（关联App从数据库查询）、目标已有builtin admin角色、scope=specific。
 # 重要：第2条会写入该账号在该App上的default（按角色权限）策略；不会给全员开放。
 # 其他账号不变、角色不变、scope不变。发现目标已有自定义成员策略时停止，不覆盖。
 # API服务用当前配置的内部RBAC接口及密钥；操作账号为输入邮箱解析出的admin本人，不冒用创建者。
@@ -24,7 +24,7 @@ def main():
  from configs import dify_config
  from sqlalchemy import create_engine,text
  from services.enterprise.base import EnterpriseRequest
- agent_id="01a07f83-4f8b-7d24-b87b-1fa54a15dabe"
+ agent_id="01a08416-ff62-74e1-b8eb-308f31dcf146"
  account_input=os.environ["DTR_ACCOUNT_ID"].strip()
  try: account_id=str(UUID(account_input))
  except ValueError: account_id=None
@@ -43,8 +43,10 @@ def main():
   tenant_id=str(agent["tenant_id"])
   member=conn.execute(text("SELECT role FROM tenant_account_joins WHERE tenant_id=:t AND account_id=:a"),{"t":tenant_id,"a":account_id}).first()
   app_id=str(agent["app_id"]) if agent["app_id"] else None
-  emit("target",agent_id=agent_id,account_id=account_id,tenant_id=tenant_id,authz_app_id=app_id,scope=agent["scope"],has_separate_backing_app=bool(agent["backing_app_id"] and str(agent["backing_app_id"])!=app_id),is_maintainer=str(agent["maintainer"])==account_id,app_status=agent["app_status"],in_workspace=member is not None,legacy_role=member[0] if member else None)
-  if not member or app_id!="92714548-25b2-4c14-85e9-11598059fa8e" or agent["scope"]!="roster" or agent["app_status"]!="normal":
+  emit("target",agent_id=agent_id)
+  emit("target",authz_app_id=app_id)
+  emit("target",account_id=account_id)
+  if not member or not app_id or agent["scope"]!="roster" or agent["app_status"]!="normal":
    emit("STOP",reason="MEMBER_OR_FIXED_AGENT_APP_CHECK_FAILED"); return
  def call(method,endpoint,**kwargs):
   data=EnterpriseRequest.send_inner_rbac_request(method,"/rbac/"+endpoint,tenant_id=tenant_id,account_id=account_id,timeout=10,**kwargs)
