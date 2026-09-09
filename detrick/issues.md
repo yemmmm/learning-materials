@@ -346,3 +346,15 @@
 - 已读固定60a18fa的RBACService.WorkspaceAccess.app_matrix：GET /rbac/workspace/apps/access-policy，返回policy与role/account绑定。这是下一步配置核对入口，仅只读输出；工作空间App规则可能覆盖普通App/工作流，不能直接按Agent需求全局修改。
 - cmds.sh保留两个命令块，改为仅B访问A的一次探针；合并已知权限输出，额外读取第一页最多6个工作空间App访问规则及与B的角色/账号匹配。不写配置/源码/白名单，不重复要求完整双向检查。
 - 用户目标仍为Agents页面成员均可访问Agent内容。已有单目标default授权仅证明现有资源数据修复有效；全量现有Agent与未来Agent/成员的持续授权，仍需核对默认规则能力，不承诺单次回填自动解决未来资源。
+
+
+### AGENT-20260908 第16轮：工作空间权限规则存在，目标资源白名单仍是实际拒绝点
+
+- 3.12.0 B账号回传：role_tags=[admin,normal,"",""]，已含agent.manage及App查看、编辑、调试键；目标为active/roster/agent_app，资源scope=specific、白名单不含B、B无个人access-policy行。
+- 本轮app_view_layout与app_test_and_run均明确allowed=false、原因为account is not in the resource whitelist。此前编辑已得到同样拒绝，不要求重复取证。
+- 工作空间存在app.full_access、app.can_edit、app.can_view_and_use等App策略；full_access绑定行仅剩角色UUID尾部，can_edit绑定行缺字段，不能把这些损坏行补成精确匹配结论。can_view_and_use绑定可识别normal角色；第四策略ID有回传但policy_key与绑定内容不足，不猜测用途。
+- 探针workspace_policy.permission_keys仅显示与四个关注键的交集；can_view_and_use的[]不能解释为该策略没有任何权限。roles已有操作权限及实际whitelist拒绝足以定位本次阻塞。
+- 结论：工作空间操作权限与单资源可访问成员范围是不同层次；本次未看到工作空间规则自动覆盖目标specific范围。将B继续加入同类角色、删掉normal角色、切换版本或关闭RBAC均不是当前证据支持的修复方向。
+- 不修改源码的已有资源修复方向已确认：通过正式RBAC资源成员授权接口，将应获授权的成员纳入对应Agent关联App的资源访问策略；此前3.12.1单Agent+单账号default授权已业务验证。若推广到所有Agents页面成员，应按同工作空间实际agent_manage=true筛选，并检查其App操作权限；不能把“所有能进Agents”替换成“工作空间所有账号”，也不能把名单全改成Owner。
+- 未来新建/复制Agent以及新增/撤销成员的自动授权尚未验证；当前没有已确认、仅针对Agent且满足用户规则的全局配置项。资源为何形成specific/空成员属于默认策略或初始化路径的后续问题，不能仅凭本轮数据断言产品缺陷，也不能将一次性回填称为系统根治。
+- 本轮不再索取相同角色/默认规则输出，不生成源码补丁或配置写操作。保留cmds.sh作为只读复查，结论及非源码处理边界见agent-access-diagnosis.md。沿用此前官方检索结果与固定源码接口证据。

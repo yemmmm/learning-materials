@@ -56,3 +56,10 @@
 
 - A角色：global_system_default/owner；其可访问的别人创建的Agent为active/roster/agent_app，资源访问scope=specific且白名单不包含A。维护者关系及check-access的allowed/reason缺回传，Owner特权解释尚未核实具体分支。
 - B角色：回传计数4，可见admin、normal及自定义App查看/编辑/调试权限。B有agent_manage，但查看/编辑目标Agent被资源白名单拒绝。不存在“3.12.0所有成员都能访问所有Agent”的已验证基线。
+
+
+## 3.12.0工作空间规则核对（2026-09-09，第16轮）
+
+- B具备agent.manage及App查看/编辑/调试权限，目标资源为specific且没有B的成员策略；查看与调试明确被资源白名单拒绝。
+- 工作空间存在full_access/can_edit/can_view_and_use等App访问规则，部分绑定回传损坏；不得将操作权限匹配与目标资源白名单开放混为一谈。
+- workspace_policy输出的permission_keys是筛选后的交集，空列表不代表完整策略为空。
