@@ -234,3 +234,70 @@ Completion requires all of the following:
 Not executed. This document defines the cases for the developer and independent
 tester. The local image is available for the planned component container; the
 remote EE 3.12.1 runtime is not yet verified.
+
+### Round 1 — independent tester (2026-09-09, implementation commit \`7649270\`)
+
+Overall: **FAIL for the delivery package**, because four deployment-instruction
+defects require repair. The authorization patch and its local component/boundary
+checks passed. Closed EE 3.12.1 runtime acceptance remains **BLOCKED** pending
+the user's version-checked deployment evidence.
+
+Executed against the local \`langgenius/dify-ee-api:3.12.0\` image and temporary
+\`postgres:15-alpine\` resources:
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Prepare the patch from the exact API image | PASS | source SHA-256 \`a55bde316d9550353d2f2b4f3c9aa83f9085cbe34cc1f01767d50c6b11c11d9c\`; patched SHA-256 \`1f8a19d7c929fae74b1878b76f9e7722f27704cbf25805a70fb7cefe7e63c31c\`; image Python compilation passed |
+| Focused real ORM/RBAC component suite | PASS | \`AGENT_FIX_TEST_ID=independent-<pid> ./run-component-tests.sh langgenius/dify-ee-api:3.12.0 <prepared-dir>\`; \`11 passed in 5.42s\`; temporary PostgreSQL container and network cleaned up |
+| Mismatched-image preparation refusal | PASS | a uniquely committed temporary image with one changed source byte returned exit \`4\`, emitted \`module fingerprint mismatch\`, and created no \`wraps.original.py\` or \`wraps.patched.py\` |
+| API and websocket read-only mount/import | PASS | two uniquely named temporary API-image containers loaded the patched SHA and imported \`_is_console_roster_agent_content_access_allowed\` |
+| Restart/reimport with the persistent mount | PASS | both temporary containers were restarted and still loaded the patched SHA and helper |
+| Remove mount and rollback | PASS | both recreated temporary containers returned the original SHA and imported the original module without the helper |
+| Closed EE 3.12.1 fingerprint and two-account route acceptance | BLOCKED | no access to the closed deployment; this is pending runtime evidence, not counted as a local implementation failure |
+
+The component suite covers real PostgreSQL Agent/App rows, tenant/scope/status/
+source boundaries, the three content scenes, live grant/revoke, explicit App
+grants, console versus OpenAPI/non-console/no-request-context, non-content
+scenes, and RBAC-disabled behavior. The run emitted a LiteLLM remote cost-map
+DNS warning and used its local fallback; pytest still completed with 11 passes.
+
+Deployment documentation defects found:
+
+1. **High — version guards do not stop an interactive shell.** README lines
+   27, 29, 58, and 59 invoke \`test\` without \`set -e\` or an explicit \`|| exit\`.
+   A controlled shell probe (\`test 1 = 2; printf continued\`) printed
+   \`continued\` and exited zero. Therefore an image-ID or source-hash mismatch
+   can be displayed while later preparation/install commands continue. The
+   commands need an explicit fail-fast wrapper before deployment can pass the
+   version-mismatch gate.
+2. **Medium — the persistent Compose path depends on a transient export.**
+   \`prepare-agent-content-fix.sh\` writes \`\${AGENT_FIX_OUTPUT_DIR:? ...}\` into
+   \`agent-content-access.override.yml\`, while README lines 21 and 30 export
+   the variable only in the preparation shell. Docker Compose v5.3.1 returned
+   a nonzero interpolation error when a later shell omitted the variable, and
+   resolved the mount when it was exported. The path must be persisted in the
+   loaded Compose environment/override or the instructions must require
+   re-exporting it before every future Compose operation.
+3. **Medium — copy-directory wording and command paths disagree.** README line
+   16 tells the operator to copy the directory to the deployment directory, but
+   line 31 invokes \`./prepare-agent-content-fix.sh\` and line 132 invokes
+   \`./run-component-tests.sh\` from the deployment root. A controlled copy of
+   the package as \`deployment/agent-content-access-fix/\` left both scripts
+   under that subdirectory and absent at the root. The instructions need to
+   use the copied subdirectory explicitly or state that its contents must be
+   copied into the root.
+4. **Medium — preparation compiles but does not import the patched module
+   before service changes.** The preparation script only calls Python compile;
+   the first documented import smoke runs after both services have already
+   been recreated (README lines 95-96). The local image imports successfully,
+   but a target image with the expected source bytes and a different dependency
+   surface could be restarted before this failure is detected. Add a
+   pre-install import smoke to the preparation or installation gate, before any
+   Compose file change or service restart.
+
+Not executed in this local round: real \`/agents\` UI/list and handler-level
+acceptance, actual EE 3.12.1 API/api_websocket services, Compose-file
+installation through the closed host's shell function, workflow/published
+channel/API-key/delete/publish route behavior, and the required two-account
+runtime evidence. These remain BLOCKED or require a follow-up after the
+documentation defects are fixed.
