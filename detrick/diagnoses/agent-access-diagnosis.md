@@ -19,7 +19,7 @@
 
 请求体：`{"access_policy_ids":["default"]}`。
 
-内层由RBACService.AppAccess.replace_user_access_policies调用`PUT /rbac/apps/user-access-policies`，附加相同目标参数及account_ids空列表。此前单点脚本见grant-agent-member-access.sh，其已验证适用范围是EE3.12.1的builtin admin和specific资源；它不是全成员/全Agent方案。
+内层由RBACService.AppAccess.replace_user_access_policies调用`PUT /rbac/apps/user-access-policies`，附加相同目标参数及account_ids空列表。此前单点脚本见[单成员授权脚本](../scripts/grant-agent-member-access.sh)，其已验证适用范围是EE3.12.1的builtin admin和specific资源；它不是全成员/全Agent方案。
 
 推广前须保留已有成员策略，按实际权限筛选目标，验证查看、编辑、调试；只有agent.manage而无App操作权限的成员不能假设分配default即可满足目标。不能通过把所有人改为Owner或把整个工作空间所有App全员开放来替代所需授权。
 

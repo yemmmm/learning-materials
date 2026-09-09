@@ -2,7 +2,7 @@
 
 Status: plan draft for plan review
 
-Requirement: `detrick/agent-content-access-fix/requirement.md`
+Requirement: `detrick/archive/agent-content-access-fix/requirement.md`
 
 This is the single shared plan for developer checks and independent test rounds.
 Later rounds append results to this file; they do not replace earlier evidence.

@@ -23,7 +23,7 @@
 - 现场AgentChatMessageListApi含APP_VIEW_LAYOUT装饰器；诊断确认角色中admin存在、agent_manage允许，但app_view_layout/app_edit因account is not in the resource whitelist拒绝，资源scope=specific。
 - 普通/app/<id>/access-config不作为已验证的新版Agent操作入口。用户当前新版/agents/<id>/config仅提供发布渠道权限。
 - 工作目录/home/yangxiang/deployed-services/dify-enterprise-0325仅部署配置，本身未纳入父仓库跟踪；有大量无关未跟踪文件，禁止打包或修改。
-- 修复交付仓库/home/yangxiang/learning-materials，目录detrick/agent-content-access-fix；用户规则要求每轮相关资料修改commit并push，禁止提交无关内容。
+- 修复交付仓库/home/yangxiang/learning-materials，目录detrick/archive/agent-content-access-fix；用户规则要求每轮相关资料修改commit并push，禁止提交无关内容。
 - 精确公开基线为Dify 60a18fa。快照/tmp/dify-rbac-review-60a18fa与tree.json供只读研究；不把已有快照等同现场全部源码。
 - 本机镜像langgenius/dify-ee-api:3.12.0的controllers/common/wraps.py与公开60a18fa字节一致，SHA256 a55bde316d9550353d2f2b4f3c9aa83f9085cbe34cc1f01767d50c6b11c11d9c。原件在/tmp/detrick-agent-content-20260909/wraps.ee3120.py及wraps.upstream.py。
 - 此本机镜像可在隔离临时容器导入controllers.common.wraps，内含Python3.12.13和pytest9.0.3。现场3.12.1待部署前核对实际文件，不能直接覆盖不匹配版本。

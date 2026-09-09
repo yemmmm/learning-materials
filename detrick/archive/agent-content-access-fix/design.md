@@ -2,7 +2,7 @@
 
 Status: design draft for plan review
 
-Requirement: `detrick/agent-content-access-fix/requirement.md`
+Requirement: `detrick/archive/agent-content-access-fix/requirement.md`
 
 ## Problem and outcome
 

@@ -9,7 +9,7 @@
 | `ragflow/` | RAGFlow 升级 SQL、ES 优化、检索基准测试、源码补丁、HA 实验 |
 | `dify/` | Dify 工作流调优、企业版分布式部署、性能分析、Jaeger tracing、env-sync 脚本 |
 | `n8n/` | n8n 计费数据导出、Prometheus 指标、HA 企业版部署 |
-| `detrick/` | 德勤封闭环境排查命令暂存（配合 `detrick-troubleshoot` skill） |
+| `detrick/` | 德勤封闭环境定位资料：命令、记录、诊断、查询与归档（[导航](detrick/README.md)） |
 | `codex/` | Codex 相关阅读笔记与翻译 |
 | `common/` | 跨产品通用知识：ES 低资源排错、MySQL→PG 迁移、SSO/OIDC 教程 |
 | `tools/` | 与具体产品无关的通用脚本与 Claude Code 命令 |
@@ -24,6 +24,8 @@
 
 ## 与 skill 的集成
 
-`detrick/cmds.sh` 是 [`detrick-troubleshoot`](file:///home/yangxiang/.claude/skills/detrick-troubleshoot/SKILL.md) skill 的目标文件。该 skill 在本机生成 2-3 条 docker-compose 排查命令，写入此文件并 push 到 GitHub，供德勤服务器侧复制执行。
+德勤资料入口见 [detrick/README.md](detrick/README.md)。`detrick-troubleshoot` skill 将本轮命令写入 [detrick/scripts/current-round.sh](detrick/scripts/current-round.sh)，提交并推送后供现场复制执行；状态和执行约束见文件头。
 
-修改此文件路径时，必须同步更新 `~/.claude/skills/detrick-troubleshoot/SKILL.md` 中所有引用。
+环境与问题记录位于 `detrick/records/`，专项报告位于 `detrick/diagnoses/`，数据库查询位于 `detrick/queries/`，撤回方案位于 `detrick/archive/`。
+
+修改目录约定时，同步更新本机 `~/.codex/skills/`、`~/.agents/skills/`、`~/.claude/skills/` 中已安装的 `detrick-troubleshoot/SKILL.md` 路径引用。
