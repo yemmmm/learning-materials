@@ -323,3 +323,14 @@
 - 正常环境的准确版本、访问者是否维护者、RBAC开关、实际角色与资源策略尚未确认，不自动套用历史对照环境B的信息。异常环境对照应选择仍打不开且未被此前单点补权的Agent，避免修复后的数据掩盖差异。
 - cmds.sh改为三条只读对照命令：设置账号和Agent；相关服务版本及RBAC/Enterprise开关；实际Agent/App映射、维护者/创建者关系、角色、白名单范围/个人策略及四个鉴权场景。只输出脱敏摘要，不写配置、白名单或数据库，不重启服务。
 - 本轮沿用此前官方检索记录，不新增推断性的升级/代码修复建议。等待正常与异常环境输出后，针对已证实的配置或授权初始化差异制定最小修复。
+
+
+### AGENT-20260908 第14轮：对照环境也不对称，先定位特殊账号的授权路径
+
+- 用户撤回“另一环境正常”：3.12.0中一个账号A能访问别人创建的Agent，但其他账号B无法访问A创建的Agent。更新为“同环境账号/资源访问不对称”，不再把3.12.0视为全员正常基线。
+- 两环境API/api_websocket均RBAC_ENABLED=true、ENTERPRISE_ENABLED=true；3.12.0的dify-enterprise RBAC_ENABLED未设置，3.12.1为true。这是已确认差异，但尚不能解释具体账号的双向差异，不据此关闭3.12.1开关或认定3.12.0配置正确。前端/collector/rbac服务的UNSET也不自动视为错误。
+- 3.12.0探针仅输出effective_api_flags后STOP ValueError，未取到target/roles/whitelist。原脚本该位置直接UUID解析未捕获，输入Agent完整URL、空值或格式错误是优先检查项；也可能在后续数据库连接等位置抛ValueError，原输出缺阶段，不能定论。
+- 3.12.1回传确认目标访问者在工作空间内、不是维护者或创建者，admin加自定义角色存在，agent_manage=true；白名单不包含账号，app_view_layout/app_edit明确因白名单拒绝。app_test_and_run只回传matched_roles/account_roles，缺allowed，不能补写为已证实拒绝。resource/policies行缺失，当前scope不作新确认。
+- role.permission_keys中的agent_manage与脚本筛选键agent.manage不一致，可能为转写/OCR或运行脚本差异；以实际check-access agent_manage=true为授权证据，不猜改角色键。
+- cmds.sh改为2条、只在3.12.0执行的双向只读对照：A访问B创建的目标，B访问A创建的目标。支持Agent UUID或/agents/...URL，严格UUID校验不猜补OCR；账号仅接受UUID/邮箱。为输入、数据库、角色/策略查询增加stage及安全文件/行号，避免再次只收到无位置ValueError。
+- 当前待验证：特殊账号是否为实际App维护者/Owner、是否有资源default/自定义策略或白名单授权，及两个Agent的资源范围差异。继续不修改源码，不预先改开关或批量补白名单；沿用此前检索线索，本轮不扩大网络检索。

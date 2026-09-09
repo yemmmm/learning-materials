@@ -42,3 +42,11 @@
 - 用户报告另一套环境的Agent能够由其他用户访问。该环境的准确版本、RBAC开关、成员角色、维护者关系和资源访问策略尚未回传。
 - 不认定该环境就是上文历史环境B，也不据此前资料推定它一定为3.12.0。
 - 用户明确本轮不接受源码修改；现场未执行此前本地补丁方案。当前仅进行两套环境的只读配置/授权对照。
+
+
+## Agent对照环境纠正（2026-09-09，第14轮用户回传）
+
+- 用户撤回“另一环境正常”：3.12.0存在账号A可访问别人创建的Agent、其他人不能访问A创建的Agent的不对称现象。
+- 3.12.0：api/api_websocket的RBAC_ENABLED和ENTERPRISE_ENABLED均true；dify-enterprise两变量均UNSET。该环境的账号/资源详情探针为ValueError，尚未取得角色/白名单策略证据。
+- 3.12.1：api/api_websocket两变量均true；dify-enterprise RBAC_ENABLED=true、ENTERPRISE_ENABLED未设置。两边该配置差异已确认，但不是Agent访问差异根因的充分证据。
+- 前端及collector/rbac等服务所示UNSET按原样记录，不由其他服务的配置要求推断其错误；3.12.0回传未含独立rbac服务行，也不能认定该服务不存在。
