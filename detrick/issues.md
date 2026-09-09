@@ -242,3 +242,12 @@
 
 - 2026-09-09 用户反馈找不到账号UUID，尚未回传目标探针结果。
 - cmds.sh改为接受当前登录邮箱或原账号UUID；邮箱通过参数化SELECT匹配accounts.email，唯一命中后使用账号ID继续原检查。无匹配/多匹配时停止，不猜选账号；邮箱不写入资料库或诊断输出。权限取证范围不变，仍只读。
+
+### AGENT-20260908 第5轮：角色功能通过，目标白名单未包含账号
+
+- 2026-09-09用户回传32d8cf0部分输出：authz_app_id完整为92714548-25b2-4c14-85e9-11598059fa8e，scope=roster，has_separate_backing_app=false，is_maintainer=false，app_status=normal，in_workspace=true，legacy_role=normal。首行身份ID仅有后缀，不猜补账号/租户/Agent UUID，也不自动绑定到历史同前缀记录。
+- roles可见global_custom角色包含app.acl.edit和app.acl.view_layout，另一个角色含agent.manage；agent_manage allowed=true，匹配角色1个、account_role_ids可辨识2个。说明工作空间Agent管理功能通过；角色定义含权限键不等于目标资源最终允许。不能因legacy_role=normal直接认定缺编辑角色或建议迁移。
+- whitelist account_ids_present=true，contains_account=false；count字符为θ，疑似0但未证实，不将空白名单作为确定事实。
+- policies行缺失；最后两条只有account_role_ids尾部，缺check名称、allowed、reason、matched_role_ids完整字段，无法分别判断app_view_layout/app_edit拒绝原因。Agent scope=roster不是RBAC访问范围scope。
+- 判断：重点指向目标资源授权层，角色完全缺失已与当前证据不符；是否白名单造成本次403仍需补齐最终判定。未授权修复或变更访问范围。
+- 将权限结果拆为短行，输出allowed、reason、whitelist_denial、匹配角色数量，避免长UUID数组造成回传截断。用户可保留原shell的目标变量，仅重跑第2条；若变量丢失重新输入原Agent ID/邮箱。

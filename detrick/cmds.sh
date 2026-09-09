@@ -1,8 +1,8 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
 # Time: 2026-09-09
-# Context: admin读取他人Agent返回403；API已启用RBAC、接口检查APP_VIEW_LAYOUT，日志NO_MATCH。本轮直接检查目标授权。
-# Cmds: 2 条（设置目标 + 只读检查；预期输出约9行）
+# Context: 已确认agent_manage通过且白名单不含账号；查看/编辑结果回传截断，本轮将权限判定拆成短行。
+# Cmds: 2 条（设置目标 + 只读检查；预期输出约16行）
 # 在Compose目录的同一个原shell中依次粘贴；不需要Token，不修改角色/白名单/数据库。
 
 # 1. 输入目标Agent ID与当前登录邮箱（也支持账号UUID）。Agent ID取失败URL；邮箱只用于服务器内查询，不输出邮箱。
@@ -69,8 +69,10 @@ def main():
   if scene!="agent_manage": payload.update(resource_type="app",resource_id=app_id)
   data=call(scene,"POST","check-access",json=payload)
   if data is not None:
-   summary={k:data[k] for k in ("allowed","reason","matched_role_ids","account_role_ids","whitelist_denial") if k in data}
-   emit(scene,allowed_present="allowed" in data,**summary)
+   emit(scene,allowed=data.get("allowed","MISSING"))
+   emit(scene,reason=data.get("reason","MISSING"))
+   emit(scene,whitelist_denial=data.get("whitelist_denial","MISSING"))
+   emit(scene,matched_roles=len(data["matched_role_ids"]) if isinstance(data.get("matched_role_ids"),list) else "MISSING",account_roles=len(data["account_role_ids"]) if isinstance(data.get("account_role_ids"),list) else "MISSING")
 try:
  main()
 except Exception as exc:
