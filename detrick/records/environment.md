@@ -81,3 +81,8 @@
 - 另一服务器受测worker：NODE_EXTRA_CA_CERTS及代理变量均UNSET，CA文件128个PEM；直连探针UNABLE_TO_VERIFY_LEAF_SIGNATURE（用户小写回传）。
 - 两台SSL_CERT_FILE/SSL_CERT_DIR/NODE_USE_SYSTEM_CA均UNSET、CA_flags为空、custom_CA_dir=ENOENT。用户文本中个别变量带空格/OCR字符，不据此认定实际变量拼错。
 - 同一原工作流在主服务器是否成功、探针目标是否完全相同、节点是否实际采用环境代理，待用户确认。
+
+## SSO pending / workspace 丢失专项（2026-09-11）
+
+- 用户确认受影响企业版开启 SSO；本次准确版本、SSO 协议、账户 UUID 与数据库状态尚待回传，不自动套用历史环境 A/B。
+- 本轮沿用原 shell 中 docker-compose 函数兼容的逐块粘贴方式；只读 SQL 使用 API 自身连接配置，不假定数据库部署在本机容器。

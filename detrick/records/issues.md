@@ -414,3 +414,18 @@
 - 未实施任何生产配置修改或重启；不标记已解决。最新探针f0f6698已交付但无回传，不视为已执行。
 - 恢复入口：先确认现场配置是否变化及上述目标/原任务对照，再决定是否复用f0f6698的挂载检查和现有CA加载单变量探针；原工作流复测仍未完成。
 - environment.md保留环境证据，cmds.sh标记为暂停期间的历史探针。
+
+## SSO-PENDING-20260911：已有用户邀请后 pending，移除后 workspace 丢失
+
+状态：定位中，等待现场只读取证；未执行修复或删除复现。
+
+- 用户现象：已注册用户被邀请到 workspace 时偶发 pending；从该 workspace 移除后，失去全部原 workspace；企业管理页新建 workspace 并指定该用户为 owner 后，管理页可见，但用户 Dify 页面不可见。大小写形式邀请同邮箱可能产生两名用户。
+- 当前假设：邮箱匹配差异可能产生不同 account_id，或 SSO 使用的账户状态仍为 pending；workspace 丢失需区分真实成员关系删除、登录账户变化及 Enterprise/RBAC 数据不一致。同邮箱/同显示名不等于同账户。
+- 2026-09-11 检索关键词：Dify pending SSO invitation、email case sensitive invitation delete workspace、pending remove_member、re-inviting removed member。覆盖官方 Issue/PR 和 https://ee.dify.ai/releases/ 、https://ee.dify.ai/releases/v3.12.1/ 。未找到已确认覆盖全部症状的修复版本。
+- https://github.com/langgenius/dify/issues/17313 与 https://github.com/langgenius/dify/pull/29978 ：大小写登录相关，GitHub API 确认 PR 2026-01-13 合并，merge 491e1fd6a4a1dba36459d92411120e5e2defb2a3。策略是新数据小写、查询先原样再小写，不是 lower(存量邮箱) 全量匹配；不能据 PR 标题认定本次已修复。
+- https://github.com/langgenius/dify/issues/38073 ：1.15.0 移除后再次邀请报 workspace not found，相似症状，关闭原因为 not_planned。https://github.com/langgenius/dify/pull/38087 当前 open、未合并，描述 ACTIVE 且 RBAC 关闭时未重建 join；与本次 SSO/pending 未证实同根因。
+- 本机静态证据：镜像 langgenius/dify-ee-api:3.12.0（image ID caa5d4a7a1a6）经临时未启动容器提取文件后删除临时容器。account_service.py SHA256=7623481ced5c8da1467115292f55b7960dc6115b37f1f16e42a56900bcb372e9，与官方 3.12.1 页面指向的社区基线 60a18fa 对应文件相同；不等于现场镜像校验。
+- 该文件 get_account_by_email_with_case_fallback:1018-1029 先邮箱精确匹配，仅输入含大写时回退小写；members.py:48-55 邀请入口先将输入小写。若库内仅有混合大小写账户，存在漏匹配并创建小写 pending 账户的代码路径。是否由 SSO 写入混合大小写尚未验证。
+- 成员列表 members.py:246-253 返回 account.status；remove_member_from_tenant:1732-1835 仅删除目标 join，pending 账户在 remaining_joins==0 才删除，再同步目标 workspace 成员移除。因此该静态路径不能证明会删除所有 workspace，需现场实际源码与身份/成员快照。
+- 第一轮 scripts/current-round.sh：3 条只读命令，镜像及输入、按 lower(email) 查询各 account_id/status/登录时间/成员关系、抽取现场邮箱匹配和删除分支。legacy_join_role 不替代 RBAC owner 证据；没有前后快照不能证明历史账户被删。
+- 建议取当前异常状态，不再用真实用户重复删除 pending 来复现。后续最小比对项是受影响用户 account/profile.id、被移除 member_id、企业管理页 owner account_id；只回传 ID/必要状态，不回传 Cookie、Authorization、SSO token。

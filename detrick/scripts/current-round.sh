@@ -1,43 +1,78 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# ARCHIVED 2026-09-09：用户要求临时归档；问题暂停、未解决。以下历史探针无需继续执行或回传。
-# Time: 2026-09-09
-# Context: 10缺少额外CA/代理配置，11有；10直连证书失败，11直连DNS失败。验证10现有CA文件是否足够。
-# Cmds: 3 条；在原Compose目录、原shell逐块粘贴。命令1/2两台执行；命令3只在10执行。
-# 只读；临时Node子进程使用额外CA，不改运行worker、不重启、不发送HTTP请求。
+# Time: 2026-09-11
+# Context: SSO 已有用户邀请后 pending；移除后 workspace 丢失。核对同邮箱是否对应多个 account_id。
+# Cmds: 3 条；在原 Compose 目录、原 shell 逐块粘贴，不用 bash 执行（docker-compose 可能是函数）。
+# 全部只读；不重现删除、不改账户、不初始化 Flask 应用。原 n8n 暂停探针保留于 Git 历史。
 
-# 1. 输入本机受测worker服务与同一个失败HTTPS目标；不要填n8n入口域名（除非原节点就是请求它）。
-read -r -p 'Worker Compose service: ' DTR_WORKER
-read -r -p 'Failing HTTPS hostname (no URL/path): ' DTR_TLS_HOST
-read -r -p 'HTTPS port [443]: ' DTR_TLS_PORT
-DTR_TLS_PORT=${DTR_TLS_PORT:-443}
-
-# 2. 两台分别查看受测worker的实际证书挂载来源，最多20行；回传前遮盖目录中的内部标识。
-DTR_WORKER_CID=$(docker-compose ps -q "$DTR_WORKER")
-if [ -n "$DTR_WORKER_CID" ]; then
-  docker inspect --format '{{range .Mounts}}{{println .Type .Source "->" .Destination "rw=" .RW}}{{end}}' "$DTR_WORKER_CID" 2>&1 | head -20
+# 1. 输入受影响用户并核对镜像；登录 ID 可从该用户 GET /console/api/account/profile 响应的 id 取得。
+read -r -p 'API Compose service [api]: ' DTR_API
+DTR_API=${DTR_API:-api}
+read -r -p 'Affected email (original case): ' DTR_EMAIL
+read -r -p 'Affected user current profile id (optional, Enter to skip): ' DTR_LOGIN_ID
+DTR_CIDS=$(docker-compose ps -q)
+if [ -n "$DTR_CIDS" ]; then
+  docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}} {{.Config.Image}}' $DTR_CIDS 2>&1 | sed -E 's@[^ ]*/(dify-ee-[^ /]+)@\1@g' | head -20
 else
-  echo 'Worker container not found; check service name'
+  echo 'NO_CONTAINERS: check Compose directory'
 fi
 
-# 3. 仅10执行：相同目标分别用原环境/显式加载现有CA文件进行严格直连TLS验证；最多20行，总计约24秒超时。
-# 不经过HTTP代理，不覆盖节点自定义CA/代理，也不替代原工作流验收。
-docker-compose exec -T "$DTR_WORKER" node - "$DTR_TLS_HOST" "$DTR_TLS_PORT" <<'JS' 2>&1 | head -20
-const fs=require('fs'),cp=require('child_process');let env;
-for(const id of fs.readdirSync('/proc').filter(x=>/^\d+$/.test(x))){try{
-  const cmd=fs.readFileSync('/proc/'+id+'/cmdline','utf8').split('\0');
-  if(cmd.some(x=>/(^|\/)n8n$/.test(x))&&cmd.includes('worker')){env=Object.fromEntries(fs.readFileSync('/proc/'+id+'/environ','utf8').split('\0').filter(Boolean).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1)]}));break;}
-}catch{}}
-if(!env){console.log('SKIP: runtime worker environment not found; return command 2 output');process.exit(1)}
-const host=process.argv[2],port=Number(process.argv[3]);
-if(!host||/[:/\s@]/.test(host)||!Number.isInteger(port)||port<1||port>65535){console.log('INPUT_ERROR: hostname only, port 1..65535');process.exit(1)}
-const code=`const tls=require('tls');const s=tls.connect({host:process.argv[1],port:Number(process.argv[2]),servername:process.argv[1],rejectUnauthorized:true},()=>{console.log('TLS=OK authorized='+s.authorized);s.destroy()});s.on('error',e=>{console.log('TLS=FAIL code='+e.code);process.exitCode=1});setTimeout(()=>{console.log('TLS=TIMEOUT');s.destroy();process.exit(2)},10000).unref();`;
-for(const mode of ['baseline','existing_CA_bundle']){
-  const testEnv={...env};if(mode==='existing_CA_bundle')testEnv.NODE_EXTRA_CA_CERTS='/etc/ssl/certs/ca-certificates.crt';
-  const r=cp.spawnSync(process.execPath,['-e',code,host,String(port)],{env:testEnv,encoding:'utf8',timeout:12000});
-  console.log('mode='+mode);process.stdout.write(r.stdout||'');
-  if(r.error)console.log('probe_error='+r.error.code);
-  if(r.status!==0&&!(r.stdout||''))console.log('probe_exit='+r.status+'; startup failed');
-  if(r.stderr)console.log('startup_stderr_present=true');
-}
-JS
+# 2. 查询同邮箱账户与 workspace 关系；不输出邮箱原文、SSO token 或连接串，最多 26 行结果。
+docker-compose exec -T -e DTR_EMAIL="$DTR_EMAIL" -e DTR_LOGIN_ID="$DTR_LOGIN_ID" "$DTR_API" python - <<'PY' 2>&1 | head -30
+import os, json, logging
+from uuid import UUID
+logging.disable(logging.CRITICAL)
+def emit(kind, **data):
+    print(json.dumps(dict(check=kind, **data), ensure_ascii=True, default=str))
+try:
+    from configs import dify_config
+    from sqlalchemy import create_engine, text
+    email = os.environ['DTR_EMAIL'].strip()
+    if not email or '@' not in email: raise ValueError('email required')
+    login = os.environ.get('DTR_LOGIN_ID', '').strip()
+    login = str(UUID(login)) if login else None
+    engine = create_engine(dify_config.SQLALCHEMY_DATABASE_URI, connect_args={'connect_timeout': 8})
+    params = dict(email=email, login=login)
+    with engine.connect() as conn:
+        conn.execute(text('SET TRANSACTION READ ONLY'))
+        conn.execute(text("SET LOCAL statement_timeout = '8s'"))
+        accounts = conn.execute(text('''SELECT a.id, a.status, a.created_at, a.initialized_at, a.last_login_at,
+            a.email <> lower(a.email) AS stored_has_upper, a.email = :email AS exact_input_match,
+            a.id = CAST(:login AS uuid) AS is_current_login,
+            (SELECT count(*) FROM tenant_account_joins j WHERE j.account_id=a.id) AS workspace_count
+            FROM accounts a WHERE lower(a.email)=lower(:email) OR a.id=CAST(:login AS uuid)
+            ORDER BY a.created_at, a.id LIMIT 7'''), params).mappings().all()
+        emit('account_summary', returned=min(len(accounts),6), truncated=len(accounts)>6,
+             login_id_supplied=bool(login), rbac_enabled=bool(dify_config.RBAC_ENABLED))
+        for row in accounts[:6]: emit('account', **dict(row))
+        joins = conn.execute(text('''SELECT j.account_id, j.tenant_id, j.role AS legacy_join_role,
+            j.current, j.created_at AS joined_at, t.status AS workspace_status, a.id IS NULL AS account_missing
+            FROM tenant_account_joins j LEFT JOIN accounts a ON a.id=j.account_id
+            LEFT JOIN tenants t ON t.id=j.tenant_id
+            WHERE lower(a.email)=lower(:email) OR j.account_id=CAST(:login AS uuid)
+            ORDER BY j.account_id, j.created_at, j.tenant_id LIMIT 19'''), params).mappings().all()
+        emit('membership_summary', returned=min(len(joins),18), truncated=len(joins)>18)
+        for row in joins[:18]: emit('membership', **dict(row))
+except Exception as e:
+    emit('ERROR', error_type=type(e).__name__, sqlstate=getattr(getattr(e,'orig',None),'pgcode',None))
+PY
+
+# 3. 抽取现场邮箱匹配和 pending 删除分支；只读取源码，不调用函数，最多 28 行。
+docker-compose exec -T "$DTR_API" python - <<'PY' 2>&1 | head -30
+import ast
+from pathlib import Path
+path=Path('/app/api/services/account_service.py')
+if not path.exists():
+    print('SOURCE_NOT_FOUND'); raise SystemExit
+source=path.read_text(); lines=source.splitlines(); tree=ast.parse(source)
+checks=[('get_account_by_email_with_case_fallback', ('filter_by(', 'Account.email', 'email.lower', 'return account', 'return query', 'return session')),
+        ('remove_member_from_tenant', ('delete(', 'filter_by(', 'AccountStatus.PENDING', 'remaining_joins', 'TenantAccountJoin.account_id', 'sync_workspace', 'delete_rbac'))]
+for name, needles in checks:
+    nodes=[n for n in ast.walk(tree) if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name==name]
+    if not nodes:
+        print(name+': NOT_FOUND'); continue
+    node=nodes[0]; print(name+':')
+    hits=[(i+1,lines[i].strip()) for i in range(node.lineno-1,node.end_lineno) if any(x in lines[i] for x in needles)]
+    for number,line in hits[:12]: print(str(number)+': '+line)
+    if len(hits)>12: print('TRUNCATED')
+PY
