@@ -429,3 +429,4 @@
 - 成员列表 members.py:246-253 返回 account.status；remove_member_from_tenant:1732-1835 仅删除目标 join，pending 账户在 remaining_joins==0 才删除，再同步目标 workspace 成员移除。因此该静态路径不能证明会删除所有 workspace，需现场实际源码与身份/成员快照。
 - 第一轮 scripts/current-round.sh：3 条只读命令，镜像及输入、按 lower(email) 查询各 account_id/status/登录时间/成员关系、抽取现场邮箱匹配和删除分支。legacy_join_role 不替代 RBAC owner 证据；没有前后快照不能证明历史账户被删。
 - 建议取当前异常状态，不再用真实用户重复删除 pending 来复现。后续最小比对项是受影响用户 account/profile.id、被移除 member_id、企业管理页 owner account_id；只回传 ID/必要状态，不回传 Cookie、Authorization、SSO token。
+- 后续补充（2026-09-11）：用户确认现场 3.12.1，仍可 SSO 登录，但“似乎是作为新用户登录”。这增加登录 account_id 变化的可能性，尚不能证明旧账户被删除。继续使用第一轮三条命令，优先填写当前 profile.id，对照 created_at、同邮箱账户与成员关系；区分删除后重建与命中已有重复账户。未收到数据库结果前不生成重复取证轮次。
