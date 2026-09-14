@@ -430,3 +430,8 @@
 - 第一轮 scripts/current-round.sh：3 条只读命令，镜像及输入、按 lower(email) 查询各 account_id/status/登录时间/成员关系、抽取现场邮箱匹配和删除分支。legacy_join_role 不替代 RBAC owner 证据；没有前后快照不能证明历史账户被删。
 - 建议取当前异常状态，不再用真实用户重复删除 pending 来复现。后续最小比对项是受影响用户 account/profile.id、被移除 member_id、企业管理页 owner account_id；只回传 ID/必要状态，不回传 Cookie、Authorization、SSO token。
 - 后续补充（2026-09-11）：用户确认现场 3.12.1，仍可 SSO 登录，但“似乎是作为新用户登录”。这增加登录 account_id 变化的可能性，尚不能证明旧账户被删除。继续使用第一轮三条命令，优先填写当前 profile.id，对照 created_at、同邮箱账户与成员关系；区分删除后重建与命中已有重复账户。未收到数据库结果前不生成重复取证轮次。
+- 后续补充（2026-09-14）：用户观察到新用户经 SSO 创建后显示大写邮箱，邀请或企业管理端添加自动转小写。结合已核对的邀请小写化与精确查询路径，SSO/邀请/管理入口邮箱规范化不一致成为首要假设；仍须 accounts.email 与 account_id 确认，未取得现场 3.12.1 Enterprise SSO 回调实现。
+- 新线索可解释的候选链：SSO 大写账户 A → 小写邀请漏匹配 A → pending 账户 B → 企业管理页给 B 分配 workspace，而 SSO 实际登录 A。它尚不能单独解释从全部原 workspace 被移除；保留该症状独立待证，不把显示为空等同于数据库关系已删除。
+- 2026-09-14 补查关键词：Dify SSO uppercase lowercase email duplicate、ee.dify.ai/releases email case SSO。未检索到同根因官方修复说明；公开 account_service.py 的普通邮箱 getter 与 SSO collision existence check 是不同函数，不能据存在某个大小写不敏感检查认定完整 SSO 路径已统一。未确认可解决本案的版本。
+- 继续复用 e66dabb 的三条只读命令，无需为未回传的相同取证重复生成脚本。重点比较同邮箱多条 account.id、stored_has_upper、status、is_current_login、workspace_count 与具体 tenant_id；必要时追加企业管理页 owner ID 对照。
+- 修复范围候选（尚未实施）：SSO 邮箱读取、查找与创建需与邀请/管理入口保持一致，同时保留现有 SSO 身份绑定；已有大小写重复账户需先核对归属，再设计数据修复。只对今后的 SSO 邮箱转小写不能自动恢复历史 workspace，直接批量 lower(email) 也不能合并账户 ID 与成员关系。
