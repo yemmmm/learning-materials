@@ -417,7 +417,7 @@
 
 ## SSO-PENDING-20260911：已有用户邀请后 pending，移除后 workspace 丢失
 
-状态：定位中，等待现场只读取证；未执行修复或删除复现。
+状态：SSO 先注册、后邀请造成大小写重复账户的原因已定位，待修复；此前移除后全部 workspace 丢失的机制仍待验证。未执行账户修改或删除复现。
 
 - 用户现象：已注册用户被邀请到 workspace 时偶发 pending；从该 workspace 移除后，失去全部原 workspace；企业管理页新建 workspace 并指定该用户为 owner 后，管理页可见，但用户 Dify 页面不可见。大小写形式邀请同邮箱可能产生两名用户。
 - 当前假设：邮箱匹配差异可能产生不同 account_id，或 SSO 使用的账户状态仍为 pending；workspace 丢失需区分真实成员关系删除、登录账户变化及 Enterprise/RBAC 数据不一致。同邮箱/同显示名不等于同账户。
@@ -435,3 +435,15 @@
 - 2026-09-14 补查关键词：Dify SSO uppercase lowercase email duplicate、ee.dify.ai/releases email case SSO。未检索到同根因官方修复说明；公开 account_service.py 的普通邮箱 getter 与 SSO collision existence check 是不同函数，不能据存在某个大小写不敏感检查认定完整 SSO 路径已统一。未确认可解决本案的版本。
 - 继续复用 e66dabb 的三条只读命令，无需为未回传的相同取证重复生成脚本。重点比较同邮箱多条 account.id、stored_has_upper、status、is_current_login、workspace_count 与具体 tenant_id；必要时追加企业管理页 owner ID 对照。
 - 修复范围候选（尚未实施）：SSO 邮箱读取、查找与创建需与邀请/管理入口保持一致，同时保留现有 SSO 身份绑定；已有大小写重复账户需先核对归属，再设计数据修复。只对今后的 SSO 邮箱转小写不能自动恢复历史 workspace，直接批量 lower(email) 也不能合并账户 ID 与成员关系。
+
+### 2026-09-14 现场回传：确认重复账户与首次进入顺序相关
+
+- 镜像回传确认 api、api_websocket、worker、worker_beat、dify-enterprise、web、企业前端及 RBAC 等所列企业服务标签为 3.12.1；rbac_enabled=true。未记录内部镜像仓库域名；标签证据不等于镜像 digest 或全部私有代码一致性证明。
+- 同邮箱查询返回 2 条、未截断。账户 A：8ec25f53-0adf-410f-8b23-f60a66e24fac，active，stored_has_upper=true、exact_input_match=true，created_at/initialized_at=2026-09-14 08:41:37.866493，workspace_count=1。账户 B：b8eeba3c-d934-470d-8150-6fa8e3e29e2a，pending，stored_has_upper=false、exact_input_match=false，created_at=2026-09-14 08:50:04，initialized_at=08:50:03.800079，workspace_count=1。时间按数据库输出保留，不推定时区。
+- login_id_supplied=false，两条 last_login_at 均 null，当前 profile.id 尚未直接核对；不能由 last_login_at=null 否定用户的 SSO 登录观察。
+- 成员关系返回 2 条、未截断。A 关联 tenant 852bb2ba-48a4-4e98-bca6-a64d8ccf73f7，join role=normal、current=true、workspace_status=normal、account_missing=false。第二条回传缺 account_id/tenant_id，不猜补；不能据此认定两条属于同一或不同 workspace。RBAC 已开启，legacy_join_role=normal 不代表 owner 权限异常。
+- 现场函数片段确认原样邮箱查询→仅输入非小写时尝试小写；pending 删除仅在 remaining_joins==0 时执行。回传有 OCR 标点/拼写损坏，按可辨认逻辑理解，不当成现场源码语法错误或猜补末行。
+- 用户明确流程：无邀请时先 SSO 登录会创建大写账户，后续 SSO 默认使用该账户；之后 workspace 邀请会小写化并创建另一账户，原 SSO 身份无法获得这次邀请的 workspace。若首次 SSO 登录前已受邀，则 SSO 会关联已有小写账户。两种顺序的 SSO 行为依据用户业务回传，未声称已读私有回调实现。
+- 已定位结论：多个入口的邮箱规范化/已有账户匹配不一致，使先 SSO、后邀请路径产生不同 account_id；pending 是新建的小写账户 B 的状态，不是证据中的 active 账户 A 被改成 pending。表面概率性现象已有明确的首次进入顺序条件。
+- 边界：此样本中 A 与 B 各保留 1 条 workspace 关系，没有删除前后快照，不能证明 pending 移除导致 A 的全部关系被删除；新建 workspace 的 owner ID 与 SSO profile ID 也未直接比对。
+- 当前无需重复第一轮探针。对尚未创建账户的新用户，可沿用用户已验证的先邀请、后首次 SSO 登录顺序；这不能修复已有大写/重复账户。正式修复需统一 SSO 创建邮箱与已有账户匹配，并单独处理存量身份绑定及 workspace/资源归属；不直接批量改小写或删除 pending 作为修复。

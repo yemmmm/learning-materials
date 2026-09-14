@@ -1,5 +1,6 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
+# Status 2026-09-14: 已收到本轮结果，确认同邮箱大写 active / 小写 pending 两个账户；无需重复执行。修复未实施。
 # Time: 2026-09-11
 # Context: 3.12.1 SSO 已有用户邀请后 pending；移除后仍能登录但疑似新用户。核对同邮箱 account_id 与成员关系。
 # Cmds: 3 条；在原 Compose 目录、原 shell 逐块粘贴，不用 bash 执行（docker-compose 可能是函数）。

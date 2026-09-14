@@ -87,3 +87,4 @@
 - 用户确认受影响企业版为 3.12.1、开启 SSO，受影响用户仍可登录，但“似乎是作为新用户登录”。版本来自用户描述，镜像明细未回传；SSO 协议、账户 UUID 与数据库状态待核对，不自动套用历史环境 A/B。
 - 本轮沿用原 shell 中 docker-compose 函数兼容的逐块粘贴方式；只读 SQL 使用 API 自身连接配置，不假定数据库部署在本机容器。
 - 2026-09-14 用户新观察：新用户经 SSO 登录创建账户后看到大写邮箱；邀请或企业管理端添加则自动转换小写。此为现场界面/操作观察，尚无 accounts.email、SSO 返回字段和 account_id 原始回传，不能直接记成已验证数据库写入或回调代码行为。
+- 2026-09-14 随后现场回传补齐：所列 API、Enterprise、web、企业前端、RBAC、worker 等企业镜像标签均为 3.12.1；SQL 返回 rbac_enabled=true。同邮箱存在不同 UUID 的大写 active 与小写 pending 账户，各有 1 条 workspace 关系，详见 issues.md 的 SSO-PENDING-20260911 条目。未填写当前 profile.id，第二条 membership 的账户/租户 ID 回传缺失；SSO 协议仍未确认。
