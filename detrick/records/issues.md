@@ -447,3 +447,13 @@
 - 已定位结论：多个入口的邮箱规范化/已有账户匹配不一致，使先 SSO、后邀请路径产生不同 account_id；pending 是新建的小写账户 B 的状态，不是证据中的 active 账户 A 被改成 pending。表面概率性现象已有明确的首次进入顺序条件。
 - 边界：此样本中 A 与 B 各保留 1 条 workspace 关系，没有删除前后快照，不能证明 pending 移除导致 A 的全部关系被删除；新建 workspace 的 owner ID 与 SSO profile ID 也未直接比对。
 - 当前无需重复第一轮探针。对尚未创建账户的新用户，可沿用用户已验证的先邀请、后首次 SSO 登录顺序；这不能修复已有大写/重复账户。正式修复需统一 SSO 创建邮箱与已有账户匹配，并单独处理存量身份绑定及 workspace/资源归属；不直接批量改小写或删除 pending 作为修复。
+
+### 2026-09-14 缺陷定性与无源码规避结论
+
+- 定性：这是 Dify Enterprise 3.12.1 的产品缺陷。理由不是单纯“邮箱通常不区分大小写”，而是同一产品将 SSO、邀请和企业管理入口用于同一账户身份，却对邮箱采用不同规范化/查询规则，现场已因此生成同邮箱不同 account_id，并把 workspace 关系分配到不同身份。
+- 上游旁证：https://github.com/langgenius/dify/issues/17313 与已合并 PR #29978 已将邮箱大小写一致性作为产品问题处理；现场 3.12.1 仍保留方向不对称的“原样查询，输入含大写时才回退小写”逻辑。未找到完全对应企业 SSO 首次登录顺序的公开 Issue，故不宣称已有同根因 Issue 编号。
+- 官方 v3.12.1 发布于 2026-08-14，发布说明未列出该修复。上游 PR https://github.com/langgenius/dify/pull/41249 于 2026-08-26 才合并，为注册入口增加 normalized_email 和等价邮箱冲突检查，明确覆盖 OAuth/new workspace-invite 等注册路径；它晚于 3.12.1，且未明确声明覆盖闭源 Enterprise SSO 回调，不能认定升级到某个现有企业版本即可解决。
+- 不改 Dify 源码的首选规避：在身份提供方或其 claim transformation/mapping 层，把发送给 Dify 的 email claim 统一为 lowercase。需同时保证同一用户后续登录始终输出相同小写值；具体配置名称取决于现场 OIDC/SAML/自定义 OAuth2 提供方。本机 3.12.0 Enterprise 二进制/配置静态搜索未发现可确认的 Dify 侧“邮箱转小写”配置项；3.12.1 私有二进制未取得，因此不编造 Dify 环境变量。
+- 身份提供方暂不可改时的可用流程规避：所有新用户在首次 SSO 前，由 workspace 邀请或企业管理端用全小写邮箱预创建；用户回传已验证首次 SSO 会关联该小写账户。组织流程应禁止未预创建用户直接首次 SSO，并保持所有人工输入小写。
+- 两种规避只防新增，不处理已存在的大写 active / 小写 pending 重复账户。已有重复账户需要选定 canonical account_id，核对 SSO identity binding、全部 tenant_account_joins、RBAC bindings、owner/maintainer/resource attribution 后迁移；直接 UPDATE lower(email)、删除 pending 或仅修改显示邮箱都不能完成身份合并，且可能碰撞现有记录。
+- 可选升级路径仅作为后续验证：待 Dify 官方发布包含 #41249 的 Enterprise 版本后，仍需用“先 SSO、后邀请”的原始顺序做验收，并确认 Enterprise SSO 实际调用了规范化/冲突检查路径；发布说明或社区 PR 合并本身不是现场修复证据。
