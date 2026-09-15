@@ -33,6 +33,41 @@ round1 回传（traceback + 镜像 tag）：
 
 两类报错形态与 `else` 分支的两种非 list 值一一对应，判定为官方 3.12.1 读取端缺陷（对旧格式数据缺防御），社区版 main 同样存在该分支行为。
 
+## 写入端同样有缺陷（2026-09-15 补充，决定修复策略）
+
+main 分支（EE 3.12.1 同构）`services/hit_testing_service.py` 有两个写入点：
+
+- 内部知识库 `retrieve()`：`content=json.dumps(dataset_queries)` —— 已写新格式数组；
+- **外部知识库 `external_retrieve()`：`content=query` —— 仍写纯文本**，无 content_type 包装。
+
+结论：外部知识库召回测试**新增记录持续产生旧格式数据**，其中"合法 JSON 非 list"的查询词（纯数字最常见）落库即触发读取端 500。仅清洗存量治标不治本，修复必须覆盖增量。
+
+### 修复组合（暂缓执行，方案已备）
+
+| 层 | 方案 | 状态 |
+|---|---|---|
+| 存量 | `scripts/fix-recall-query-content.py` 清洗脚本（dry-run/备份/幂等） | 已备好未执行 |
+| 增量 | DB 触发器兜底（推荐）：BEFORE INSERT 时 content 不以 `[` 开头则包装为规范数组；应用透明、镜像无关、升级不失效。代价：回滚旧版时历史列表显示 JSON 原文 | SQL 预案在下方 |
+| 增量备选 | 容器内补丁改 `external_retrieve` 写入格式 | 镜像重建/升级即失效，不推荐 |
+| 长线 | 官方 issue：`external_retrieve` 写纯文本 vs `get_queries` 只认数组，main 现状可复现 | 待用户确认后起草 |
+
+触发器预案（外部 DB 执行）：
+
+```sql
+create or replace function fix_dataset_query_content() returns trigger as $$
+begin
+  if substring(coalesce(new.content,'') from 1 for 1) <> '[' then
+    new.content := '[{"content_type":"text","content":' || to_json(new.content)::text || '}]';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+create trigger trg_fix_dataset_query_content
+before insert on dataset_queries
+for each row execute function fix_dataset_query_content();
+```
+
 ## 修复包（已交付，round 4）
 
 脚本 `scripts/fix-recall-query-content.py`（纯 SQLAlchemy 直连，与探针同通道，api 容器内执行）：

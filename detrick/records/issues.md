@@ -4,7 +4,7 @@
 
 ## KB-20260915：外部知识库召回页 DatasetQueryListResponse 校验失败
 
-状态：根因已定位（dataset_queries.content 旧格式纯文本，新版读取端假设 JSON list，合法 JSON 非 list 的查询词触发 else 分支原样包裹致 pydantic 500）；环境 dify-ee 3.12.1。待探针确认样例、确认外部 DB 通道后数据修复。详见 [diagnoses/recall-query-validation.md](../diagnoses/recall-query-validation.md)。
+状态：根因已定位且为读写两端缺陷——读取端 get_queries() 对非 JSON 数组值不设防；外部知识库写入端 external_retrieve() 至今写纯文本（内部库已升级写数组）。新增数字类查询词会持续复发，修复须存量清洗+触发器兜底组合。暂缓执行，方案见 [diagnoses/recall-query-validation.md](../diagnoses/recall-query-validation.md)。
 
 ## WF-20260908：WebApp 权限操作401与提示词重进为空
 
