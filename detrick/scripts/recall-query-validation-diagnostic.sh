@@ -1,11 +1,17 @@
 #!/bin/bash
-# === Detrick Troubleshoot: 外部知识库召回页 DatasetQueryListResponse 报错 (round 3) ===
-# Time: 2026-09-15 15:55
-# Context: round2 探针因 EE 容器无 app_factory 模块失败；v2 探针改为纯 SQLAlchemy 直连（从容器 env 取 SQLALCHEMY_DATABASE_URI 或 DB_* 变量拼 URL），不 import 任何 Dify 模块
-# Cmds: 2 条（只读；若第 1 条 curl 失败说明无 GitHub 通道，改用既有文件传输通道把 recall-query-bad-content-probe.py 放到服务器 /tmp 后只跑第 2 条）
+# === Detrick Troubleshoot: 外部知识库召回页 DatasetQueryListResponse 报错 (round 4 - 修复执行) ===
+# Time: 2026-09-15 16:10
+# Context: 根因已实锤（dataset_queries.content 旧格式非 JSON 数组，新版 get_queries() else 分支原样包裹致 pydantic 500）；本轮执行数据修复：dry-run 预览 → 带备份写入 → 页面复验。写库操作，执行前自行确认
+# Cmds: 4 条。若 curl 不通，用既有传输通道把 fix-recall-query-content.py 放到 /tmp 后跳过第 1 条
 
-# 1. 取 v2 探针脚本并拷入 api 容器
-curl -fsSL https://raw.githubusercontent.com/yemmmm/learning-materials/master/detrick/scripts/recall-query-bad-content-probe.py -o /tmp/recall_probe.py && docker cp /tmp/recall_probe.py dify-enterprise-3120-api-1:/tmp/ && echo COPIED
+# 1. 取修复脚本并拷入 api 容器
+curl -fsSL https://raw.githubusercontent.com/yemmmm/learning-materials/master/detrick/scripts/fix-recall-query-content.py -o /tmp/fix_recall.py && docker cp /tmp/fix_recall.py dify-enterprise-3120-api-1:/tmp/ && echo COPIED
 
-# 2. 执行只读探针：统计 content 非 JSON-list 记录总数 + 最近 8 条样例
-docker exec dify-enterprise-3120-api-1 python /tmp/recall_probe.py
+# 2. dry-run：只统计将修复的行数，不写库
+docker exec dify-enterprise-3120-api-1 python /tmp/fix_recall.py
+
+# 3. 确认第 2 步数字无误后执行修复（自动备份到 dataset_queries_bak_20260915，幂等可重跑）
+docker exec -e FIX_RECALL_EXECUTE=1 dify-enterprise-3120-api-1 python /tmp/fix_recall.py
+
+# 4. 页面复验：打开该知识库"召回测试"页确认历史列表正常返回（如仍报错，贴 api 日志最近 30 行）
+docker-compose logs --tail=200 --timestamps api 2>&1 | grep -c "validation errors for DatasetQueryListResponse" | tail -1

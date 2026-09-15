@@ -33,24 +33,41 @@ round1 回传（traceback + 镜像 tag）：
 
 两类报错形态与 `else` 分支的两种非 list 值一一对应，判定为官方 3.12.1 读取端缺陷（对旧格式数据缺防御），社区版 main 同样存在该分支行为。
 
-## 修复方向（待探针确认后执行）
+## 修复包（已交付，round 4）
 
-数据修复，不改代码。把顶层非 `[` 开头的 content 包装为规范格式，历史记录可恢复显示：
+脚本 `scripts/fix-recall-query-content.py`（纯 SQLAlchemy 直连，与探针同通道，api 容器内执行）：
+
+- 条件只圈定会触雷的形态：content 以 `{`、`"`、`-`、数字开头，或字面 `true/false/null`（纯文本行走 fallback 不炸，不动）；
+- 默认 dry-run 只打印将修复行数；`FIX_RECALL_EXECUTE=1` 才写库；
+- 写库前把命中的行逐行备份进 `dataset_queries_bak_20260915`（已存在则不重复备份）；
+- 幂等：修复后行以 `[` 开头不再命中条件，重跑无副作用；
+- 单事务（engine.begin），失败整体回滚。
+
+如偏好手动 SQL（任意 PG 客户端连外部库执行）：
 
 ```sql
--- 先备份坏行
+-- 预览
+select count(*) from dataset_queries
+ where substring(coalesce(content,'') from 1 for 1) in ('{','"','-')
+    or substring(coalesce(content,'') from 1 for 1) between '0' and '9'
+    or content ~ '^(true|false|null)$';
+-- 备份（同条件）
 create table dataset_queries_bak_20260915 as
-  select * from dataset_queries where substring(coalesce(content,'') from 1 for 1) <> '[';
--- 包装为规范 JSON list
+  select * from dataset_queries
+   where substring(coalesce(content,'') from 1 for 1) in ('{','"','-')
+      or substring(coalesce(content,'') from 1 for 1) between '0' and '9'
+      or content ~ '^(true|false|null)$';
+-- 修复
 update dataset_queries
-  set content = '[{"content_type":"text","content":' || to_json(content)::text || '}]'
-  where substring(coalesce(content,'') from 1 for 1) <> '[';
+   set content = '[{"content_type":"text","content":' || to_json(content)::text || '}]'
+ where substring(coalesce(content,'') from 1 for 1) in ('{','"','-')
+    or substring(coalesce(content,'') from 1 for 1) between '0' and '9'
+    or content ~ '^(true|false|null)$';
 ```
-
-注意：数据库为外部库，执行通道待确认；执行前需用户确认。
 
 ## 待办
 
-- [ ] 探针回传坏数据样例（round 2，脚本 `scripts/recall-query-bad-content-probe.py`）
-- [ ] 确认外部 DB 执行通道与备份落位
-- [ ] 执行修复 SQL 并页面复验
+- [x] 探针确认存在非 JSON 数组 content 记录（round 3 样例行已返回）
+- [ ] 回传统计数字与 head 开头形态（可选，不影响修复条件覆盖面）
+- [ ] 执行 round 4 修复并页面复验
+- [ ] 长期：向官方反馈 get_queries() 对非 list 顶层值缺防御（社区版 main 同样存在）
