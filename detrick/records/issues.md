@@ -2,6 +2,10 @@
 
 > 目录于 2026-09-10 整理；下文历史文件名按当时记录保留，新位置见[目录导航与迁移表](../README.md)。
 
+## KB-20260915：外部知识库召回页 DatasetQueryListResponse 校验失败
+
+状态：根因已定位（dataset_queries.content 旧格式纯文本，新版读取端假设 JSON list，合法 JSON 非 list 的查询词触发 else 分支原样包裹致 pydantic 500）；环境 dify-ee 3.12.1。待探针确认样例、确认外部 DB 通道后数据修复。详见 [diagnoses/recall-query-validation.md](../diagnoses/recall-query-validation.md)。
+
 ## WF-20260908：WebApp 权限操作401与提示词重进为空
 
 状态：提示词问题已定位待修复；WebApp401仍在排查。环境 A，并据用户描述在多套环境出现；两个症状不必同时出现。

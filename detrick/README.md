@@ -7,6 +7,7 @@
 | 用途 | 入口 | 使用说明 |
 |---|---|---|
 | 本轮排查命令 | [scripts/current-round.sh](scripts/current-round.sh) | SSO 邀请已有用户出现 pending、移除后 workspace 丢失：只读核对账户身份与成员关系。原 n8n HTTPS/CA 问题仍暂停、未解决，历史探针见 Git 历史 |
+| 召回页报错诊断 | [diagnoses/recall-query-validation.md](diagnoses/recall-query-validation.md) | 外部知识库召回历史接口 DatasetQueryListResponse 校验失败；根因 dataset_queries.content 旧格式，待数据修复。并行问题用 scripts/recall-query-validation-diagnostic.sh + scripts/recall-query-bad-content-probe.py |
 | 环境与执行约束 | [records/environment.md](records/environment.md) | 区分现场回传、本机实测和历史事实 |
 | 问题时间线 | [records/issues.md](records/issues.md) | 保留证据、结论变化和未完成事项 |
 | 工作空间角色查询 | [queries/workspace-member-roles.md](queries/workspace-member-roles.md) | 原 cmds.md；已关闭，保留已核对的 RBAC 表结构及 SQL |
