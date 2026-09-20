@@ -1,5 +1,16 @@
 # 德勤问题定位记录
 
+## FILE-404-20260920：工作流上传文件后 LLM input URL 返回 404
+
+状态：待现场取证，未修改服务。用户报告上传后 LLM 无法收到文件，input 中 URL 打开显示 404 文件找不到。文件类型、模型/插件、当前版本及新链接是否立即失败均待确认；不直接沿用历史环境版本。
+
+- 2026-09-20 检索：`site.github.com/langgenius/dify issues file upload LLM 404 preview FILES_URL`、`file-preview Invalid signature`、`site.ee.dify.ai file 404`，覆盖问题状态与修复线索。
+- [Issue 25309](https://github.com/langgenius/dify/issues/25309)：社区版 1.8.1 上传后预览 404，症状相似；已关闭不证明德勤版本已有修复，未确认对应修复 PR/版本。
+- [Issue 28105](https://github.com/langgenius/dify/issues/28105)：文件未进入模型的类似报告；尚不能与当前 URL 404 认定同根因。
+- [当前公开控制器](https://github.com/langgenius/dify/blob/main/api/controllers/files/image_preview.py)：file-preview 通过带签名参数的文件服务读取；仅作路径线索，未确认现场源码匹配。企业版搜索未找到可确认对应的修复说明。
+- 本机 Caddy 模板有独立文件入口的 `/files/*` 转发；本机配置不代表远端。候选分支：外部入口/路径、签名有效性、文件记录/存储，不预先归因。
+- 本轮命令：[workflow-file-404-diagnostic.sh](../scripts/workflow-file-404-diagnostic.sh)，两组只读检查：API 文件配置与挂载、同一新链接原地址和直连 API 的状态对比。原地址请求从 API 发出，不能代表用户浏览器网络或模型提供商网络。保留其他问题 current-round.sh。
+
 > 目录于 2026-09-10 整理；下文历史文件名按当时记录保留，新位置见[目录导航与迁移表](../README.md)。
 
 ## KB-20260915：外部知识库召回页 DatasetQueryListResponse 校验失败
