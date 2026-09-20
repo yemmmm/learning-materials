@@ -1,5 +1,6 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
+# Status 2026-09-20: 本轮已回传，两路 200 且用户确认可下载；无需重复。后续查文件变量、提取与模型输入。
 # Time: 2026-09-20 11:13
 # Context: 工作流上传后 LLM input 文件 URL 返回 404；区分外部路由与 API 文件读取失败，根因未确认。
 # Cmds: 2 条；在服务器 Compose 目录的原 shell 逐块粘贴（docker-compose 可能是函数）。

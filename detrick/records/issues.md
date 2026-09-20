@@ -2,7 +2,15 @@
 
 ## FILE-404-20260920：工作流上传文件后 LLM input URL 返回 404
 
-状态：待现场取证，未修改服务。用户报告上传后 LLM 无法收到文件，input 中 URL 打开显示 404 文件找不到。文件类型、模型/插件、当前版本及新链接是否立即失败均待确认；不直接沿用历史环境版本。
+状态：本次新链接已可下载，LLM 提示词中文件内容为空仍待定位；未修改服务。最初 URL 404 的原因未确认，不认定已修复根因。
+
+### 2026-09-20 第 1 轮回传及最新症状
+
+- 用户标识 T2，API 镜像 dify-ee-api:3.12.1。FILES_URL 与 INTERNAL_FILES_URL 均 HTTPS、同源、根路径；STORAGE_TYPE=s3（回传空格按字段上下文识别），OPENDAL_SCHEME=fs 不代表正在使用 fs。挂载有 /app/api/storage、CA、日志及入口脚本。
+- 新 URL 路径 /files/<file-id>/file-preview，含 timestamp/nonce/sign，年龄 191 秒；original_from_api 与 direct_api 均 HTTP 200、application/octet-stream、无重定向。探针未完整读取成功响应的文件正文；用户另确认现在 URL 能下载到文件。
+- 最新症状：LLM 节点通过 `/files` 引用文件时提示词内容为空。文件格式、模型/提供商插件、实际变量选择器及 Process Data 的 prompts.text/files 尚未回传。下一步先核对工作流配置，不重复 URL 取证。
+- 补查关键词：`LLM document extractor file variable prompt documents`；[官方文档](https://docs.dify.ai/en/use-dify/nodes/doc-extractor)说明文档提取器将文件转为文本。直接文件输入取决于模型与插件能力，不能笼统认定所有模型均不支持。Issue 28105 正文有 uploads 非空而 sys.files 为空、最终 prompts.files 为空的相似示例，但不足以确认本站同根因，也无匹配企业版修复版本。
+- 给用户的下一步：检查引用是否为实际非空的上传变量；若目标是把文档正文拼入提示词，使用文档提取器输出 text，并检查该输出是否非空。若使用原生文件能力，需结合模型/插件及最终 prompts.files 判断，不能仅凭 text 为空认定未传文件。
 
 - 2026-09-20 检索：`site.github.com/langgenius/dify issues file upload LLM 404 preview FILES_URL`、`file-preview Invalid signature`、`site.ee.dify.ai file 404`，覆盖问题状态与修复线索。
 - [Issue 25309](https://github.com/langgenius/dify/issues/25309)：社区版 1.8.1 上传后预览 404，症状相似；已关闭不证明德勤版本已有修复，未确认对应修复 PR/版本。
