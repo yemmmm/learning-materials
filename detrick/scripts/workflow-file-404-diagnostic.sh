@@ -6,8 +6,8 @@
 # 只读；先重新上传并运行，使用本次新生成的完整 URL。URL 仅在现场输入，不回传签名。
 
 # 1. 核对 API 镜像、文件配置及挂载；URL 隐去主机、凭据与查询参数，最多 20 行。
-read -r -p 'API Compose service [api]: ' DTR_FILE_API
-DTR_FILE_API=${DTR_FILE_API:-api}
+# 参数行：服务名不是 api 时先修改这一行；不使用 read，整块粘贴不会吞后续命令。
+DTR_FILE_API='api'
 DTR_FILE_CIDS=$(docker-compose ps -q "$DTR_FILE_API")
 if [ -n "$DTR_FILE_CIDS" ]; then
   docker inspect $DTR_FILE_CIDS | python -c '
@@ -31,8 +31,8 @@ else
 fi
 
 # 2. 对同一条新链接执行有超时的 GET：原地址 vs API 容器本机端口；不打印 URL、签名或文件正文，最多 15 行。
-read -r -s -p 'Fresh full file URL (hidden): ' DTR_FILE_URL
-printf '\n'
+# 参数行：先将单引号内占位文字替换为本次完整 URL，保留单引号。
+DTR_FILE_URL='替换为本次新生成的完整文件URL'
 docker-compose exec -T -e DTR_FILE_URL="$DTR_FILE_URL" "$DTR_FILE_API" python - <<'PY' 2>&1 | head -15
 import os,re,time
 from urllib.parse import urlsplit,parse_qs,urlunsplit
