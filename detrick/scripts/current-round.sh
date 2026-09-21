@@ -1,79 +1,60 @@
 #!/bin/bash
 # === Detrick Troubleshoot Round ===
-# Status 2026-09-14: 已收到本轮结果，确认同邮箱大写 active / 小写 pending 两个账户；无需重复执行。修复未实施。
-# Time: 2026-09-11
-# Context: 3.12.1 SSO 已有用户邀请后 pending；移除后仍能登录但疑似新用户。核对同邮箱 account_id 与成员关系。
-# Cmds: 3 条；在原 Compose 目录、原 shell 逐块粘贴，不用 bash 执行（docker-compose 可能是函数）。
-# 全部只读；不重现删除、不改账户、不初始化 Flask 应用。原 n8n 暂停探针保留于 Git 历史。
+# Time: 2026-09-21 16:30
+# Context: openai_api_compatible 修改凭据保存成功后，保存模型报 "the custom model record not found"。
+#          判断：后端查 provider_models 无该 (model, model_type) 记录，但凭据记录存在——
+#          疑似孤儿凭据（先删过模型，凭据残留）或凭据与保存模型请求的名称/类型不一致。
+#          本轮核对两张表错位情况 + 抓 traceback 确认抛错函数。
+# Cmds: 2 条 + 1 个浏览器取证项；在原 Compose 目录、原 shell 逐块粘贴执行（docker-compose 可能是函数）。全部只读。
 
-# 1. 输入受影响用户并核对镜像；登录 ID 可从该用户 GET /console/api/account/profile 响应的 id 取得。
-read -r -p 'API Compose service [api]: ' DTR_API
-DTR_API=${DTR_API:-api}
-read -r -p 'Affected email (original case): ' DTR_EMAIL
-read -r -p 'Affected user current profile id (optional, Enter to skip): ' DTR_LOGIN_ID
-DTR_CIDS=$(docker-compose ps -q)
-if [ -n "$DTR_CIDS" ]; then
-  docker inspect --format '{{index .Config.Labels "com.docker.compose.service"}} {{.Config.Image}}' $DTR_CIDS 2>&1 | sed -E 's@[^ ]*/(dify-ee-[^ /]+)@\1@g' | head -20
-else
-  echo 'NO_CONTAINERS: check Compose directory'
-fi
+# 0.（单行，可编辑）API 容器服务名，默认 api；不同就改等号后的值，再粘贴后面的块
+DTR_API=api
 
-# 2. 查询同邮箱账户与 workspace 关系；不输出邮箱原文、SSO token 或连接串，最多 26 行结果。
-docker-compose exec -T -e DTR_EMAIL="$DTR_EMAIL" -e DTR_LOGIN_ID="$DTR_LOGIN_ID" "$DTR_API" python - <<'PY' 2>&1 | head -30
-import os, json, logging
-from uuid import UUID
+# 1. 对比 provider_models 与 provider_model_credentials（openai_api_compatible 相关，含新旧两种 provider 名），
+#    输出孤儿凭据 = "有凭据但没有对应模型记录"的组合
+docker-compose exec -T "$DTR_API" python - <<'PY' 2>&1 | head -40
+import logging
 logging.disable(logging.CRITICAL)
-def emit(kind, **data):
-    print(json.dumps(dict(check=kind, **data), ensure_ascii=True, default=str))
-try:
-    from configs import dify_config
-    from sqlalchemy import create_engine, text
-    email = os.environ['DTR_EMAIL'].strip()
-    if not email or '@' not in email: raise ValueError('email required')
-    login = os.environ.get('DTR_LOGIN_ID', '').strip()
-    login = str(UUID(login)) if login else None
-    engine = create_engine(dify_config.SQLALCHEMY_DATABASE_URI, connect_args={'connect_timeout': 8})
-    params = dict(email=email, login=login)
-    with engine.connect() as conn:
-        conn.execute(text('SET TRANSACTION READ ONLY'))
-        conn.execute(text("SET LOCAL statement_timeout = '8s'"))
-        accounts = conn.execute(text('''SELECT a.id, a.status, a.created_at, a.initialized_at, a.last_login_at,
-            a.email <> lower(a.email) AS stored_has_upper, a.email = :email AS exact_input_match,
-            a.id = CAST(:login AS uuid) AS is_current_login,
-            (SELECT count(*) FROM tenant_account_joins j WHERE j.account_id=a.id) AS workspace_count
-            FROM accounts a WHERE lower(a.email)=lower(:email) OR a.id=CAST(:login AS uuid)
-            ORDER BY a.created_at, a.id LIMIT 7'''), params).mappings().all()
-        emit('account_summary', returned=min(len(accounts),6), truncated=len(accounts)>6,
-             login_id_supplied=bool(login), rbac_enabled=bool(dify_config.RBAC_ENABLED))
-        for row in accounts[:6]: emit('account', **dict(row))
-        joins = conn.execute(text('''SELECT j.account_id, j.tenant_id, j.role AS legacy_join_role,
-            j.current, j.created_at AS joined_at, t.status AS workspace_status, a.id IS NULL AS account_missing
-            FROM tenant_account_joins j LEFT JOIN accounts a ON a.id=j.account_id
-            LEFT JOIN tenants t ON t.id=j.tenant_id
-            WHERE lower(a.email)=lower(:email) OR j.account_id=CAST(:login AS uuid)
-            ORDER BY j.account_id, j.created_at, j.tenant_id LIMIT 19'''), params).mappings().all()
-        emit('membership_summary', returned=min(len(joins),18), truncated=len(joins)>18)
-        for row in joins[:18]: emit('membership', **dict(row))
-except Exception as e:
-    emit('ERROR', error_type=type(e).__name__, sqlstate=getattr(getattr(e,'orig',None),'pgcode',None))
+from configs import dify_config
+from sqlalchemy import create_engine, text
+
+LIKE = '%openai_api_compatible%'
+eng = create_engine(dify_config.SQLALCHEMY_DATABASE_URI, connect_args={'connect_timeout': 8})
+
+def q(conn, sql):
+    try:
+        return conn.execute(text(sql), {'l': LIKE}).mappings().all()
+    except Exception as e:
+        print('QUERY_ERR', type(e).__name__, str(e)[:80])
+        return []
+
+with eng.connect() as conn:
+    conn.execute(text('SET TRANSACTION READ ONLY'))
+    conn.execute(text("SET LOCAL statement_timeout = '8s'"))
+    ms = q(conn, "SELECT tenant_id, provider_name, model_name, model_type, is_valid"
+                 " FROM provider_models WHERE provider_name LIKE :l ORDER BY model_type, model_name")
+    cs = q(conn, "SELECT tenant_id, provider_name, credential_name, model_name, model_type"
+                 " FROM provider_model_credentials WHERE provider_name LIKE :l ORDER BY model_type, model_name")
+    print('MODELS_N=%d' % len(ms))
+    for r in ms[:12]:
+        print('M|t=%s|p=%s|m=%s|mt=%s|valid=%s' % (str(r['tenant_id'])[:8],
+              r['provider_name'].split('/')[-1][:26], r['model_name'][:36], r['model_type'], r['is_valid']))
+    print('CREDS_N=%d' % len(cs))
+    for r in cs[:12]:
+        print('C|t=%s|p=%s|m=%s|mt=%s|n=%s' % (str(r['tenant_id'])[:8],
+              r['provider_name'].split('/')[-1][:26], r['model_name'][:36], r['model_type'],
+              (r['credential_name'] or '')[:20]))
+    mkeys = {(str(r['tenant_id']), r['model_name'], r['model_type']) for r in ms}
+    orph = [r for r in cs if (str(r['tenant_id']), r['model_name'], r['model_type']) not in mkeys]
+    print('ORPHAN_CRED_N=%d' % len(orph))
+    for r in orph[:10]:
+        print('O|t=%s|m=%s|mt=%s|n=%s' % (str(r['tenant_id'])[:8], r['model_name'][:36],
+              r['model_type'], (r['credential_name'] or '')[:20]))
 PY
 
-# 3. 抽取现场邮箱匹配和 pending 删除分支；只读取源码，不调用函数，最多 28 行。
-docker-compose exec -T "$DTR_API" python - <<'PY' 2>&1 | head -30
-import ast
-from pathlib import Path
-path=Path('/app/api/services/account_service.py')
-if not path.exists():
-    print('SOURCE_NOT_FOUND'); raise SystemExit
-source=path.read_text(); lines=source.splitlines(); tree=ast.parse(source)
-checks=[('get_account_by_email_with_case_fallback', ('filter_by(', 'Account.email', 'email.lower', 'return account', 'return query', 'return session')),
-        ('remove_member_from_tenant', ('delete(', 'filter_by(', 'AccountStatus.PENDING', 'remaining_joins', 'TenantAccountJoin.account_id', 'sync_workspace', 'delete_rbac'))]
-for name, needles in checks:
-    nodes=[n for n in ast.walk(tree) if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name==name]
-    if not nodes:
-        print(name+': NOT_FOUND'); continue
-    node=nodes[0]; print(name+':')
-    hits=[(i+1,lines[i].strip()) for i in range(node.lineno-1,node.end_lineno) if any(x in lines[i] for x in needles)]
-    for number,line in hits[:12]: print(str(number)+': '+line)
-    if len(hits)>12: print('TRUNCATED')
-PY
+# 2. 抓 api 最近日志里该报错的 traceback（含函数名与请求路径），确认是哪条代码路径抛的
+docker-compose logs --tail=3000 "$DTR_API" 2>&1 | grep -iE -A12 "custom model record not found" | tail -32
+
+# 3.（浏览器取证，非命令）F12 → Network → 复现一次"保存模型" → 找到 POST .../models 请求，回传：
+#    请求 URL、请求体里的 model / model_type / credential_id(前8位即可) / config_from 字段、响应体。
+#    不要回传 Authorization、Cookie 或 API Key 等凭据字段值。
