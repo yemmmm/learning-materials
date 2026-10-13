@@ -1,0 +1,22 @@
+[
+  {
+    "slide": 1,
+    "title": "本体论如何帮助 Agent 理解与处理业务",
+    "notes": "今天关注 Agent 如何获得业务依据。先认识 Agent 与本体，再看项目如何把业务知识组织起来，最后用一张服务工单说明实际应用路径。"
+  },
+  {
+    "slide": 2,
+    "title": "Agent 怎样完成一个任务",
+    "notes": "可把 Agent 理解为一个会使用工具的工作助手。它可以先查询工单，再读取合同信息，遇到缺失内容时继续查询或提问。工具调用次数和执行步骤因任务而异。\n\n概念来源：[Anthropic：Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)。"
+  },
+  {
+    "slide": 3,
+    "title": "业务任务需要明确的业务含义",
+    "notes": "SLA 是服务水平协议，通常约定服务质量或时间目标。例如，同样写着“4 小时”，可能指首次响应，也可能指恢复服务。计时和适用条件不同，最终结论就可能不同。这里的问题来自案例中需要业务确认的内容，不预设实际口径。\n\n案例来源：[工业服务场景摘要](https://github.com/yemmmm/ontology-platform/blob/main/docs/evaluation-scenarios/industrial-service-v3/modeling-input/scenario-brief.md)。"
+  },
+  {
+    "slide": 4,
+    "title": "帮助 Agent 完成业务任务的几种方法",
+    "notes": "RAG 可简单解释为“先查资料，再根据资料回答”。微调可理解为“用样本训练模型适应某类工作”。此处对比常见的文档片段 RAG；RAG 也可以读取结构化知识或本体。本体提供的定义和关系，同样需要通过检索或工具送入 Agent 的上下文。检索、模型训练和形式推理是不同机制；形式推理结论需要相应公理、事实和推理器支持。\n\n来源：[RAG 原始论文](https://arxiv.org/abs/2005.11401)、[LoRA 论文中的任务适配方法](https://arxiv.org/abs/2106.09685)、[W3C OWL 2 Primer](https://www.w3.org/TR/owl2-primer/)。"
+  }
+]
