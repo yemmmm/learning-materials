@@ -9,9 +9,11 @@
 - [离线 HTML 演示](ontology-agent-slides-v3.4.html)
 - [22 页 PDF](ontology-agent-slides-v3.4.pdf)
 - [逐页内容审阅稿](ontology-agent-content-v3.4.md)
-- [讲者备注与来源](ontology-agent-speaker-notes-v3.4.md)
+- [完整逐页演讲稿与参考资料](ontology-agent-speech-v3.4.md)
 - [去重审阅与新旧页码对照](ontology-agent-review-v3.4.md)
 - [完整 ZIP 包](ontology-agent-v3.4.zip)
+
+配套演讲稿已改为可以直接讲述的口吻，含逐页解释、案例与自然过渡。正文约 6,100 字，按约 30 分钟准备；末尾 13 个 FAQ 写成现场回答，按需选用。参考资料集中在稿末，HTML 按 `N` 或点击“讲稿”可阅读当页全文。原 speaker-notes 文件也同步为完整口述稿。
 
 P04「现实世界、本体、形式表达」之后立即接 P05「RDF 与 OWL 分别做什么」。定义与事实合入知识图谱页，三处 Agent 分工合成一页，语义复用与适用条件合成一页，平台定位与构建、使用说明合成一页。结尾缩短为三句话，FAQ 调整为附录。
 
@@ -91,7 +93,7 @@ P04「现实世界、本体、形式表达」之后立即接 P05「RDF 与 OWL �
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| v3.4 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.4.pdf) | [内容审阅稿](ontology-agent-content-v3.4.md) · [讲者备注](ontology-agent-speaker-notes-v3.4.md) | [HTML](ontology-agent-slides-v3.4.html) · [ZIP](ontology-agent-v3.4.zip) | 27 页合为 22 页；三层后紧接 RDF/OWL；[合并与页码对照](ontology-agent-review-v3.4.md) |
+| v3.4 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.4.pdf) | [内容审阅稿](ontology-agent-content-v3.4.md) · [完整演讲稿](ontology-agent-speech-v3.4.md) | [HTML](ontology-agent-slides-v3.4.html) · [ZIP](ontology-agent-v3.4.zip) | 27 页合为 22 页；三层后紧接 RDF/OWL；[合并与页码对照](ontology-agent-review-v3.4.md) |
 | v3.3 | 2026-10-15 | [27 页 PDF](ontology-agent-slides-v3.3.pdf) | [内容审阅稿](ontology-agent-content-v3.3.md) · [讲者备注](ontology-agent-speaker-notes-v3.3.md) | [HTML](ontology-agent-slides-v3.3.html) · [ZIP](ontology-agent-v3.3.zip) | 一页速览 SKOS、SWRL、OWL-S、SPARQL；保留此前内容 |
 | v3.2 | 2026-10-15 | [26 页 PDF](ontology-agent-slides-v3.2.pdf) | [内容审阅稿](ontology-agent-content-v3.2.md) · [讲者备注](ontology-agent-speaker-notes-v3.2.md) | [HTML](ontology-agent-slides-v3.2.html) · [ZIP](ontology-agent-v3.2.zip) | 新增两条 AI 路线、专家系统、优缺点与 Agent 互补；保留截图及 13 个 FAQ |
 | v3.1 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.1.pdf) | [内容审阅稿](ontology-agent-content-v3.1.md) · [讲者备注](ontology-agent-speaker-notes-v3.1.md) | [HTML](ontology-agent-slides-v3.1.html) · [ZIP](ontology-agent-v3.1.zip) | 每页内容增强；实际截图；恢复 13 个 FAQ；语义交互 |
