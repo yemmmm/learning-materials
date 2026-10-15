@@ -2,9 +2,24 @@
 
 固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的可编辑 PowerPoint、演示 PDF、配套讲稿与历史离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
 
+## v3.6 本体难点与应用门槛
+
+当前推荐版本，**23 页：20 页主线 + 3 页答疑附录**。首页标题为“本体论思想在agent中的应用”，保留全部 13 个 FAQ 和完整口述演讲稿。
+
+- [离线 HTML 演示](ontology-agent-slides-v3.6.html)
+- [23 页 PDF](ontology-agent-slides-v3.6.pdf)
+- [完整逐页演讲稿与参考资料](ontology-agent-speech-v3.6.md)
+- [逐页内容审阅稿](ontology-agent-content-v3.6.md)
+- [修订说明与页码对照](ontology-agent-review-v3.6.md)
+- [完整 ZIP 包](ontology-agent-v3.6.zip)
+
+新增 P15「本体的难点与代价：为何难成通用默认方案」，介绍业务共识、建模接入、维护负担与表达边界，随后用 P16 讨论“何时值得建本体”。左下角小注说明生物医学等领域已有成熟应用，不将推广门槛等同于没有广泛应用。
+
+平台三页顺延至 P18–P20，FAQ 为 P21–P23。讲稿过渡、目录与返回链接同步更新；23 页排版、离线交互、讲稿一致性与 PDF 页序已核对。下载 HTML 后可离线打开，按 N 阅读当页讲稿。
+
 ## v3.5 平台介绍重构
 
-当前推荐版本，**22 页：19 页主线 + 3 页按需答疑附录**。沿用暖白／森林绿风格，保留全部 13 个 FAQ 和完整口述演讲稿。
+此前版本，**22 页：19 页主线 + 3 页按需答疑附录**。沿用暖白／森林绿风格，保留全部 13 个 FAQ 和完整口述演讲稿。
 
 - [离线 HTML 演示](ontology-agent-slides-v3.5.html)
 - [22 页 PDF](ontology-agent-slides-v3.5.pdf)
@@ -110,6 +125,7 @@ P04「现实世界、本体、形式表达」之后立即接 P05「RDF 与 OWL �
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| v3.6 | 2026-10-15 | [23 页 PDF](ontology-agent-slides-v3.6.pdf) | [内容审阅稿](ontology-agent-content-v3.6.md) · [完整演讲稿](ontology-agent-speech-v3.6.md) | [HTML](ontology-agent-slides-v3.6.html) · [ZIP](ontology-agent-v3.6.zip) | 首页换题；新增难点与代价；[修订说明](ontology-agent-review-v3.6.md) |
 | v3.5 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.5.pdf) | [内容审阅稿](ontology-agent-content-v3.5.md) · [完整演讲稿](ontology-agent-speech-v3.5.md) | [HTML](ontology-agent-slides-v3.5.html) · [ZIP](ontology-agent-v3.5.zip) | 平台三页重构，突出建模 Agent；[累计修订说明](ontology-agent-review-v3.5.md) |
 | v3.4 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.4.pdf) | [内容审阅稿](ontology-agent-content-v3.4.md) · [完整演讲稿](ontology-agent-speech-v3.4.md) | [HTML](ontology-agent-slides-v3.4.html) · [ZIP](ontology-agent-v3.4.zip) | 27 页合为 22 页；三层后紧接 RDF/OWL；[合并与页码对照](ontology-agent-review-v3.4.md) |
 | v3.3 | 2026-10-15 | [27 页 PDF](ontology-agent-slides-v3.3.pdf) | [内容审阅稿](ontology-agent-content-v3.3.md) · [讲者备注](ontology-agent-speaker-notes-v3.3.md) | [HTML](ontology-agent-slides-v3.3.html) · [ZIP](ontology-agent-v3.3.zip) | 一页速览 SKOS、SWRL、OWL-S、SPARQL；保留此前内容 |
