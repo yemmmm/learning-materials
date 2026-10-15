@@ -2,7 +2,23 @@
 
 固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的可编辑 PowerPoint、演示 PDF、配套讲稿与历史离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
 
-## v3.0 最新成品
+## v3.1 HTML 内容增强版
+
+当前推荐阅读版本，共 22 页。保留差旅审批主线，丰富每页的解释、例子、图示与依据；新增 OntoWeave 模型浏览截图，结尾恢复旧版 13 个 FAQ。按本轮要求优先完善内容，版式先保证基本可读。
+
+- [离线 HTML 演示](ontology-agent-slides-v3.1.html)
+- [逐页内容审阅稿](ontology-agent-content-v3.1.md)
+- [22 页 PDF](ontology-agent-slides-v3.1.pdf)
+- [讲者备注与来源](ontology-agent-speaker-notes-v3.1.md)
+- [完整 ZIP 包](ontology-agent-v3.1.zip)
+
+使用 Frontend Slides 的 HTML 演示方式，沿用暖白／森林绿风格，复用封面素材。字体、图片、样式和交互全部内嵌，下载 HTML 后可离线打开。G 目录、N 备注、S 分步、A 展开本页、F 全屏；E 编辑正文，Ctrl+S 下载修改后的 HTML。手机支持滑动翻页，建议横屏阅读。
+
+第 17 页截图可放大；审批政策对照、模型元素高亮、负责人变化、推导与矛盾、事实缺失均为教学交互。截图中的 156 个节点与 225 条关系仅为当时界面状态。未把这些数字当作模型质量或案例运行证明。
+
+已检查 22 页基本内容边界、13 个 FAQ、离线资产、关键交互、手机固定画布与静态 PDF。PDF 保留默认教学事实与全部答案。
+
+## v3.0 PPTX 归档
 
 18 页，已按审阅通过的草稿制作，建议讲述 25–30 分钟。
 
@@ -29,6 +45,7 @@
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| v3.1 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.1.pdf) | [内容审阅稿](ontology-agent-content-v3.1.md) · [讲者备注](ontology-agent-speaker-notes-v3.1.md) | [HTML](ontology-agent-slides-v3.1.html) · [ZIP](ontology-agent-v3.1.zip) | 每页内容增强；实际截图；恢复 13 个 FAQ；语义交互 |
 | v3.0 | 2026-10-15 | [18 页 PDF](ontology-agent-slides-v3.0.pdf) | [讲者备注](ontology-agent-speaker-notes-v3.0.md) | [PPTX](ontology-agent-slides-v3.0.pptx) · [ZIP](ontology-agent-v3.0.zip) | 差旅审批贯穿；本体三层区分、常见组成、Agent 使用与 OntoWeave 简介 |
 | v2.3 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.3.pdf) | [同步演讲稿](ontology-agent-speech-v2.3.md) | [离线 HTML](ontology-agent-slides-v2.3.html) · [ZIP](ontology-agent-v2.3.zip) | 首页可见性；相似政策对照；聚焦理解的方法；本体定义与 Palantir 应用重构 |
 | v2.2 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.2.pdf) | [同步演讲稿](ontology-agent-speech-v2.2.md) | [离线 HTML](ontology-agent-slides-v2.2.html) · [ZIP](ontology-agent-v2.2.zip) | 架构与 Team 重绘；七视角完整显示；13 个 FAQ；附可编辑架构图 |
@@ -69,7 +86,7 @@ P25 保留截至 2026-10-14 的历史验证口径；P20/P23 按 2026-10-15 的�
 - 演讲稿：`ontology-agent-speech-v<主版本>.<次版本>.md`。
 - 交互演示：`ontology-agent-slides-v<主版本>.<次版本>.html`，配套来源放在 `ontology-agent-resources-v<主版本>.<次版本>/`。
 - 离线阅读包：`ontology-agent-v<主版本>.<次版本>.zip`。
-- 同一套发布产物使用相同版本号；后续小幅修订使用 `v3.1` 等递增版本号。新版本新增文件，保留已有版本，并在上表补充记录。
+- 同一套发布产物使用相同版本号；后续小幅修订使用 `v3.2` 等递增版本号。新版本新增文件，保留已有版本，并在上表补充记录。
 
 本次首批归档使用 `v2.0`，对应制作项目中现有的 v2 演示。
 
