@@ -2,9 +2,26 @@
 
 固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的可编辑 PowerPoint、演示 PDF、配套讲稿与历史离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
 
+## v3.5 平台介绍重构
+
+当前推荐版本，**22 页：19 页主线 + 3 页按需答疑附录**。沿用暖白／森林绿风格，保留全部 13 个 FAQ 和完整口述演讲稿。
+
+- [离线 HTML 演示](ontology-agent-slides-v3.5.html)
+- [22 页 PDF](ontology-agent-slides-v3.5.pdf)
+- [完整逐页演讲稿与参考资料](ontology-agent-speech-v3.5.md)
+- [逐页内容审阅稿](ontology-agent-content-v3.5.md)
+- [本轮修订说明与页码对照](ontology-agent-review-v3.5.md)
+- [完整 ZIP 包](ontology-agent-v3.5.zip)
+
+P17 重绘架构，单独突出建模 Agent；P18 新增平台四项能力；P19 展示原始界面截图，并在讲稿中自然结束主讲。原来的独立收束页删除，平台介绍形成“架构 → 能力 → 界面”的顺序。
+
+此前本地调整一并发布：技术速览紧接 RDF/OWL；本体与知识图谱页重写，改用概念与具体知识的对应图，并移除负责人变更交互。目录、FAQ 返回链接和完整口述讲稿均同步。
+
+单个 HTML 下载后可离线打开；按 `N` 查看当页完整讲稿，点击截图放大。PDF 展开所有 FAQ。旧版本继续归档供对照。
+
 ## v3.4 内容去重与页序调整
 
-当前推荐版本，**22 页：19 页主线 + 3 页按需答疑附录**。审阅 v3.3 后合并重复说明，保留原截图、两条 AI 路线与专家系统、相关技术速览和全部 13 个 FAQ。
+此前版本，**22 页：19 页主线 + 3 页按需答疑附录**。审阅 v3.3 后合并重复说明，保留原截图、两条 AI 路线与专家系统、相关技术速览和全部 13 个 FAQ。
 
 - [离线 HTML 演示](ontology-agent-slides-v3.4.html)
 - [22 页 PDF](ontology-agent-slides-v3.4.pdf)
@@ -93,6 +110,7 @@ P04「现实世界、本体、形式表达」之后立即接 P05「RDF 与 OWL �
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| v3.5 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.5.pdf) | [内容审阅稿](ontology-agent-content-v3.5.md) · [完整演讲稿](ontology-agent-speech-v3.5.md) | [HTML](ontology-agent-slides-v3.5.html) · [ZIP](ontology-agent-v3.5.zip) | 平台三页重构，突出建模 Agent；[累计修订说明](ontology-agent-review-v3.5.md) |
 | v3.4 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.4.pdf) | [内容审阅稿](ontology-agent-content-v3.4.md) · [完整演讲稿](ontology-agent-speech-v3.4.md) | [HTML](ontology-agent-slides-v3.4.html) · [ZIP](ontology-agent-v3.4.zip) | 27 页合为 22 页；三层后紧接 RDF/OWL；[合并与页码对照](ontology-agent-review-v3.4.md) |
 | v3.3 | 2026-10-15 | [27 页 PDF](ontology-agent-slides-v3.3.pdf) | [内容审阅稿](ontology-agent-content-v3.3.md) · [讲者备注](ontology-agent-speaker-notes-v3.3.md) | [HTML](ontology-agent-slides-v3.3.html) · [ZIP](ontology-agent-v3.3.zip) | 一页速览 SKOS、SWRL、OWL-S、SPARQL；保留此前内容 |
 | v3.2 | 2026-10-15 | [26 页 PDF](ontology-agent-slides-v3.2.pdf) | [内容审阅稿](ontology-agent-content-v3.2.md) · [讲者备注](ontology-agent-speaker-notes-v3.2.md) | [HTML](ontology-agent-slides-v3.2.html) · [ZIP](ontology-agent-v3.2.zip) | 新增两条 AI 路线、专家系统、优缺点与 Agent 互补；保留截图及 13 个 FAQ |
