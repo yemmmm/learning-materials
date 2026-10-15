@@ -2,6 +2,14 @@
 
 固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的演示 PDF、配套演讲稿与离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
 
+## v3.0 内容草稿
+
+[18 页逐页草稿](ontology-agent-outline-v3.0-draft.md)，归档于 2026-10-15，建议讲述 25–30 分钟。
+
+围绕“张三的差旅申请该由谁审批”展开，依次介绍本体的概念、现实世界与语义模型及形式表达的区别、Agent 如何使用本体，最后用两页简介 OntoWeave。草稿包含每页内容、画面构想、讲述衔接与必要小注，尚未制作成演示成品。
+
+原项目内部参考资料按原仓库路径标识，外部概念来源保留链接。
+
 ## 版本
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
@@ -15,7 +23,7 @@ v2.1 的 HTML 已内嵌字体、图形、交互和备注，下载 HTML 与同名
 
 ## v2.3 本轮修订
 
-最新版为 v2.3。下载 [ZIP 阅读包](ontology-agent-v2.3.zip) 后，解压并打开 `ontology-agent-slides-v2.3.html`，其中包含同步 PDF、演讲稿与配套资源。
+最新成品版为 v2.3。下载 [ZIP 阅读包](ontology-agent-v2.3.zip) 后，解压并打开 `ontology-agent-slides-v2.3.html`，其中包含同步 PDF、演讲稿与配套资源。
 
 - 首页贯穿问题移至标题下方的主体区域，副标题改为“让 Agent 读懂业务含义，找到判断依据”。
 - P04/P05 用 A/B 店两份完整相似政策作对照：签收起算与付款起算给出 120/192 小时；A101 属于 A 店，B 店用于展示错套政策的后果。
@@ -39,6 +47,7 @@ P25 保留截至 2026-10-14 的历史验证口径；P20/P23 按 2026-10-15 的�
 
 ## 文件命名
 
+- 内容草稿：`ontology-agent-outline-v<主版本>.<次版本>-draft.md`。
 - 演示：`ontology-agent-slides-v<主版本>.<次版本>.pdf`。
 - 演讲稿：`ontology-agent-speech-v<主版本>.<次版本>.md`。
 - 交互演示：`ontology-agent-slides-v<主版本>.<次版本>.html`，配套来源放在 `ontology-agent-resources-v<主版本>.<次版本>/`。
