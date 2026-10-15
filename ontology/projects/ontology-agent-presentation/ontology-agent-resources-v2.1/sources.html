@@ -1,0 +1,359 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width,initial-scale=1"><title>来源与项目证据 · 本体与 Agent</title><style>body{max-width:1100px;margin:60px auto;padding:0 30px;background:#f5f3ec;color:#16382e;font:18px/1.8 sans-serif}h1{font-size:38px}h2{font-size:27px;margin-top:60px}a{color:#2c7053}pre{white-space:pre-wrap;overflow-wrap:anywhere;font:15px/1.8 monospace;background:#e9ede2;padding:25px}.origin{color:#617068;font-size:15px}section{scroll-margin-top:30px}</style><a href="../ontology-agent-slides-v2.1.html">返回演示入口</a><h1>来源与项目证据</h1><p>以下为制作时的项目文件摘录。历史通过、当前部分验证与教学案例分别保留。外部标准及产品事实的原始来源见逐页讲解备注。</p><section id="project"><h2>项目名称与技术栈 · 来源摘录</h2><p class="origin">原始路径：<code>README.md</code> · 2026-10-14 内容摘录</p><details open><summary>查看原文摘录</summary><pre>## Project Name
+
+2026-10-14 起，项目名称为 **OntoWeave**（中文名：织义），原名 Ontology Platform。
+当前文档、界面、API/MCP 服务展示名与软件包元数据统一使用新名称；历史需求、交付记录与
+验收证据保留原有名称及其时点含义。
+
+为兼容现有部署与模型数据，工作目录 `ontology-platform`、systemd unit
+`ontology-platform.service`、数据库／容器名称、RDF IRI／URN、MCP 配置键
+`ontology-platform`／`ontology_platform`、环境变量、凭据路径与浏览器存储键继续沿用。
+这些是技术标识，不是当前产品名称；本次更名不要求迁移数据或重新配置 Agent。</pre></details></section><section id="r4"><h2>v4.0 多视角与当前能力边界 · 来源摘录</h2><p class="origin">原始路径：<code>docs/requirements/requirements-v4.0.md</code> · 2026-10-14 内容摘录</p><details open><summary>查看原文摘录</summary><pre>### R4.0-009 多视角真实建模与独立语义验收
+
+**2026-10-14 下午GLM小链追加：部分验证／PARTIAL。** 本次只覆盖资产—故障—工单
+及必要共享定义，49候选项与6实际关系语句已应用至revision3；3题公开反馈有实际治理
+返回及答案、无漂移，不替代冻结7题的正式独立Consumer／Judge。本轮六关系的源结构
+说明不足与Consumer已收到却未充分解释的时间／空值限定分别定位。第二轮r5已审核未
+应用，被供应商rateLimitExceeded阻塞；已用2/3轮、1次fresh start，余1轮。无完整L1、
+120分钟目标或L2／L3结论，不替代全场景A1—A12。见
+[本轮复盘](../delivery/modeling-retrospectives/2026-10-14-glm-smallchain-retrospective.md)。
+
+**2026-10-14 两组小链验证追加**：deepseek-flash/high的A／B资产—故障—工单链分别
+应用24／20候选项、revision2／3；有效公开／隐藏报告同组冻结及模型绑定一致，逐题
+实际返回与保留原件一致、recheck稳定、无漂移。原独立裁决A3/7、B5/6，均未完整通过；
+不同题池／切片／测试补充不证明L2重复性。原首次验收零报告失败保留；本轮不改Judge
+裁决或冻结，结构依据与业务未知、Task范围与必答点的具体衔接仍待复核。整体继续
+PARTIAL／部分验证，不替代全场景A1—A12、映射与L2／L3。B第二轮增量已启动后被
+账户HTTP402阻塞，0新提交／写入；已用A1/3、B2/3，余2／1，不互借。
+范围、逐项定位及证据见[两组复盘](../delivery/modeling-retrospectives/2026-10-14-deepseek-two-task-retrospective.md)。
+
+**2026-10-13 晚间验证追加**：GLM Flash high任务S1初建/同run修模取得10次applied、
+14次dry-run和147资源/838 statements的受治理关联扫描；R4.0-024为生产有界自查证据，
+不替代独立业务验收。完整冻结30题，实际隐藏8题批次因300秒child-timeout产生0份
+逐题报告/裁决，公开22题未验收，L1仍部分验证，不能归为模型质量失败。R4.0-015／
+R4.3-015本轮早期反馈条件验证未通过：阶段检查点401与Coordinator/Delivery责任链
+衔接阻断；已有工程PASS保留。R4.0-023自主Delivery有外层补位，A13未证明。
+R4.0-029复用身份已采用，但coverage对历史已applied计划重验旧读导致反复纠错，保持
+部分验证。第3轮检查点接续在候选/计划交接处WAITING_OWNER，3/3轮、2次fresh start，
+不以启动或资源保留作为恢复成功。详见[本轮复盘](../delivery/modeling-retrospectives/2026-10-13-glm-flash-high-retrospective.md)。
+
+
+2026-10-13 关联验证追加：最近FlashX/high与Luna/medium两次从零任务均停止且授权撤销，
+整体仍 **PARTIAL／部分验证**。FlashX实际应用、治理读取与局部裁决已有原件，报告记载
+7/23执行、3通过／4不通过、16未执行；8条响应复核drift影响7个已执行问题，前后模型
+绑定稳定与响应漂移须分开，尚不确认局部独立PASS资格或直接认定模型缺失。Luna只有
+5条CQ草稿，无冻结、模型应用或语义验收。未覆盖全部A1—A12、映射与L2／L3；历史其他
+冻结范围有效证据保留，不拼接新旧成绩。见[两次任务复盘](../delivery/modeling-retrospectives/2026-10-13-two-task-retrospective.md)。
+
+同日第二次复盘校正：原四项消费不通过已沿获准源、候选、61组映射deferred处置、
+revision5完整治理扫描与回答定位；部分源结构留在未物化候选分析，另有回答方向和
+源忠实度/限定问题。不能统一推为检索漏召回，也不能从Schema补造确认业务规则。
+8份原查询响应的cache_hit=false与后端快照复用true暴露重放比较的非语义元数据缺陷，
+本次已作窄工程修复；缺历史第二份正文，不能据此重判原裁决或确认3题独立PASS资格。
+评分来源强度及核心/映射分段边界仍交原独立流程核对。用户授权的简易修复不恢复生产
+或验收，整体继续PARTIAL／部分验证，新增工程证据见
+[统一测试记录](../delivery/tests/2026-10-13-retrospective-simple-repairs-test-record.md)。
+
+2026-10-08 当前目标调整：规则脚本与 SHACL／OWL 结果、回执的交付和完成要求由
+[R4.0-025](#r40-025-校验推理与业务规则专用建模能力阶段性退役) 替代，普通业务条件、计算口径与实际检索仍须独立验收。
+本次仅登记，不修改当前运行合同、原冻结题集、报告或下列历史结论。
+
+**当前有界真实结果（2026-10-06 09:46 UTC）**：source11生产模型及Consumer提示修复49471e9后，新的完整公开18/18、完整隐藏8/8独立PASS。两份新报告同源生产状态、同冻结摘要、同前后模型绑定，互斥题集并集等于全部26题；157条引用资格通过、重放stable且无漂移，不拼接源run旧隐藏PASS。公开S4 `layer-separated-s4-public1` attempt-0002；S4 hidden1只核验旧PASS（会话0），不算新回归；Claude适配Host现成只读continuation执行入口后，`layer-separated-fresh-hidden2` attempt-0003全新隐藏回归已完成。原source11 25/26 REVISE、失败记录和源证据不改。全部新子会话/进程/代理结束，临时Finance read与bootstrap密钥撤销；本次新增授权2/3、剩1，累计11/12，验收0 start。该结果仅四获准切片CQ L0/L1；旧重复图资源及一项unsupported读取仍披露，development_stub非真实DL推理PASS，全部A1—A12、SQL/API与L2/L3未完成，整体PARTIAL。详见[实际验收记录](../delivery/records/2026-10-06-v4-glmflash-semantic-acceptance-record.md)。以下保留历史阶段状态。</pre></details></section><section id="acceptance"><h2>2026-10-06 有界语义验收 · 来源摘录</h2><p class="origin">原始路径：<code>docs/delivery/records/2026-10-06-v4-glmflash-semantic-acceptance-record.md</code> · 2026-10-14 内容摘录</p><details open><summary>查看原文摘录</summary><pre>## 最新：新提示下公开18/18、隐藏8/8 PASS；有界CQ完成，V4整体PARTIAL，剩余授权已收回
+
+用户随后明确“收回剩余次数”：剩余1次fresh semantic start授权已撤销，当前可用0次；累计原授权12次、实际已用11次、撤销1次，最新grant已用2/3、撤销1次。Host台账状态改为revoked，不再启动新的建模。已完成模型、验收结果、历史证据和未验收范围不变；下文余额1次为收回前的历史状态。
+
+用户另授权清除除最终建模以外的全部测试项目。通过现有项目DELETE接口清理37个历史测试项目，均HTTP204；项目列表由38个降为1个。保留最终生产绑定项目`d50aa592-150d-4f73-afd8-84d267cd2405`及本体`dbef2380-21c1-40ac-85c5-1c4013d8b7e9`；项目名称仍为首次创建时的`R2.3 team r4009-20261005-glmflashhigh-auth03-start1`，后续生产接续复用此项目，不以名称误删。最终项目build-context除generated_at外清理前后完全相等，本体元数据不变；临时清理bootstrap已撤销。清单、逐项目删除结果和前后核对保存在`workspaces/v4-acceptance-20261005/test-project-cleanup-result.json`及对应inventory/context文件。历史本地运行日志和验收证据保留；已删除项目的历史检查点不再代表可恢复的在线资源。
+
+截至2026-10-06 09:46 UTC，Consumer提示修复49471e9后的两批**全新完整独立验收**均PASS：公开18/18、隐藏8/8。这是一份Host覆盖汇总，底层仍是两份独立完整batch报告，不是单一合并报告。两批同source11生产状态、同freeze-0003摘要、同前后模型绑定，题目集合互斥且并集等于全部冻结26题；没有拼接旧隐藏PASS。公开/隐藏分别51/106条引用通过原响应、请求/结果摘要与分页复核，157条重放stable、零漂移、零unavailable、零未执行题。四个实际Consumer/Judge隔离配置均GLM5.3Flash/high，两个新Consumer实际会话均已核实加载修复提示。source11原25/26 REVISE及所有失败证据保持不变。
+
+| 新独立批次 | 输出run / attempt | 实际结果与退出 |
+| --- | --- | --- |
+| 完整公开18题 | `r4009-20261006-glmflashhigh-layer-separated-s4-public1` / `attempt-0002` | 18/18 PASS（pan5/5、slice13/13）；82成功读取，Consumer/Judge各1次拒绝后继续；managed exit0，bootstrap撤销 |
+| 完整隐藏8题 | `r4009-20261006-glmflashhigh-layer-separated-fresh-hidden2` / `attempt-0003` | 8/8 PASS（pan3/3、slice5/5）；112成功读取，Consumer/Judge各1次拒绝后继续；Host同步进程exit0，bootstrap撤销 |
+
+S4 `layer-separated-s4-hidden1`仅复核源run已有完整隐藏PASS，`verification-only-closing`、模型会话0，正常exit0；保留此记录，**不计作新提示下的回归**。Claude Code GLM5.3/high随后适配Host只读启动脚本，复用原root锁、检查点/写尾/冻结/交接复核及既有`_run_cq_acceptance` continuation执行路径，在新目录显式做提示变更后的全隐藏回归；未改平台M34合同、评分、题目或源证据，未添加force/retest产品机制。启动脚本py_compile、现成安全API调用形状检查通过，实际执行结果以上述新报告为准。证据资格脚本另由Claude补可选artifact_root，防止S4报告保留源run_id时误读旧响应；默认/显式同根结果一致，未增加查询或改裁决。
+
+公开报告位于新run的`acceptance-v3/reports/cq-batch-0003/attempt-0002/batch-report.json`，隐藏报告位于各自新run的同目录`attempt-0003/batch-report.json`；Host资格/覆盖汇总为`workspaces/v4-acceptance-20261005/start11-s4-regression-host-summary.json`。freeze摘要仍`sha256:b90dbc5261d0172880eab44cf5f1c22e913890ca528bb58904a7fc6b023f1089`，模型绑定摘要`sha256:2216e09007e619f59a28cf4a669c51415b9a1fe92a1c215a0a75324aebf30aef`。新验收无生产apply。全部子会话、代理、forwarder及临时目录正常关闭；Finance临时read密钥和清理用bootstrap撤销、Finance明文从私有文件移除，模型/检查点/历史证据保留。本次新增授权实际2/3，累计11/12，剩1次；只读验收消耗0，不为耗尽余额再建模。
+
+该PASS仅覆盖获准四切片的冻结CQ L0/L1，**不等于V4或全部A1—A12完成**。已披露旧重复predicate/statements仍在图中（当前挂载Batch无安全删除合同），restricted-cost-scope读取unsupported且未推断不存在；真实DL推理未执行，`development_stub`不算真实推理PASS；L2/L3及实际SQL/API验收仍未执行。整体V4继续PARTIAL。
+
+本段可观察阶段墙钟：公开新验收08:55:16—09:15:16约20分钟；旧隐藏仅核验09:16:15—09:16:18约3秒；显式回归入口定位/Claude适配约09:16—09:29共13分钟；新隐藏09:29:25—09:45:31约16分钟；最后资格/密钥/记录收尾约2分钟。语义消费/评分/重放阶段与Host/脚本阶段分列；这些不是剥离LLM等待后的有效工时，未测有效语义占比，不伪造计时。已停止扩展平台/harness，本次最短后续通路是保留上述完整证据并按未验收范围另行安排。
+
+#</pre></details></section><section id="retirement"><h2>R4.0-025 当前退役范围 · 来源摘录</h2><p class="origin">原始路径：<code>docs/requirements/requirements-v4.0.md</code> · 2026-10-14 内容摘录</p><details open><summary>查看原文摘录</summary><pre>### R4.0-025 校验推理与业务规则专用建模能力阶段性退役
+
+状态：2026-10-08 已按本条范围实施专用能力退役，并同步当前接口、Task／Profile／角色／
+Skill、候选、Protocol、交接和恢复所用合同。开发回归及隔离真实接口验证通过；
+未启动、继续或修复真实建模，未新增建模额度，未进行独立业务语义验收。
+实施边界与证据见[交付记录](../delivery/records/2026-10-08-r4-0-025-retirement-delivery-record.md)。
+
+**问题与目标**：现阶段优先完善业务资料澄清、概念与关系表达、确定性写入、实际读回及
+受治理语义检索，取得真实建模质量与业务问题回答质量证据。SHACL 专用约束建模、OWL
+自动推理及业务规则的脚本化／程序化合同与当前流程配合不足，增加了产物、调用与交接
+复杂度。本条阶段性退役这些专用能力及其主流程依赖，保留业务知识和必要写入校验。
+此决定不否定校验与推理的价值，也不认定它们是历史建模失败的唯一或主要原因。
+
+#### 1. 退役能力与保留边界
+
+| 能力 | 本期退役范围 | 继续保留 |
+| --- | --- | --- |
+| SHACL | 专用 Shape 创建／修改／读取与指导、SHACL 校验运行／报告消费，以及候选、提示、交接和验收对它们的要求 | 独立于 SHACL 的现有基础写入合同校验；普通概念、属性和关系表达 |
+| OWL 图推理 | 自动一致性／分类／蕴含运行、推理派生结果及其专用读取／有效性状态、推理回执完成门 | 来源已确认并显式建模的分类、层级和关系；通用 RDF 存储与受治理检索 |
+| 业务规则专用建模 | 专用 `rule_definition` 注解合同、规则脚本／语言／版本／执行环境的维护要求、程序化输入输出与求值／推导约定 | 普通业务规则概念、语义说明及与对象／Action／流程的关系；已确认条件、阈值、计算口径、范围、例外与未知 |
+
+- 不再要求 Agent 创建 Shape、运行 SHACL／OWL、提交专用规则注解或编写业务脚本，
+  不以缺少这些产物／结果判定建模未完成、模型缺陷或待补验能力。
+- 业务规则仍是业务知识。例如“未验收工单不能关闭”“SLA 从报修时间开始计时”必须按
+  资料正确表达并可检索；不要求将其包装为可执行规则或强制拆成程序化输入输出实体。
+  源材料中的脚本可作为普通说明材料保留，不再维护专用脚本合同或要求 Agent 补写脚本。
+- 退役的是自动推理机制，不按 `owl`／`rule`／`shape` 等名称批量删除资源或词汇。
+  已确认的类型、子类与关系可以显式表达；不把未表达内容自动当作已推导事实。
+- 保留 R4.0-022 已完成的旧执行器退役结果，不新增替代规则执行器、SHACL 替代体系、
+  自研推理框架或能力切换／兼容模式。平台仍不自动执行业务脚本、产生业务结果或执行 Action。
+- 保留已有模型中的普通业务知识与历史交付／验收记录；专用历史数据和共享依赖的实际
+  保留边界已按实际依赖确定：保留历史记录、既有数据库模型／迁移和共享恢复结构，
+  当前 scope／投影排除专用派生内容；不执行历史数据迁移或批量资源清理。</pre></details></section><section id="team"><h2>Modeling Team 职责与建模方法 · 来源摘录</h2><p class="origin">原始路径：<code>modeling_team/skills/README.md</code> · 2026-10-14 内容摘录</p><details open><summary>查看原文摘录</summary><pre># Modeling Team 内部技能
+
+Team 与 Host 的引用式交接见 [材料工具合同](../references/handoff-materials.md)。
+
+此目录集中保存 Team 成员使用的技能，由角色包或验收 Runtime 按当前 Task/Profile 加载。
+不链接到项目的 `.agents/skills/`；宿主 Delivery Agent 使用
+独立 [delivery](delivery/SKILL.md) 技能和受限 Host 工具推进建模、观察和修复；
+外部技术宿主使用 [`modeling-dev-loop`](../../skills/modeling-dev-loop/SKILL.md) 选择模式、准备并
+接入 Delivery 会话，或继续已有手动监督。测试代答者不加载这两个技能，不接收私有历史或工具。
+
+| 成员 / 执行模式 | 使用的技能 | 角色合同 |
+| --- | --- | --- |
+| 独立 Delivery（Host 私有会话） | [delivery](delivery/SKILL.md) | [delivery](../agent-packages/delivery/package.yaml) |
+| Modeling | [ontology-modeling](ontology-modeling/SKILL.md) | [modeling](../agent-packages/modeling/package.yaml) |
+| Coordinator | 仅角色提示与声明的参考合同 | [coordinator](../agent-packages/coordinator/package.yaml) |
+| Protocol | 仅角色提示与声明的参考合同 | [protocol](../agent-packages/protocol/package.yaml) |
+| Competency Question | [competency-question-authoring](competency-question-authoring/SKILL.md) | [competency-question](../agent-packages/competency-question/package.yaml) |
+| Source Specialist（互操作 smoke） | 仅角色提示 | [source-specialist](../agent-packages/source-specialist/package.yaml) |
+| Acceptance（生产 Team 中的角色） | [acceptance](acceptance/SKILL.md) | [acceptance](../agent-packages/acceptance/package.yaml) |
+| Source Examiner（单题验收） | [source-examiner](source-examiner/SKILL.md) | [source-examiner](../agent-packages/source-examiner/package.yaml) |
+| Platform Examiner（单题验收） | [platform-examiner](platform-examiner/SKILL.md) | [platform-examiner](../agent-packages/platform-examiner/package.yaml) |
+| Acceptance Examiner（旧 R2.3 单题裁判） | [lean-acceptance-examiner](lean-acceptance-examiner/SKILL.md) | [acceptance-examiner](../agent-packages/acceptance-examiner/package.yaml) |
+| Platform Examiner / 独立 Acceptance Judge（R3.0-011 批量验收） | [v3-acceptance-batch](v3-acceptance-batch/SKILL.md) | [v3-acceptance-batch](../agent-packages/v3-acceptance-batch/package.yaml) |
+
+角色提示规定职责、权限、输入输出和协作，Skill 提供可复用的专业方法。Modeling 与 CQ 分别加载
+建模和出题方法；Coordinator、Protocol、smoke Source Specialist 的 `required_skills: []` 是
+合法配置，不为满足数量要求创建空壳技能。当前 v3 建模 roster 是 Coordinator、Modeling、Protocol
+和 CQ；独立批量验收另行启动 Platform Examiner 与 Acceptance Judge。选择哪些成员、谁负责
+平台调用、采用旧单题还是 v3 批量验收，以本次 Task/Profile 为准。
+
+普通角色通过 `package.yaml` 的 `required_skills` 引用本目录；隔离验收子会话由
+`CodexRuntimeAdapter._child_package_assets` 选取对应技能。Runtime 仍以原技能名挂载到成员自己的
+技能目录；`lean-acceptance-examiner` 保留原有无 YAML frontmatter 的专用提示格式，由验收
+Runtime 加载，其他技能具有标准元数据。历史交付记录中的旧路径保留为当时证据，当前维护以
+本目录和加载配置为准。</pre></details></section><section id="feedback"><h2>R4.3-015 写入反馈与信任边界 · 来源摘录</h2><p class="origin">原始路径：<code>docs/requirements/requirements-v4.3.md</code> · 2026-10-14 内容摘录</p><details open><summary>查看原文摘录</summary><pre>### R4.3-015 分阶段建模反馈与成功写入信任边界
+
+2026-10-14同轮后续原因核对：当前Task／skill保留必要已知源事实的目标未改变，但
+实际Coordinator delivery-26要求源结构另放handoff／map-progress，r1随后未具体表达
+已在delivery-10准确识别的字段／约束。这是实际派单的prompt-contract偏差，不仅是
+Modeling缺少后置检查；当前原件、候选与反证见
+[后续根因分析](../delivery/modeling-retrospectives/2026-10-14-glm-smallchain-retrospective.md#后续根因分析输入表示理解与流程负担)。
+原部分验证及RETRO-07／08待调整保持；本次只定位责任面，未实施提示调整或运行验证。
+
+2026-10-14 后续准备授权：用户要求主导完成复盘待办，并明确下一轮改用
+`glm-5.3-flash`；沿用high及八角色profile，不再恢复DeepSeek模型调用。
+当前小链／增量Task澄清可执行映射排除与相关源结构证据的区别；Modeling／Coordinator
+在现有阶段交接核对重要依据的实际候选位置或具体处置，必要共享依赖不能仅以整个
+主数据范围不做而排除。客户业务含义、基数和生命周期仍只据获准来源／确认，未知保留。
+RETRO-07／08的采用纠正进入实际Task、角色指令与技能；不建逐列台账、额外角色或
+平台硬门。公开反馈继续复用已修入口。见
+[本次准备记录](../delivery/records/2026-10-14-glm-readiness-followup.md)；工程结果与下一轮
+实际采用／质量／时间收益分别记录，旧失败及完整独立验收标准保持。
+
+2026-10-14 用户授权完成复盘待办：修正历史 applied reuse 校验、首链 Delivery 反馈责任链、
+Host guidance 字段及验收错误可见性；另选资产—故障—工单有界任务。沿用 R4.3-003／015、
+R4.0-029 与现有验收合同，不新增编排框架。见[准备及交付记录](../delivery/records/2026-10-14-modeling-readiness.md)。
+工程结果与下一轮真实效果分开；本次不新增建模额度，不更改旧冻结分母。
+
+**登记依据与状态**：2026-10-12 用户同意阶段推进原则及成功 apply 后的信任边界，
+随后要求开始细化，并逐项确认 D1—D6；后续授权 Agent 自行完成其余细化及用文字总结
+当前建模流程。后续确认小链通常复用已有业务切片，Consumer 早期反馈已有实现，本条
+是既有流程上的局部调整；用户再授权开始设计并独立审阅。本条需求细化完成，
+[详细设计](../delivery/designs/2026-10-12-r4-3-015-staged-feedback-write-trust-design.md)已完成，
+独立设计审阅 Round 1 PASS（0 Critical／High、无未决关键假设），
+见[审阅记录](../delivery/records/2026-10-12-r4-3-015-design-review-record.md)。
+无待确认关键业务取舍。后续用户授权实现并通过测试，工程实现／全量回归及独立功能 Round 1／2 PASS，
+见[交付记录](../delivery/records/2026-10-12-r4-3-015-delivery-record.md)；真实效果未验证，不恢复暂停的建模。
+本条承接 R4.3-004 与 R4.0-015，不重复建设切片、反馈入口或运行框架。
+
+2026-10-13 后续登记：用户要求记录“下一轮阶段推进方式”的调整，沿用本条并关联
+R4.3-002。落实点为 Coordinator 明确当前阶段及必要依赖的派单、Protocol 连续执行
+已批准且未变化的计划，以及首链应用后 Coordinator／Delivery 实际组织公开反馈。
+详细问题、责任面及验证方法见[采用纠正记录](../delivery/modeling-retrospectives/optimization-tracker.md#2026-10-13-采用纠正登记)。
+该调整落实既有 D1／D2／D4／D5，沿用 A1／A3—A6／A9，不新增平台阶段或完成门。
+本次仅登记，采用纠正尚未实施／验证；原工程和独立功能结果保留，真实阶段采用缺口
+继续保留。后续运行按用户选择使用 `glm-5.3-flash`，本次不变更配置或授予运行权限。
+
+上述为登记时状态。用户同日授权实施，范围追加为下列 F1／F2／F4 的具体采用动作及
+R4.3-010 的答案核对；复用已有 Task、角色指令、ontology-modeling／delivery 技能。
+实施及验证证据见[本次记录](../delivery/tests/2026-10-13-retrospective-simple-repairs-test-record.md)，
+真实采用、模型质量与时间收益仍须在下一获准运行后复盘，不按指令修改关闭效果预期。
+当前增量已完成权威提示更新、相关合同检查及技能validator，检查范围通过；真实阶段
+采用仍未验证，整体部分验证及原失败记录保留，不由本次检查推出实际语义改善。
+
+#### 1. 问题、例子与当前基线
+
+全局范围包含“报修 → 派工 → 服务完成”和结算，两条链共享客户、服务合同。
+先完成可消费的报修服务链及其必需共享依赖，再推进结算；不用先集中落地全部共享基础。
+首链应用成功后，公开问答发现服务完成时间口径错误，只暂停受影响内容及依赖它的阶段，
+修正并验证；不依赖该口径的阶段仍可推进。反馈实际读取期间安排有界的提交暂停窗口，
+仍可准备后续候选和计划；“暂停新提交”和“暂停所有建模工作”分别处理。
+
+核对时 HEAD 为 `d9ecfb0`，开始工作前工作树干净。当前已有以下复用路径及缺口：
+
+- `modeling_team/runner.py::_handle_execute_approved_plans` 可按引用连续执行获批计划，
+  但应用成功后仍返回 `pending_protocol_governed_read`，要求资源／关系完整读回。
+  Protocol 活跃指令还要求逐项证明批准关系已写入；两者须按本条取消重复核验的边界调整。
+- `modeling_team/staged_batch_write_forwarder.py::_forward_write_with_readback` 自动读取
+  Batch／Attempt 并核对请求身份与状态。该机械确认不等同于 Agent 全量核验模型内容，继续保留。
+- `modeling_team/__main__.py::_run_public_feedback` 已复用 `materialization_progress`
+  检查点及获批公开题，在前后模型绑定或整轮提交记录变化时将反馈记为 `superseded`。
+  本期复用该入口及已启用的 checkpoint／CQ selectors，不补建并发反馈状态绑定。
+- R4.0-024 已有实际模型关联扫描及业务处置路径；它检查模型关联质量，继续保留。
+  上述为代码／合同核对，未执行本次增量的运行验证；旧工程 PASS 不覆盖新范围。
+
+#### 2. 功能要求
+
+**F1 — 全局规划与阶段选择（D1）**
+
+- 通常复用已有业务切片作为推进阶段；“完整小链”是内容可消费的判断条件，不增加
+  一套独立划分。仅切片过大或真实业务依赖跨切片时调整阶段边界。分阶段和早期公开
+  反馈已有实现，本条不将它们重复登记为新增平台能力。
+- 全局保留完整获准业务范围、逻辑切片、共享概念、依赖及剩余事项。Agent 在其中选择
+  含义完整、可消费的小业务链；必要共享依赖随首链落地，后续复用真实身份。
+- 全局规划不要求先完成全部详细候选或全部执行计划。每阶段应用前，核对本阶段定义、
+  关系、共享引用、跨 Ontology 目标及依赖已由当前候选和获批计划覆盖；遗漏须先补齐。
+  其他阶段尚未完成的内容持续记为剩余事项，不能通过移出计划静默缩小获准范围。
+- 阶段不固定等同于一个切片、Batch 或 Ontology；批次依据实际依赖及部署上限安排。
+  已批准且未变更的计划沿 R4.3-002／003 连续执行，不增加每个小批后的重复授权。
+- 2026-10-13 采用纠正：Coordinator 首条阶段派单明确当前可交付业务链、必要共享依赖
+  及全局待办；当前候选／计划完整性指该阶段的内容与真实依赖，不要求先完成全部场景
+  详细设计。Modeling 在同一次阶段交接从获准原资料反查关键事实、关系方向、条件／
+  例外和未知的候选去向，再从候选反查无依据断言；复用候选 item、交接说明和场景图
+  note，角色只核对其获准可读资料，不用摘要冒充未读原件的完整性，不建逐字段台账。
+
+**F2 — 写入与语义质量责任分开（D3）**
+
+| 用途 | 责任与要求 |
+| --- | --- |
+| 候选及计划是否覆盖必要业务内容 | Modeling 作业务判断，Coordinator 审核范围及共享依赖，Protocol 核对计划转换；应用前完成，不用成功写入掩盖计划漏项 |
+| 已批准计划是否正确应用 | 平台保证校验、有效 dry-run、原子应用与明确终态；工具保留回执身份、Attempt 及版本确认；Agent 正常收到成功后不例行全量读资源或逐条比对计划 |
+| 表达、检索及业务回答是否正确 | 依据有明确业务目的的实际受治理读取、公开反馈、关联检查和最终独立验收判断；不能用回执代替语义证据 |
+| 未确认成功的写入及历史恢复 | 沿 R4.3-014 和原恢复合同核对原尝试、已完成内容及受影响资源；不重放成功内容，不取消必要对账 |
+
+若实际业务读取发现成功回执对应漏写、错写或绑定不一致，定位为平台缺陷并修复窄失败层；
+保留原证据，必要时进入现有写入完整性恢复。不以增加 Agent 常驻全量核验补偿平台缺陷，
+也不得将该核验改称“语义验证”后继续每批执行。R4.3-002—004 及旧设计中的“必要读回”
+按本表解释，不再指成功后重复证明计划被忠实执行。
+
+2026-10-13 信息保留增量：源明确支持的内容与尚待确认的业务含义分开，未知限定到具体
+含义及影响范围；物理结构／样例出现不升级为业务规则、合法值全集或权限。确认状态与
+候选、批准、应用等交付状态分开；本阶段 deferred 项说明具体原因、缺失能力及下一责任／
+输入，同因事项可合并。只在现有表示合同和授权内交付已知部分，不能自行物化未批准映射，
+也不能因有 deferred 处置就把本轮业务范围记为完整；沿用 R4.0-010／014 的边界。
+
+**F3 — 成功回执与异常状态**
+
+| 可观察状态 | 行为与结论 |
+| --- | --- |
+| 与当前获批计划、请求及 Attempt 对应的 `apply_atomic` 明确终态 `applied` | 记录已应用并继续；保留工具内身份／版本确认，不要求 Agent 再逐条证明写入 |
+| `dry_run` 的 `validated` | 仅证明该版本上的验证结果，不当作应用；沿既有批准与有效证明执行 apply |
+| `pending`、`applying`、`recovering`、超时、断线或成功身份／终态不能确认 | 保留未确认状态，沿原请求与原 Attempt 恢复或对账；不得换 key 重放可能已写入内容 |
+| 明确 `validation_failed` 或 `failed` | 保留 findings 及实际失败层，沿既有可恢复反馈修正；不假定产生了成功模型，也不令整轮永久失败 |
+| 历史／其他合同中的 `partially_applied` | 不当作当前完整原子计划成功；核对已应用与剩余范围，沿原合同处理，不整体重放 |
+
+仅接收成功、HTTP 成功、工具 `COMPLETE` 或候选已发布均不自动构成应用成功或语义 PASS。
+发现异常时只限制原恢复合同要求的受影响写入；不扩大成所有无关阶段永久停止。
+
+**F4 — 有价值节点的公开反馈（D4）**
+
+- 2026-10-13 采用纠正：首条可消费业务链明确应用后，Coordinator 具体请求 Delivery
+  组织现有 public-feedback；Delivery 主动核对真实 materialization_progress 检查点、
+  冻结身份和所选获准公开题，跟进实际读取及完整反馈正文，不等待最终生产交接。
+- 第一条可消费小链明确成功应用后，尽早选择少量高价值获准公开题取得真实读取和回答。
+  不要求先做完整资源／关系写入比对，也不等待所有场景完成或正式 production handoff。
+- 后续由 Agent 结合新增关键规则、跨切片关系、共享语义变化及实际疑问判断时机和选题。
+  不固定每批、每阶段问答，不固定题量，也不预先写死全部反馈节点。
+- 复用现有批准／冻结公开题及反馈入口，保留题目版本、模型状态、实际读取、回答、未知
+  及定位结果。入口能力未启用、检查点不完整或读取不完整时准确记未执行／PARTIAL，
+  继续修正可恢复问题，不静默更改运行 Task 或伪造已反馈。
+- 模型表达、检索取得和 Consumer 理解分别诊断；原因不足保留未确定。公开反馈只服务
+  生产质量，隐藏题／答案保持隔离，用于修模的题不得重新当作隐藏盲测。
+
+**F5 — 反馈绑定与提交窗口（D5）**
+
+- Coordinator／Delivery 沿现有协作安排有界的实际反馈读取窗口；从窗口开始到前后绑定
+  核对完成，暂停本轮新的 dry-run/apply 提交，先排空并处理未确认提交。Agent 仍可分析
+  材料、准备候选和后续计划；读取结束后恢复正常提交及 D2 的依赖推进。
+- 本期不新增快照、并发提交判定、调度框架或平台锁。该窗口是现有读取合同下的协作
+  安排，不改成永久硬拒绝，不把整轮剩余建模冻结至最终独立验收。
+- 实际发现模型绑定、提交记录或公开题绑定变化时，保留原结果并记过期／`superseded`；
+  在新的有效状态上沿原入口重取必要反馈，不拼接不同状态证据，也不声称当前模型已验证。
+
+**F6 — 质量修正与继续（D2）**
+
+- 只暂停受影响内容及依赖它的阶段；与该缺口无依赖的工作仍可推进。共享概念发生改变
+  时按真实使用关系判断影响，不以“另一个切片／Ontology”直接认定无依赖。
+- 修正业务候选、审核变更、取得有效 dry-run 并 apply；原成功内容不重放。修正后复核
+  受影响公开问题及关联，范围／端点变化时补足受影响覆盖，不机械重做所有未变化内容。
+- 反馈读取窗口结束后依本条推进；未解决问题不因其他阶段继续而记通过，业务未知保持
+  未知，不从数据库 Schema 或测试答案补造事实。
+
+**F7 — 阶段结束与全局收口（D6）**
+
+- 分别记录当前阶段已应用、已取得业务质量反馈及未验证／未解决事项。阶段候选及获批
+  计划覆盖、依赖具备且收到明确成功回执后，可推进下一阶段；该推进不声明语义 PASS。
+  已知问题仍按 F6 限制相关依赖，不强制每阶段取得公开问答通过才能继续。
+- 全部获准范围完成后，核对全局语义覆盖、跨切片共享身份及一致性；按 R4.0-024 检查
+  实际模型关联、处置游离候选和必要修正。最终检查不是每次成功 apply 的完整写入审计，
+  候选不等于缺陷，有业务依据的独立定义及未知须如实处置，不为连通图而造关系。
+- 未应用的获准内容、未检查范围及已确认缺陷不能被局部通过掩盖。读取不完整／原因
+  未定保留 PARTIAL，已知未解决缺陷保留 REVISE；沿现有生产角色及交接顺序收口。
+- 最终仍进入完整独立 Consumer／Judge 验收，按冻结题集、获准资料及实际平台读取判定。
+  验收者不创建、继续或修复被验收 run；阶段反馈、生产自查或应用成功均不替代独立结论。
+
+#### 3. 已确认决策
+
+下列六项均为用户本轮明确确认，不使用 Agent 主观把握代替确认。后续“先自己细化”的
+授权用于整理已确认方案的功能和验收要求，不重新打开既有决定。
+设计中的 D7、D8 为授权范围内的技术落实，主观把握明确超过 85%；依据为当前返回值
+调用点及 Delivery 读取边界。它们不是用户逐项批准或测试概率，没有未决业务取舍。
+
+| 编号 | 采用方案及主要取舍 | 来源与状态 |
+| --- | --- | --- |
+| D1 | 完整小链优先，通常复用已有业务切片；必要共享依赖随首链落地，后续复用身份；Agent 按真实依赖决定阶段边界 | 用户本轮确认及后续澄清 |
+| D2 | 问题只暂停受影响内容及其依赖，其他继续；需依据实际共享引用判断影响，不暂停全部后续阶段 | 用户本轮确认 |
+| D3 | 保留工具内回执身份／终态／版本确认；取消成功后例行全量／逐条写入核验；保留业务读取、最终关联检查、受影响复查及异常对账 | 用户本轮确认 |
+| D4 | 首链尽早反馈，后续时机及公开选题由 Agent 按价值判断；不固定每阶段问答或所有反馈节点 | 用户本轮确认 |
+| D5 | 复用现有反馈入口，实际读取期间暂停本轮新 dry-run/apply 提交，其他准备继续；接受有界提交等待，不建设更细并发状态绑定 | 用户本轮确认 |
+| D6 | 已应用与业务质量已反馈分别记录；满足阶段应用条件后可推进，未验证及已知问题保持真实状态；最终全局核对和完整独立验收保留 | 用户本轮确认 |
+| D7 | 保留执行结果的已有资源读取字段，成功／already_applied 使用中性 not_evaluated，保留原执行／版本证据；不返回伪造 complete 或新增结果框架 | 按设计授权采用，明确超过阈值；当前生产代码无该字段值的交接判断 |
+| D8 | 在 Delivery 已有正文读取工具中加入绑定 run 的 early-feedback 及其响应路径，沿原范围、大小限制和摘要核对取得公开反馈，不新建读取工具 | 按设计授权采用，明确超过阈值；当前读取白名单遗漏该路径，状态摘要只有数量不能替代正文 |
+
+#### 4. 验收标准与证据边界
+
+| 编号 | 场景 | 应满足的行为 |
+| --- | --- | --- |
+| A1 | 首条完整小链及必要共享依赖就绪，后续链尚未形成详细候选／计划 | 首链按当前获批计划安全执行；全局范围和待办保留，后续复用身份；不等全部共享基础完成 |
+| A2 | 当前阶段获批候选含必要关系，但执行计划漏项 | 应用前指出阶段覆盖缺口并补齐；不以定义数量、部分 applied 或题目通过代替完整计划 |
+| A3 | 多个依赖有序的计划正常明确成功应用 | 保留身份／终态／版本确认并继续；无逐批全量读模型或逐条计划比对门；业务读取和语义结论分别记录 |
+| A4 | 首条可消费小链就绪，或后续新增关键规则／共享语义 | 实际取得获准公开题的治理读取及回答；按价值选题，不等待最终 handoff，不要求所有阶段都问答 |
+| A5 | 公开反馈期间仍在准备下一阶段，或实际发生绑定变化 | 暂停本轮新 dry-run/apply，其他准备继续；变化后的旧反馈记过期并保留，不混用状态或建立新并发框架 |
+| A6 | 时间口径等局部错误，及共享概念影响多阶段两个对照 | 分别限制真实影响范围；无依赖内容继续，修正仍经审核和 dry-run/apply，复核受影响题／关联，问题未解决不记通过 |
+| A7 | dry-run 通过、写入未确认、明确拒绝，以及业务读取发现成功回执对应漏写 | 分别保持仅验证、原身份恢复、可修正反馈、平台缺陷；不冒称完整成功，不换 key 重放，也不追加常驻全量核验 |
+| A8 | 阶段已应用但未问答，全局仍有未应用内容／未查关联 | 可沿真实依赖推进，阶段反馈仍待验证；全局缺口未关闭不声称交付完整；最终实际关联及跨切片核对保留 |
+| A9 | 局部公开反馈或生产自查通过，随后正式验收 | 完整冻结分母、公开／隐藏隔离及独立只读判定保持；未知、PARTIAL／REVISE 按原规则，局部成功不提升最终结论 |
+
+文档检查只证明本条边界与 D1—D6 一致、链接和格式可用，不证明运行行为已改变。
+后续实现验证须同时覆盖取消重复写入核验及保留必要语义检查／恢复；真实阶段反馈、
+模型质量及提速收益须从新的获准运行取得，现有工程 PASS 和代码阅读不替代。
+
+**相邻分工与交接**：R4.3-002／003 负责连续执行及引用处理，R4.3-004 的阶段业务链
+按本条增量推进，R4.3-014 负责恢复前完成覆盖及原身份恢复；R4.0-015 提供公开反馈，
+R4.0-024 提供最终关联自查，R3.0-011／012 及 R4.0-009 保留独立验收合同。
+后续实施按详细设计对齐 Runner 返回／后续动作、Protocol 等活跃指令、旧设计中的读回措辞
+及相关工具／交接合同，不从文档确认推导这些触点已经实现；不新增平台业务领域概念、
+新角色、数据库／路由或通用运行框架。后续已授权实现与测试，不以工程验证恢复真实建模。</pre></details></section></html>
