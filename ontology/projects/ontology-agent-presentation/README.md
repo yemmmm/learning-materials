@@ -2,9 +2,28 @@
 
 固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的可编辑 PowerPoint、演示 PDF、配套讲稿与历史离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
 
+## v3.2 两条 AI 路线与 Agent 协作
+
+当前推荐阅读版本，共 26 页。在 v3.1 基础上新增 P10–P13：
+
+1. 符号主义与联结主义：显式知识、神经网络与本体的位置。
+2. 专家系统：MYCIN 历史例子，以及知识库、推理机制、结论解释的分工。
+3. 优缺点比较：知识获取、能力侧重、维护成本与业务变化。
+4. Agent 中的互补：理解语言、读取业务语义、查询事实与核条件、带依据回答；也介绍语言模型辅助建模。
+
+新增内容接在“本体与知识图谱”之后。沿用现有视觉风格与差旅审批案例；实际 OntoWeave 截图调整至 P21，13 个 FAQ 位于 P24–P26，返回链接与讲者备注已同步。
+
+- [离线 HTML 演示](ontology-agent-slides-v3.2.html)
+- [逐页内容审阅稿](ontology-agent-content-v3.2.md)
+- [26 页 PDF](ontology-agent-slides-v3.2.pdf)
+- [讲者备注与来源](ontology-agent-speaker-notes-v3.2.md)
+- [完整 ZIP 包](ontology-agent-v3.2.zip)
+
+采用 Frontend Slides 技能制作。概念来源包括 MYCIN 原著、深度学习论文与神经符号 AI 研究，来源链接保存在备注中；不增加 OntoWeave 当前能力承诺。已验证 26 页基本画布边界、离线资产、关键交互、FAQ 返回链接、手机缩放与 PDF 页数，并查看新增页面的实际渲染。
+
 ## v3.1 HTML 内容增强版
 
-当前推荐阅读版本，共 22 页。保留差旅审批主线，丰富每页的解释、例子、图示与依据；新增 OntoWeave 模型浏览截图，结尾恢复旧版 13 个 FAQ。按本轮要求优先完善内容，版式先保证基本可读。
+此前版本，共 22 页。保留差旅审批主线，丰富每页的解释、例子、图示与依据；新增 OntoWeave 模型浏览截图，结尾恢复旧版 13 个 FAQ。按本轮要求优先完善内容，版式先保证基本可读。
 
 - [离线 HTML 演示](ontology-agent-slides-v3.1.html)
 - [逐页内容审阅稿](ontology-agent-content-v3.1.md)
@@ -45,6 +64,7 @@
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| v3.2 | 2026-10-15 | [26 页 PDF](ontology-agent-slides-v3.2.pdf) | [内容审阅稿](ontology-agent-content-v3.2.md) · [讲者备注](ontology-agent-speaker-notes-v3.2.md) | [HTML](ontology-agent-slides-v3.2.html) · [ZIP](ontology-agent-v3.2.zip) | 新增两条 AI 路线、专家系统、优缺点与 Agent 互补；保留截图及 13 个 FAQ |
 | v3.1 | 2026-10-15 | [22 页 PDF](ontology-agent-slides-v3.1.pdf) | [内容审阅稿](ontology-agent-content-v3.1.md) · [讲者备注](ontology-agent-speaker-notes-v3.1.md) | [HTML](ontology-agent-slides-v3.1.html) · [ZIP](ontology-agent-v3.1.zip) | 每页内容增强；实际截图；恢复 13 个 FAQ；语义交互 |
 | v3.0 | 2026-10-15 | [18 页 PDF](ontology-agent-slides-v3.0.pdf) | [讲者备注](ontology-agent-speaker-notes-v3.0.md) | [PPTX](ontology-agent-slides-v3.0.pptx) · [ZIP](ontology-agent-v3.0.zip) | 差旅审批贯穿；本体三层区分、常见组成、Agent 使用与 OntoWeave 简介 |
 | v2.3 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.3.pdf) | [同步演讲稿](ontology-agent-speech-v2.3.md) | [离线 HTML](ontology-agent-slides-v2.3.html) · [ZIP](ontology-agent-v2.3.zip) | 首页可见性；相似政策对照；聚焦理解的方法；本体定义与 Palantir 应用重构 |
@@ -86,7 +106,7 @@ P25 保留截至 2026-10-14 的历史验证口径；P20/P23 按 2026-10-15 的�
 - 演讲稿：`ontology-agent-speech-v<主版本>.<次版本>.md`。
 - 交互演示：`ontology-agent-slides-v<主版本>.<次版本>.html`，配套来源放在 `ontology-agent-resources-v<主版本>.<次版本>/`。
 - 离线阅读包：`ontology-agent-v<主版本>.<次版本>.zip`。
-- 同一套发布产物使用相同版本号；后续小幅修订使用 `v3.2` 等递增版本号。新版本新增文件，保留已有版本，并在上表补充记录。
+- 同一套发布产物使用相同版本号；后续小幅修订使用 `v3.3` 等递增版本号。新版本新增文件，保留已有版本，并在上表补充记录。
 
 本次首批归档使用 `v2.0`，对应制作项目中现有的 v2 演示。
 
