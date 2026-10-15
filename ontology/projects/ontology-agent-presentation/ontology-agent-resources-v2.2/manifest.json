@@ -1,0 +1,196 @@
+{
+  "title": "本体如何帮助 Agent 理解与处理业务",
+  "date": "2026-10-14",
+  "slides": 37,
+  "chapters": 4,
+  "faq": 13,
+  "pages": [
+    {
+      "page": 1,
+      "title": "本体如何帮助 Agent 理解与处理业务",
+      "section": "概念、系统设计与业务案例"
+    },
+    {
+      "page": 2,
+      "title": "目录",
+      "section": "概念、系统设计与业务案例"
+    },
+    {
+      "page": 3,
+      "title": "Agent 的 业务理解难题",
+      "section": "01 / Agent 的业务理解难题"
+    },
+    {
+      "page": 4,
+      "title": "Agent 怎样完成一个业务任务",
+      "section": "01 / Agent 的业务理解难题"
+    },
+    {
+      "page": 5,
+      "title": "条件核对为什么会出错",
+      "section": "01 / Agent 的业务理解难题"
+    },
+    {
+      "page": 6,
+      "title": "六种方法怎样补足判断依据",
+      "section": "01 / Agent 的业务理解难题"
+    },
+    {
+      "page": 7,
+      "title": "不同方法的局限性",
+      "section": "01 / Agent 的业务理解难题"
+    },
+    {
+      "page": 8,
+      "title": "本体的 概念、技术与价值",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 9,
+      "title": "Ontology 的思想来源与工程应用",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 10,
+      "title": "什么是本体（Ontology）",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 11,
+      "title": "用本体描述退货业务",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 12,
+      "title": "本体中的基本表达",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 13,
+      "title": "本体、知识图谱与数据库的分工",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 14,
+      "title": "本体怎样帮助 Agent 工作",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 15,
+      "title": "业务含义怎样表达与查询",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 16,
+      "title": "形式推理的作用与边界",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 17,
+      "title": "本体的优势与适用条件",
+      "section": "02 / 本体的概念、技术与价值"
+    },
+    {
+      "page": 18,
+      "title": "OntoWeave 与建模方法",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 19,
+      "title": "OntoWeave 的定位与责任边界",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 20,
+      "title": "系统架构",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 21,
+      "title": "OntoWeave 的建模方法",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 22,
+      "title": "OntoWeave 的七个建模视角",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 23,
+      "title": "Agent Team 的自动建模方式",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 24,
+      "title": "消费 Agent 实际需要读到什么",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 25,
+      "title": "当前能力与验证边界",
+      "section": "03 / OntoWeave 与建模方法"
+    },
+    {
+      "page": 26,
+      "title": "电商退货与退款 模拟案例",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 27,
+      "title": "模拟业务背景与输入材料",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 28,
+      "title": "建模前的业务确认",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 29,
+      "title": "业务切片与共享定义",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 30,
+      "title": "退货与退款的语义模型",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 31,
+      "title": "语义怎样连接 SQL 与 API",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 32,
+      "title": "案例一：能申请，为什么不能马上退款",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 33,
+      "title": "案例二：超时与信息不足",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 34,
+      "title": "怎样验证建模效果",
+      "section": "04 / 电商退货与退款模拟案例"
+    },
+    {
+      "page": 35,
+      "title": "FAQ：什么时候值得使用本体",
+      "section": "常见问题 FAQ"
+    },
+    {
+      "page": 36,
+      "title": "FAQ：怎么建，哪些工作需要人参与",
+      "section": "常见问题 FAQ"
+    },
+    {
+      "page": 37,
+      "title": "FAQ：怎样保证质量并持续维护",
+      "section": "常见问题 FAQ"
+    }
+  ],
+  "publication_version": "v2.2",
+  "publication_date": "2026-10-15"
+}

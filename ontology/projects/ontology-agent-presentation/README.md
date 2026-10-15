@@ -6,10 +6,23 @@
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| v2.2 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.2.pdf) | [同步演讲稿](ontology-agent-speech-v2.2.md) | [离线 HTML](ontology-agent-slides-v2.2.html) · [ZIP](ontology-agent-v2.2.zip) | 架构与 Team 重绘；七视角完整显示；13 个 FAQ；附可编辑架构图 |
 | v2.1 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.1.pdf) | [同步演讲稿](ontology-agent-speech-v2.1.md) | [离线 HTML](ontology-agent-slides-v2.1.html) · [ZIP](ontology-agent-v2.1.zip) | 首页、任务示例、过渡、页序与 Palantir 背景修订；本轮继续调整前冻结 |
 | v2.0 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.0.pdf) | [逐页演讲稿](ontology-agent-speech-v2.0.md) | — | 四章正文、12 个 FAQ；以退货与退款为主线 |
 
 v2.1 的 HTML 已内嵌字体、图形、交互和备注，下载 HTML 与同名版本资源目录后可离线使用；也可解压 ZIP 阅读包。GitHub 页面用于归档，交互演示请下载后用浏览器打开。第 22 页的七视角在此版本 PDF 中为简化打印表示，请优先在 HTML 中切换查看；其后的架构图、七视角打印与 FAQ 调整尚未包含在本版。
+
+## v2.2 使用与修订
+
+最新版为 v2.2，包含 37 页、四章正文和 13 个 FAQ。建议下载 [ZIP 阅读包](ontology-agent-v2.2.zip)，解压后打开 `ontology-agent-slides-v2.2.html`；也可分别下载 PDF、HTML、演讲稿及同版资源目录。
+
+- 系统架构图包含 Modeling Team 内部职责、当前直接模型写入、受治理读取、外部业务系统与独立验收边界。
+- 远期设想“跨阶段协作调度”“运行管理界面”均标为“待实现·规划待确认”，不代表已立项或交付承诺。
+- P22 的对象、行为、规则、角色、流程、数据映射、接口映射在 HTML/PDF 中全部展示；HTML 保留点击高亮。
+- 新增本体与知识图谱区别；P21/P36 明确七视角是 OntoWeave 当前采用的方式，并非通用本体方法论。逐页演讲稿已同步。
+- [可编辑架构图](ontology-agent-resources-v2.2/ontoweave-architecture.drawio) · [SVG](ontology-agent-resources-v2.2/ontoweave-architecture.drawio.svg) · [边界与来源说明](ontology-agent-resources-v2.2/ontoweave-architecture.md)。
+
+P25 保留截至 2026-10-14 的历史验证口径；P20/P23 按 2026-10-15 的工程记录同步，真实语义效果仍未验证。教学案例为虚构。
 
 ## 文件命名
 
@@ -17,7 +30,7 @@ v2.1 的 HTML 已内嵌字体、图形、交互和备注，下载 HTML 与同名
 - 演讲稿：`ontology-agent-speech-v<主版本>.<次版本>.md`。
 - 交互演示：`ontology-agent-slides-v<主版本>.<次版本>.html`，配套来源放在 `ontology-agent-resources-v<主版本>.<次版本>/`。
 - 离线阅读包：`ontology-agent-v<主版本>.<次版本>.zip`。
-- 同一套发布产物使用相同版本号；下一次小幅修订可用 `v2.1`，主线或结构大幅调整可用 `v3.0`。新版本新增文件，保留已有版本，并在上表补充记录。
+- 同一套发布产物使用相同版本号；下一次小幅修订可用 `v2.3`，主线或结构大幅调整可用 `v3.0`。新版本新增文件，保留已有版本，并在上表补充记录。
 
 本次首批归档使用 `v2.0`，对应制作项目中现有的 v2 演示。
 
