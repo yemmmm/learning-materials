@@ -1,12 +1,27 @@
 # 本体与 Agent：演示分享产物
 
-固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的演示 PDF、配套演讲稿与离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
+固定归档路径：`ontology/projects/ontology-agent-presentation/`。存放“本体如何帮助 Agent 理解与处理业务”的可编辑 PowerPoint、演示 PDF、配套讲稿与历史离线 HTML，后续版本继续放在本目录，以文件名版本号区分。
+
+## v3.0 最新成品
+
+18 页，已按审阅通过的草稿制作，建议讲述 25–30 分钟。
+
+- [可编辑 PowerPoint](ontology-agent-slides-v3.0.pptx)
+- [PDF](ontology-agent-slides-v3.0.pdf)
+- [逐页讲者备注与来源](ontology-agent-speaker-notes-v3.0.md)
+- [完整 ZIP 包](ontology-agent-v3.0.zip)
+
+沿用 v2.3 的暖白底、深绿色、字体和细线版式，复用封面关系网络素材。文字、节点与连线可编辑，PPTX 内含讲者备注。PDF 内嵌字体；编辑 PPTX 时建议安装 Noto Sans CJK SC 与 Noto Serif CJK SC。
+
+以差旅审批贯穿“什么是本体 → 如何表达 → Agent 如何使用 → OntoWeave 的作用”。OWL 页介绍通用技术能力，平台介绍遵循当前项目范围，案例和读取内容为教学示意。
+
+已校验 18 页的文件结构、尺寸与字体，并逐页检查由最终 PPTX 导出的 PDF。未在 Microsoft PowerPoint 客户端实测。
 
 ## v3.0 内容草稿
 
 [18 页逐页草稿](ontology-agent-outline-v3.0-draft.md)，归档于 2026-10-15，建议讲述 25–30 分钟。
 
-围绕“张三的差旅申请该由谁审批”展开，依次介绍本体的概念、现实世界与语义模型及形式表达的区别、Agent 如何使用本体，最后用两页简介 OntoWeave。草稿包含每页内容、画面构想、讲述衔接与必要小注，尚未制作成演示成品。
+围绕“张三的差旅申请该由谁审批”展开，依次介绍本体的概念、现实世界与语义模型及形式表达的区别、Agent 如何使用本体，最后用两页简介 OntoWeave。草稿包含每页内容、画面构想、讲述衔接与必要小注，现已作为 v3.0 成品的内容依据，保留草稿供对照。
 
 原项目内部参考资料按原仓库路径标识，外部概念来源保留链接。
 
@@ -14,6 +29,7 @@
 
 | 版本 | 归档日期 | PDF | 演讲稿 | HTML 与阅读包 | 说明 |
 | --- | --- | --- | --- | --- | --- |
+| v3.0 | 2026-10-15 | [18 页 PDF](ontology-agent-slides-v3.0.pdf) | [讲者备注](ontology-agent-speaker-notes-v3.0.md) | [PPTX](ontology-agent-slides-v3.0.pptx) · [ZIP](ontology-agent-v3.0.zip) | 差旅审批贯穿；本体三层区分、常见组成、Agent 使用与 OntoWeave 简介 |
 | v2.3 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.3.pdf) | [同步演讲稿](ontology-agent-speech-v2.3.md) | [离线 HTML](ontology-agent-slides-v2.3.html) · [ZIP](ontology-agent-v2.3.zip) | 首页可见性；相似政策对照；聚焦理解的方法；本体定义与 Palantir 应用重构 |
 | v2.2 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.2.pdf) | [同步演讲稿](ontology-agent-speech-v2.2.md) | [离线 HTML](ontology-agent-slides-v2.2.html) · [ZIP](ontology-agent-v2.2.zip) | 架构与 Team 重绘；七视角完整显示；13 个 FAQ；附可编辑架构图 |
 | v2.1 | 2026-10-15 | [37 页 PDF](ontology-agent-slides-v2.1.pdf) | [同步演讲稿](ontology-agent-speech-v2.1.md) | [离线 HTML](ontology-agent-slides-v2.1.html) · [ZIP](ontology-agent-v2.1.zip) | 首页、任务示例、过渡、页序与 Palantir 背景修订；本轮继续调整前冻结 |
@@ -23,7 +39,7 @@ v2.1 的 HTML 已内嵌字体、图形、交互和备注，下载 HTML 与同名
 
 ## v2.3 本轮修订
 
-最新成品版为 v2.3。下载 [ZIP 阅读包](ontology-agent-v2.3.zip) 后，解压并打开 `ontology-agent-slides-v2.3.html`，其中包含同步 PDF、演讲稿与配套资源。
+v2.3 为上一版 37 页成品。下载 [ZIP 阅读包](ontology-agent-v2.3.zip) 后，解压并打开 `ontology-agent-slides-v2.3.html`，其中包含同步 PDF、演讲稿与配套资源。
 
 - 首页贯穿问题移至标题下方的主体区域，副标题改为“让 Agent 读懂业务含义，找到判断依据”。
 - P04/P05 用 A/B 店两份完整相似政策作对照：签收起算与付款起算给出 120/192 小时；A101 属于 A 店，B 店用于展示错套政策的后果。
@@ -48,11 +64,12 @@ P25 保留截至 2026-10-14 的历史验证口径；P20/P23 按 2026-10-15 的�
 ## 文件命名
 
 - 内容草稿：`ontology-agent-outline-v<主版本>.<次版本>-draft.md`。
-- 演示：`ontology-agent-slides-v<主版本>.<次版本>.pdf`。
+- 演示：`ontology-agent-slides-v<主版本>.<次版本>.pptx` 与同名 `.pdf`。
+- 讲者备注：`ontology-agent-speaker-notes-v<主版本>.<次版本>.md`。
 - 演讲稿：`ontology-agent-speech-v<主版本>.<次版本>.md`。
 - 交互演示：`ontology-agent-slides-v<主版本>.<次版本>.html`，配套来源放在 `ontology-agent-resources-v<主版本>.<次版本>/`。
 - 离线阅读包：`ontology-agent-v<主版本>.<次版本>.zip`。
-- 同一套发布产物使用相同版本号；下一次小幅修订可用 `v2.4`，主线或结构大幅调整可用 `v3.0`。新版本新增文件，保留已有版本，并在上表补充记录。
+- 同一套发布产物使用相同版本号；后续小幅修订使用 `v3.1` 等递增版本号。新版本新增文件，保留已有版本，并在上表补充记录。
 
 本次首批归档使用 `v2.0`，对应制作项目中现有的 v2 演示。
 
