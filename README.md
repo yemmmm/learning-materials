@@ -10,6 +10,7 @@
 | `dify/` | Dify 工作流调优、企业版分布式部署、性能分析、Jaeger tracing、env-sync 脚本 |
 | `n8n/` | n8n 计费数据导出、Prometheus 指标、HA 企业版部署 |
 | `detrick/` | 德勤封闭环境定位资料：命令、记录、诊断、查询与归档（[导航](detrick/README.md)） |
+| `ontology/` | 本体与 Agent 演示、PDF 与演讲稿（[版本归档](ontology/projects/ontology-agent-presentation/README.md)） |
 | `codex/` | Codex 相关阅读笔记与翻译 |
 | `common/` | 跨产品通用知识：ES 低资源排错、MySQL→PG 迁移、SSO/OIDC 教程 |
 | `tools/` | 与具体产品无关的通用脚本与 Claude Code 命令 |
