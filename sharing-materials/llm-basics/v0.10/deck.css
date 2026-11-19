@@ -239,6 +239,43 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#173b32;color:#eef2e7
   color: var(--green);
   font-size: 23px;
 }
+.tool-runtime-columns {
+  align-items: stretch;
+  gap: 36px;
+}
+.tool-runtime-columns > .text-block {
+  border-top: 3px solid var(--green);
+  background: var(--soft);
+  padding: 23px 27px;
+}
+.tool-runtime-columns > .text-block + .text-block {
+  border-left: 0;
+  border-top-color: var(--ochre);
+  background: var(--sand);
+  padding-left: 27px;
+}
+.tool-runtime-columns .text-block p {
+  line-height: 1.55;
+}
+.tool-runtime-columns .text-block p + p {
+  margin-top: 14px;
+}
+.tool-runtime-example h2 {
+  font-size: 31px;
+  line-height: 1.3;
+  margin-bottom: 13px;
+}
+.tool-runtime-example .flow {
+  margin: 0;
+  gap: 45px;
+}
+.tool-runtime-example .flow li {
+  padding-block: 14px;
+}
+.tool-runtime-example .flow li + li::before {
+  left: -36px;
+  top: 12px;
+}
 .recall-options p {
   margin: 0;
   padding: 18px 0;

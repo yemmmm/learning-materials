@@ -62,6 +62,7 @@ SOURCES = {
  'harness': ('Anthropic · 长任务 Harness', 'https://www.anthropic.com/research/effective-harnesses-for-long-running-agents'),
  'harness_definition': ('Google Cloud · Agent Harness 定义', 'https://cloud.google.com/discover/agent-harness'),
  'deep_agents': ('LangChain · Deep Agents 运行能力', 'https://docs.langchain.com/oss/python/deepagents/overview'),
+ 'sandboxes': ('LangChain · 沙箱与脚本运行环境', 'https://docs.langchain.com/oss/python/deepagents/sandboxes'),
  'agent_evals': ('Anthropic · Agent 与 Harness 评测', 'https://www.anthropic.com/research/demystifying-evals-for-ai-agents'),
  'agent_memory': ('Anthropic · Agent 记忆的组成', 'https://www.anthropic.com/research/components-of-agent-memory'),
  'langgraph_memory': ('LangGraph · 会话内与跨会话记忆', 'https://docs.langchain.com/oss/python/concepts/memory'),
@@ -581,19 +582,28 @@ add('09 / Agent 运行环境', '上下文压缩怎样腾出空间？',
     '以项目例会通知为例。在多轮讨论和改稿后，应用可按 Token 阈值或历史长度触发压缩。'
     '这里选出一批旧消息，归纳出仍有效的时间、地点和字数要求，用摘要代替旧消息进入下一轮。系统指令和最新消息保留原文。'
     '运行中还可以裁剪已用过的大段工具结果。重要数字、权限约束和待解问题值得保留。对摘要可能遗漏的内容，可以按需找回原文。'
-    '记忆面向后续交互的信息复用，上下文压缩面向每次请求的空间。两种机制可以配合使用。下一页看看工具失败、缺输入或预算耗尽时怎么处理。',
+    '记忆面向后续交互的信息复用，上下文压缩面向每次请求的空间。两种机制可以配合使用。上下文可以带上工具说明，下一页看应用怎样管理工具和运行环境。',
     ('context', 'adk_compaction'), cls='compaction-page')
 
-add('09 / Agent 运行环境', '工具执行与停止条件', '根据实际返回状态处理失败，在权限、时限和预算范围内推进任务。',
-    table(['运行中遇到什么', '运行环境怎样处理', '交付时怎么写'], [
-        ('文档搜索超时', '按规则有限重试，记录失败状态', '说明检索未完成'),
-        ('缺少必要输入', '保存进度，等待用户补充', '说明缺少哪些材料'),
-        ('脚本访问未授权目录', '沙箱拦截并记下失败原因', '说明哪些文件待检查'),
-        ('达到时限或费用上限', '停止继续调用，保留可恢复的进度', '列出已完成事项与剩余工作'),
-    ]),
-    '工具执行成功看回执。整项任务能否结案，还要看交付要求和缺项。',
-    '文档搜索超时属于运行错误，可以按规则重试。缺输入时，助手列明缺项并等待补充。脚本的资源访问受沙箱约束。接下来看看应用怎样接入工具，以及怎样给 Agent 提供可复用的任务方法。',
-    ('harness', 'agents'))
+add('09 / Agent 运行环境', '工具管理与运行环境维护',
+    'Harness 管理模型可以请求哪些工具，也为脚本提供受控的运行环境。',
+    cols(block('工具管理',
+               p('<b>接入与描述</b>　登记工具的名称、用途和参数格式。')
+               + p('<b>调用与校验</b>　按任务提供可用工具，执行前检查参数和权限。')),
+         block('运行环境维护',
+               p('<b>准备环境</b>　为脚本准备工作区和依赖，限定文件与网络访问。')
+               + p('<b>执行与收尾</b>　限制时长和资源，收集日志，清理临时文件。')),
+         cls='tool-runtime-columns')
+    + '<div class="tool-runtime-example"><h2>一次构建排查</h2>'
+    + flow(('查询构建日志', '按构建编号读取这次失败的日志。'),
+           ('运行分析脚本', '在隔离工作区内提取关键错误。'),
+           ('回传执行结果', '把退出状态、关键错误和日志出处交给模型。'))
+    + '</div>',
+    '外部工具怎样接进来？排查步骤和脚本怎样复用？接下来分别看 MCP 和 Skill。',
+    '先看工具管理。应用给模型提供日志查询工具的说明和参数格式。收到调用请求后，核对构建编号和访问权限，再去构建平台查日志。'
+    '再看脚本怎样运行。本例在隔离工作区中准备日志文件和依赖，按许可范围授权访问，并设置运行时限。程序收集退出状态和输出，区分成功、超时和失败，然后回收临时资源。'
+    '最后把实际结果交给模型，让它根据日志证据判断失败阶段。下一页看 MCP 怎样统一接入日志查询工具，再看 Skill 怎样复用排查步骤、参考资料和可选脚本。',
+    ('harness_definition', 'tools', 'sandboxes', 'mcp', 'skills'))
 
 add('10 / 连接与任务方法', 'Tool、MCP 与 Skill 的分工', '以排查构建失败为例，分别看要执行的动作、怎样接入工具，以及排查步骤。',
     cols(block('Tool（工具）', p('<b>执行什么</b>') + p('按构建编号查询日志，返回失败阶段和日志内容。')),

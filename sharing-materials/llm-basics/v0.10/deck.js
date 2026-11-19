@@ -89,7 +89,7 @@ class SlidePresentation {
       el.addEventListener('mouseleave',()=>{hide=setTimeout(()=>{if(!this.editing)toggle.classList.remove('show');},400);});
     });
     toggle.onclick=()=>this.toggleEdit();zone.onclick=()=>this.toggleEdit();
-    const editsKey='llm-basics-v0.10-revision-2-edits';
+    const editsKey='llm-basics-v0.10-revision-3-edits';
     const saved=localStorage.getItem(editsKey);
     if(saved){const edits=JSON.parse(saved);this.editable.forEach((el,i)=>{if(typeof edits[i]==='string')el.innerHTML=edits[i];});}
     this.editable.forEach(el=>el.addEventListener('input',()=>{

@@ -255,11 +255,14 @@
   },
   {
     "page": 27,
-    "title": "工具执行与停止条件",
+    "title": "工具管理与运行环境维护",
     "chapter": "09 / Agent 运行环境",
     "sources": [
-      "harness",
-      "agents"
+      "harness_definition",
+      "tools",
+      "sandboxes",
+      "mcp",
+      "skills"
     ]
   },
   {

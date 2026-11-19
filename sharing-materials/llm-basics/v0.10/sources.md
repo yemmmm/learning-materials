@@ -56,6 +56,7 @@
 - 规划与子 Agent 委派以 Deep Agents 的实现为例，长任务恢复和运行跟踪分别参考 Anthropic 与 OpenTelemetry 的工程说明。 [Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview) · [Anthropic 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents) · [OpenTelemetry 用量与调用链](https://opentelemetry.io/blog/2026/genai-observability/)
 - LangGraph 用短期记忆描述会话内连续性，用长期记忆描述跨会话保存和检索。Anthropic 的 Agent 记忆文章聚焦跨会话保留的内容。P25 用同一个翻译场景区分两个范围。 [LangGraph 记忆概述](https://docs.langchain.com/oss/python/concepts/memory) · [Anthropic Agent 记忆的组成](https://www.anthropic.com/research/components-of-agent-memory)
 - 上下文压缩可用摘要替换旧消息，并保留近期原始消息。P26 用会议通知揭示哪些内容进入摘要，哪些部分沿用原文。 [Anthropic 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents) · [Google ADK 上下文压缩](https://adk.dev/context/compaction/)
+- P27 用构建排查说明工具的描述、调用校验和脚本运行边界。MCP 提供统一的工具接入方式，Skill 可以封装流程、参考资料和脚本。 [Claude 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview) · [Deep Agents 沙箱](https://docs.langchain.com/oss/python/deepagents/sandboxes) · [MCP 工具](https://modelcontextprotocol.io/docs/learn/server-concepts#tools) · [Agent Skills 规范](https://agentskills.io/specification)
 
 ## 应用评价指标
 

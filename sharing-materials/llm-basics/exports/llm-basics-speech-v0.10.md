@@ -10,7 +10,7 @@ P01–P32 为主讲与回顾，P33–P34 为参考资料与演示说明。建议
 | P06–P13 | 分词、生成、模型规格、训练与推理 | 15 分钟 |
 | P14–P17 | 训练、对话、提示词和上下文 | 11 分钟 |
 | P18–P21 | 召回、重排序、Embedding 和单次工具调用 | 10 分钟 |
-| P22–P29 | ReAct、Harness、记忆、上下文压缩、工具执行与任务方法 | 17 分钟 |
+| P22–P29 | ReAct、Harness、记忆、上下文压缩、工具管理与运行环境、MCP 与 Skill | 17 分钟 |
 | P30–P32 | 其他模型、应用评价指标、概念回顾与可选补讲 | 7 分钟 |
 
 ## P01 大模型常见概念
@@ -273,21 +273,24 @@ Anthropic 把 Agent Harness 也叫 scaffold，指让模型能够作为 Agent 工
 
 ## P26 上下文压缩怎样腾出空间？
 
-以项目例会通知为例。在多轮讨论和改稿后，应用可按 Token 阈值或历史长度触发压缩。这里选出一批旧消息，归纳出仍有效的时间、地点和字数要求，用摘要代替旧消息进入下一轮。系统指令和最新消息保留原文。运行中还可以裁剪已用过的大段工具结果。重要数字、权限约束和待解问题值得保留。对摘要可能遗漏的内容，可以按需找回原文。记忆面向后续交互的信息复用，上下文压缩面向每次请求的空间。两种机制可以配合使用。下一页看看工具失败、缺输入或预算耗尽时怎么处理。
+以项目例会通知为例。在多轮讨论和改稿后，应用可按 Token 阈值或历史长度触发压缩。这里选出一批旧消息，归纳出仍有效的时间、地点和字数要求，用摘要代替旧消息进入下一轮。系统指令和最新消息保留原文。运行中还可以裁剪已用过的大段工具结果。重要数字、权限约束和待解问题值得保留。对摘要可能遗漏的内容，可以按需找回原文。记忆面向后续交互的信息复用，上下文压缩面向每次请求的空间。两种机制可以配合使用。上下文可以带上工具说明，下一页看应用怎样管理工具和运行环境。
 
 来源（不朗读）：
 
 - [Anthropic · 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
 - [Google ADK · 上下文压缩](https://adk.dev/context/compaction/)
 
-## P27 工具执行与停止条件
+## P27 工具管理与运行环境维护
 
-文档搜索超时属于运行错误，可以按规则重试。缺输入时，助手列明缺项并等待补充。脚本的资源访问受沙箱约束。接下来看看应用怎样接入工具，以及怎样给 Agent 提供可复用的任务方法。
+先看工具管理。应用给模型提供日志查询工具的说明和参数格式。收到调用请求后，核对构建编号和访问权限，再去构建平台查日志。再看脚本怎样运行。本例在隔离工作区中准备日志文件和依赖，按许可范围授权访问，并设置运行时限。程序收集退出状态和输出，区分成功、超时和失败，然后回收临时资源。最后把实际结果交给模型，让它根据日志证据判断失败阶段。下一页看 MCP 怎样统一接入日志查询工具，再看 Skill 怎样复用排查步骤、参考资料和可选脚本。
 
 来源（不朗读）：
 
-- [Anthropic · 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)
-- [Anthropic · Workflow 与 Agent](https://www.anthropic.com/research/building-effective-agents)
+- [Google Cloud · Agent Harness 定义](https://cloud.google.com/discover/agent-harness)
+- [Claude · 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
+- [LangChain · 沙箱与脚本运行环境](https://docs.langchain.com/oss/python/deepagents/sandboxes)
+- [MCP · 官方介绍](https://modelcontextprotocol.io/docs/getting-started/intro)
+- [Agent Skills · 官方格式](https://agentskills.io/home)
 
 ## P28 Tool、MCP 与 Skill 的分工
 
