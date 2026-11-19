@@ -1,21 +1,21 @@
 # 大模型常见概念分享
 
-当前版本 **v0.9**，2026-11-19。面向无需机器学习背景的 IT 同事，介绍模型、推理服务和 Agent 应用中的常见概念。
+当前版本 **v0.10**，2026-11-19。面向无需机器学习背景的 IT 同事，介绍模型、推理服务和 Agent 应用中的常见概念。
 
-- [离线 HTML 演示](exports/llm-basics-slides-v0.9.html)
-- [PDF 阅读版](exports/llm-basics-slides-v0.9.pdf)
-- [逐页讲稿](exports/llm-basics-speech-v0.9.md)
-- [本版大纲与新旧页码对照](outline-v0.9.md)
-- [制作源码与重建说明](v0.9/README.md)
-- [资料与素材来源](v0.9/sources.md)
+- [离线 HTML 演示](exports/llm-basics-slides-v0.10.html)
+- [PDF 阅读版](exports/llm-basics-slides-v0.10.pdf)
+- [逐页讲稿](exports/llm-basics-speech-v0.10.md)
+- [本版大纲与新旧页码对照](outline-v0.10.md)
+- [制作源码与重建说明](v0.10/README.md)
+- [资料与素材来源](v0.10/sources.md)
 
 共 33 页。P01–P31 为主讲与回顾，建议约 65 分钟，另留交流时间。P32–P33 为参考资料和演示口径。
 
 ## 内容
 
-先讲 AI、深度学习和 NLP，再用实际模型仓库讲分词、自回归生成、权重文件和推理服务。用翻译和会议通知解释预训练、监督微调、对齐、多轮对话和提示词。
+先讲 AI、深度学习和 NLP，再用实际模型仓库讲分词、自回归生成和权重文件。用翻译对照训练和推理，用会议通知等示例解释监督微调、对齐、多轮对话和提示词。
 
-应用部分用差旅案例演示 RAG 和 ReAct，用构建排查示例解释任务状态以及 Tool、MCP 和 Skill 的分工。最后比较非 LLM 模型，说明推理指标，并用一页回顾已讲概念和可选补讲主题。
+应用部分用差旅案例演示 RAG 和 ReAct，用构建排查示例解释任务状态以及 Tool、MCP 和 Skill 的分工。最后比较包含视频生成在内的专用模型，讲答案质量、任务完成、安全、服务效率和成本指标，并用一页回顾已讲概念和八组可选补讲主题。
 
 P17 讲稿可复制完整 vLLM 请求体。各页核对材料随讲稿列出。
 
@@ -37,6 +37,10 @@ PDF 展开三种真实分词、单 Token 追加、一次换算调用和 ReAct �
 
 ## 历史版本
 
+- [v0.9 HTML](exports/llm-basics-slides-v0.9.html)
+- [v0.9 PDF](exports/llm-basics-slides-v0.9.pdf)
+- [v0.9 讲稿](exports/llm-basics-speech-v0.9.md)
+- [v0.9 大纲](outline-v0.9.md)
 - [v0.8 HTML](exports/llm-basics-slides-v0.8.html)
 - [v0.8 PDF](exports/llm-basics-slides-v0.8.pdf)
 - [v0.8 讲稿](exports/llm-basics-speech-v0.8.md)

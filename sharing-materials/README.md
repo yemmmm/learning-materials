@@ -7,7 +7,7 @@
 | 项目目录 | 内容 | 当前版本 |
 | --- | --- | --- |
 | [ontology-agent](ontology-agent/README.md) | Ontology 介绍：本体论思想在 Agent 中的应用 | v3.6 |
-| [llm-basics](llm-basics/README.md) | 大模型基础扫盲：日常使用与 AI 应用开发中的常见概念 | v0.9 |
+| [llm-basics](llm-basics/README.md) | 大模型基础扫盲：日常使用与 AI 应用开发中的常见概念 | v0.10 |
 
 Ontology 介绍常用入口：
 
