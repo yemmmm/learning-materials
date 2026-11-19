@@ -1,24 +1,24 @@
 # 大模型常见概念分享
 
-当前版本 **v0.4**，2026-11-18。以公司差旅助手为贯穿案例，面向无需机器学习背景的 IT 同事。
+当前版本 **v0.5**，2026-11-19。以公司差旅助手为贯穿案例，面向无需机器学习背景的 IT 同事。
 
-- [离线 HTML 演示](exports/llm-basics-slides-v0.4.html)
-- [PDF 阅读版](exports/llm-basics-slides-v0.4.pdf)
-- [逐页讲稿](exports/llm-basics-speech-v0.4.md)
-- [本版大纲](outline-v0.4.md)
-- [v0.3 逐页审阅与新旧页码](review-v0.3.md)
-- [制作源码与重建说明](v0.4/README.md)
-- [资料与素材来源](v0.4/sources.md)
+- [离线 HTML 演示](exports/llm-basics-slides-v0.5.html)
+- [PDF 阅读版](exports/llm-basics-slides-v0.5.pdf)
+- [逐页讲稿](exports/llm-basics-speech-v0.5.md)
+- [本版大纲](outline-v0.5.md)
+- [v0.4 逐页审阅与新旧页码](review-v0.4.md)
+- [制作源码与重建说明](v0.5/README.md)
+- [资料与素材来源](v0.5/sources.md)
 
-共 48 页。P01–P32 为主讲与回顾，建议约 60 分钟，另留交流时间。P33–P45 按听众问题选讲，P46–P48 为参考资料与示例说明。
+共 45 页。P01–P43 为主讲与回顾，建议约 70 分钟，另留交流时间。P44–P45 为参考资料和演示口径。
 
 ## 内容
 
-开场先看差旅助手怎样给出缺乏依据的报销结论。接着介绍模型、API、自部署、Token、训练和对话。通过真实分词、单 Token 追加和两轮对话，观察模型怎样处理输入。
+开场提出一笔需要核对的差旅费用。先认识模型和两种调用方式，再沿实际模型仓库讲分词、生成、权重加载、规格和推理服务。接下来用 SFT 样本、人工偏好和两轮对话解释训练与线上请求。
 
-应用部分拆解一次上下文请求，再从制度检索、汇率查询和程序算账逐步走到 Agent。ReAct 演示比较有无审批记录时的下一步。最后展示同一笔费用的核对说明，用一条不存在的制度条款做交流题。
+应用部分拆解一次上下文请求，再讲制度召回、重排、引用核对和两次工具调用。ReAct 演示比较有无审批记录时的下一步，随后介绍 Harness、MCP 与 Skill。最后展示开场同一笔费用的核对说明，用报告评测和不存在的条款回顾。
 
-模型配置和权重分片、Dense 与 MoE、数值格式、量化、InstructGPT 的 RLHF、Embedding 和重排留在附录。各页讲稿附参考链接，P16 讲稿可复制完整 vLLM 请求体。
+P24 讲稿可复制完整 vLLM 请求体。各页来源随讲稿列出，模型规格沿用 2026-11-18 核对的资料。
 
 ## 使用
 
@@ -34,10 +34,15 @@ HTML 可独立离线打开，字体、图片、样式、交互和讲稿均已内
 4. 查看工具请求、程序执行、工具结果与最终回答。
 5. 切换有无审批记录，观察 ReAct 如何选择不同的下一步。
 
-PDF 展开单 Token 追加、两次工具调用和 ReAct 的审批分支。聊天模板页展示第二轮请求，分词页展示中文样例。现场操作使用 HTML。
+PDF 展开三种真实分词、单 Token 追加、两次工具调用和 ReAct 的审批分支。聊天模板页展示第二轮请求。现场操作使用 HTML。
 
 ## 历史版本
 
+- [v0.4 HTML](exports/llm-basics-slides-v0.4.html)
+- [v0.4 PDF](exports/llm-basics-slides-v0.4.pdf)
+- [v0.4 讲稿](exports/llm-basics-speech-v0.4.md)
+- [v0.4 大纲](outline-v0.4.md)
+- [v0.3 逐页审阅](review-v0.3.md)
 - [v0.3 HTML](exports/llm-basics-slides-v0.3.html)
 - [v0.3 PDF](exports/llm-basics-slides-v0.3.pdf)
 - [v0.3 讲稿](exports/llm-basics-speech-v0.3.md)
@@ -51,4 +56,4 @@ PDF 展开单 Token 追加、两次工具调用和 ReAct 的审批分支。聊�
 - [v0.1 讲稿](exports/llm-basics-speech-v0.1.md)
 - [原始大纲](outline.md)
 
-v0.1 源码在 `deck/`。v0.2 和 v0.3 的源码分别在对应版本目录。
+v0.1 源码在 `deck/`。后续各版源码在对应版本目录。

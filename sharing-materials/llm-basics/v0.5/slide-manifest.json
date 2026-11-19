@@ -1,0 +1,409 @@
+[
+  {
+    "page": 1,
+    "title": "大模型常见概念",
+    "chapter": "开场",
+    "sources": []
+  },
+  {
+    "page": 2,
+    "title": "这笔差旅费可以全额报销吗？",
+    "chapter": "开场",
+    "sources": []
+  },
+  {
+    "page": 3,
+    "title": "AI、机器学习与大语言模型",
+    "chapter": "01 / 模型是什么",
+    "sources": [
+      "llm"
+    ]
+  },
+  {
+    "page": 4,
+    "title": "语言模型能处理哪些文本任务？",
+    "chapter": "01 / 模型是什么",
+    "sources": [
+      "llm"
+    ]
+  },
+  {
+    "page": 5,
+    "title": "托管 API 与自行部署",
+    "chapter": "02 / 使用方式与模型文件",
+    "sources": [
+      "qwen"
+    ]
+  },
+  {
+    "page": 6,
+    "title": "开放权重、训练资料与使用许可",
+    "chapter": "02 / 使用方式与模型文件",
+    "sources": [
+      "qwen",
+      "q8",
+      "files"
+    ]
+  },
+  {
+    "page": 7,
+    "title": "模型仓库的三类文件",
+    "chapter": "02 / 使用方式与模型文件",
+    "sources": [
+      "files",
+      "safetensors",
+      "tokenizer_config"
+    ]
+  },
+  {
+    "page": 8,
+    "title": "Token 与 Token ID",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "tokens"
+    ]
+  },
+  {
+    "page": 9,
+    "title": "逐个 Token 生成文本",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "llm",
+      "tokens"
+    ]
+  },
+  {
+    "page": 10,
+    "title": "训练与推理",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "llm",
+      "sft",
+      "lora"
+    ]
+  },
+  {
+    "page": 11,
+    "title": "配置和权重怎样装进模型？",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "config",
+      "weight_index",
+      "safetensors"
+    ]
+  },
+  {
+    "page": 12,
+    "title": "同一段文字在不同分词器中的编号",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "tokens",
+      "tokenizer",
+      "tokenizer_config",
+      "files"
+    ]
+  },
+  {
+    "page": 13,
+    "title": "Dense 与 MoE 的前馈层",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "q235",
+      "qwen"
+    ]
+  },
+  {
+    "page": 14,
+    "title": "模型名里的参数量与数值格式",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "q30",
+      "q30fp8",
+      "quant"
+    ]
+  },
+  {
+    "page": 15,
+    "title": "同一模型的原始权重与量化版本",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "q8",
+      "q8awq",
+      "q8gguf",
+      "q30",
+      "q30fp8",
+      "awq",
+      "gptq",
+      "gguf"
+    ]
+  },
+  {
+    "page": 16,
+    "title": "推理框架与服务接口",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "files",
+      "qwen",
+      "vllm_api"
+    ]
+  },
+  {
+    "page": 17,
+    "title": "预训练与监督微调",
+    "chapter": "05 / 训练与对话",
+    "sources": [
+      "llm",
+      "sft",
+      "distill"
+    ]
+  },
+  {
+    "page": 18,
+    "title": "RLHF 怎样使用人类偏好？",
+    "chapter": "05 / 训练与对话",
+    "sources": [
+      "sft",
+      "rlhf"
+    ]
+  },
+  {
+    "page": 19,
+    "title": "聊天模板与多轮对话",
+    "chapter": "05 / 训练与对话",
+    "sources": [
+      "sft",
+      "chat",
+      "tokenizer_config"
+    ]
+  },
+  {
+    "page": 20,
+    "title": "差旅回答中的三个核对缺口",
+    "chapter": "06 / 模型到应用",
+    "sources": [
+      "rag",
+      "context"
+    ]
+  },
+  {
+    "page": 21,
+    "title": "一个最小的差旅问答应用",
+    "chapter": "06 / 模型到应用",
+    "sources": []
+  },
+  {
+    "page": 22,
+    "title": "提示词里的目标、约束与示例",
+    "chapter": "06 / 模型到应用",
+    "sources": [
+      "context",
+      "sft"
+    ]
+  },
+  {
+    "page": 23,
+    "title": "上下文工程要选择哪些信息？",
+    "chapter": "06 / 模型到应用",
+    "sources": [
+      "context"
+    ]
+  },
+  {
+    "page": 24,
+    "title": "一次对话请求的上下文窗口",
+    "chapter": "06 / 模型到应用",
+    "sources": [
+      "context",
+      "vllm_api",
+      "chat"
+    ]
+  },
+  {
+    "page": 25,
+    "title": "RAG 的资料准备和回答流程",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "rag",
+      "embedding"
+    ]
+  },
+  {
+    "page": 26,
+    "title": "Token ID 与 Embedding 向量",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "tokens",
+      "embedding"
+    ]
+  },
+  {
+    "page": 27,
+    "title": "检索候选与重排",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "embedding",
+      "rag"
+    ]
+  },
+  {
+    "page": 28,
+    "title": "制度条款怎样支持报销结论？",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "rag"
+    ]
+  },
+  {
+    "page": 29,
+    "title": "Function Calling 的调用请求",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "tools"
+    ]
+  },
+  {
+    "page": 30,
+    "title": "两次工具调用完成一次换算",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "tools"
+    ]
+  },
+  {
+    "page": 31,
+    "title": "Workflow 与 Agent 的决策分工",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "agents"
+    ]
+  },
+  {
+    "page": 32,
+    "title": "ReAct 的行动与观察",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "react",
+      "agents"
+    ]
+  },
+  {
+    "page": 33,
+    "title": "Harness 怎样运行 Agent？",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "context"
+    ]
+  },
+  {
+    "page": 34,
+    "title": "长任务的记忆与上下文压缩",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "context"
+    ]
+  },
+  {
+    "page": 35,
+    "title": "工具执行与停止条件",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "agents"
+    ]
+  },
+  {
+    "page": 36,
+    "title": "Tool、MCP 与 Skill 的分工",
+    "chapter": "10 / 连接与任务方法",
+    "sources": [
+      "mcp",
+      "skills",
+      "tools"
+    ]
+  },
+  {
+    "page": 37,
+    "title": "MCP 的 Host、Client 与 Server",
+    "chapter": "10 / 连接与任务方法",
+    "sources": [
+      "mcp",
+      "mcp_arch"
+    ]
+  },
+  {
+    "page": 38,
+    "title": "Skill 的任务说明与按需加载",
+    "chapter": "10 / 连接与任务方法",
+    "sources": [
+      "skills"
+    ]
+  },
+  {
+    "page": 39,
+    "title": "多模态怎样读出票据字段？",
+    "chapter": "11 / 多模态与交付",
+    "sources": []
+  },
+  {
+    "page": 40,
+    "title": "差旅任务中各类模型的分工",
+    "chapter": "11 / 多模态与交付",
+    "sources": [
+      "embedding",
+      "rag",
+      "tools"
+    ]
+  },
+  {
+    "page": 41,
+    "title": "差旅助手交付的核对说明",
+    "chapter": "11 / 多模态与交付",
+    "sources": []
+  },
+  {
+    "page": 42,
+    "title": "整项任务的效果与成本",
+    "chapter": "回顾与交流",
+    "sources": [
+      "agents",
+      "context"
+    ]
+  },
+  {
+    "page": 43,
+    "title": "助手引用了不存在的条款，怎么排查？",
+    "chapter": "回顾与交流",
+    "sources": []
+  },
+  {
+    "page": 44,
+    "title": "参考资料",
+    "chapter": "附录 / 参考资料",
+    "sources": [
+      "llm",
+      "tokens",
+      "files",
+      "qwen",
+      "quant",
+      "sft",
+      "rlhf",
+      "chat",
+      "vllm_api",
+      "rag",
+      "context",
+      "tools",
+      "react",
+      "harness",
+      "mcp",
+      "skills"
+    ]
+  },
+  {
+    "page": 45,
+    "title": "案例数据与演示口径",
+    "chapter": "附录 / 参考资料",
+    "sources": []
+  }
+]
