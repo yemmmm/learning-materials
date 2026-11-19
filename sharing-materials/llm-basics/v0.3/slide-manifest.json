@@ -1,0 +1,450 @@
+[
+  {
+    "page": 1,
+    "title": "大模型常见概念",
+    "chapter": "开场",
+    "sources": []
+  },
+  {
+    "page": 2,
+    "title": "一项任务，串起整场分享",
+    "chapter": "开场",
+    "sources": []
+  },
+  {
+    "page": 3,
+    "title": "AI、机器学习与深度学习",
+    "chapter": "01 / 模型是什么",
+    "sources": [
+      "llm"
+    ]
+  },
+  {
+    "page": 4,
+    "title": "语言模型与常见 NLP 任务",
+    "chapter": "01 / 模型是什么",
+    "sources": [
+      "llm"
+    ]
+  },
+  {
+    "page": 5,
+    "title": "使用模型的两条路线",
+    "chapter": "02 / 使用与部署",
+    "sources": [
+      "qwen"
+    ]
+  },
+  {
+    "page": 6,
+    "title": "“开源模型”开放了哪些东西？",
+    "chapter": "02 / 使用与部署",
+    "sources": [
+      "qwen",
+      "files"
+    ]
+  },
+  {
+    "page": 7,
+    "title": "一个模型仓库里的三类文件",
+    "chapter": "03 / 模型文件",
+    "sources": [
+      "files",
+      "safetensors"
+    ]
+  },
+  {
+    "page": 8,
+    "title": "文字进入模型前，会变成 Token",
+    "chapter": "04 / 模型如何运行",
+    "sources": [
+      "tokens"
+    ]
+  },
+  {
+    "page": 9,
+    "title": "生成下一步，再把结果接回上下文",
+    "chapter": "04 / 模型如何运行",
+    "sources": [
+      "llm"
+    ]
+  },
+  {
+    "page": 10,
+    "title": "训练与推理，发生在不同阶段",
+    "chapter": "04 / 模型如何运行",
+    "sources": [
+      "llm"
+    ]
+  },
+  {
+    "page": 11,
+    "title": "配置、实现代码与权重如何配合",
+    "chapter": "04 / 模型如何运行",
+    "sources": [
+      "config",
+      "safetensors"
+    ]
+  },
+  {
+    "page": 12,
+    "title": "权重文件怎样保存模型参数？",
+    "chapter": "04 / 模型如何运行",
+    "sources": [
+      "config",
+      "weight_index",
+      "safetensors"
+    ]
+  },
+  {
+    "page": 13,
+    "title": "分词器文件怎样把文本变成 ID？",
+    "chapter": "04 / 模型如何运行",
+    "sources": [
+      "tokenizer",
+      "tokenizer_config",
+      "files"
+    ]
+  },
+  {
+    "page": 14,
+    "title": "模型名里的数值格式与量化",
+    "chapter": "05 / 模型规格",
+    "sources": [
+      "q30",
+      "q30fp8",
+      "quant",
+      "awq",
+      "gptq",
+      "gguf"
+    ]
+  },
+  {
+    "page": 15,
+    "title": "同一个模型的不同权重版本",
+    "chapter": "05 / 模型规格",
+    "sources": [
+      "q8",
+      "q8awq",
+      "q8gguf",
+      "q30",
+      "q30fp8"
+    ]
+  },
+  {
+    "page": 16,
+    "title": "Dense 与 MoE",
+    "chapter": "05 / 模型规格",
+    "sources": [
+      "q235",
+      "qwen"
+    ]
+  },
+  {
+    "page": 17,
+    "title": "推理框架把模型文件运行起来",
+    "chapter": "06 / 推理服务",
+    "sources": [
+      "files",
+      "qwen"
+    ]
+  },
+  {
+    "page": 18,
+    "title": "预训练与后训练",
+    "chapter": "07 / 训练对话助手",
+    "sources": [
+      "llm",
+      "sft",
+      "rlhf",
+      "lora",
+      "distill"
+    ]
+  },
+  {
+    "page": 19,
+    "title": "RLHF：先训练奖励模型，再优化回答",
+    "chapter": "07 / 训练对话助手",
+    "sources": [
+      "rlhf"
+    ]
+  },
+  {
+    "page": 20,
+    "title": "从 SFT 样本到聊天模板",
+    "chapter": "08 / 对话请求",
+    "sources": [
+      "sft",
+      "chat"
+    ]
+  },
+  {
+    "page": 21,
+    "title": "差旅助手目前还缺什么？",
+    "chapter": "09 / 常见局限",
+    "sources": [
+      "rag",
+      "context"
+    ]
+  },
+  {
+    "page": 22,
+    "title": "一个最小的差旅问答应用",
+    "chapter": "10 / 模型到应用",
+    "sources": []
+  },
+  {
+    "page": 23,
+    "title": "提示词工程：目标、示例与格式",
+    "chapter": "11 / 把任务交代清楚",
+    "sources": [
+      "context"
+    ]
+  },
+  {
+    "page": 24,
+    "title": "上下文工程：每一步给它什么信息",
+    "chapter": "11 / 把任务交代清楚",
+    "sources": [
+      "context"
+    ]
+  },
+  {
+    "page": 25,
+    "title": "一次请求怎样用到上下文窗口？",
+    "chapter": "11 / 把任务交代清楚",
+    "sources": [
+      "context",
+      "vllm_api",
+      "chat"
+    ]
+  },
+  {
+    "page": 26,
+    "title": "RAG：检索资料，再生成回答",
+    "chapter": "12 / 接入资料",
+    "sources": [
+      "rag",
+      "embedding"
+    ]
+  },
+  {
+    "page": 27,
+    "title": "Token ID 与 Embedding：两种不同的数值",
+    "chapter": "12 / 接入资料",
+    "sources": [
+      "tokens",
+      "embedding"
+    ]
+  },
+  {
+    "page": 28,
+    "title": "Embedding 检索与重排序",
+    "chapter": "12 / 接入资料",
+    "sources": [
+      "embedding",
+      "rag"
+    ]
+  },
+  {
+    "page": 29,
+    "title": "有资料的回答，怎样才算有依据？",
+    "chapter": "12 / 接入资料",
+    "sources": [
+      "rag"
+    ]
+  },
+  {
+    "page": 30,
+    "title": "Function Calling：生成一个调用请求",
+    "chapter": "13 / 连接外部能力",
+    "sources": [
+      "tools"
+    ]
+  },
+  {
+    "page": 31,
+    "title": "一次工具调用的完整往返",
+    "chapter": "13 / 连接外部能力",
+    "sources": [
+      "tools"
+    ]
+  },
+  {
+    "page": 32,
+    "title": "提示、RAG、微调与工具，各补什么？",
+    "chapter": "13 / 连接外部能力",
+    "sources": [
+      "rag",
+      "tools",
+      "sft",
+      "context"
+    ]
+  },
+  {
+    "page": 33,
+    "title": "Workflow 与 Agent",
+    "chapter": "14 / 自主推进任务",
+    "sources": [
+      "agents"
+    ]
+  },
+  {
+    "page": 34,
+    "title": "ReAct：判断、行动、观察，再继续",
+    "chapter": "14 / 自主推进任务",
+    "sources": [
+      "react",
+      "agents"
+    ]
+  },
+  {
+    "page": 35,
+    "title": "Harness：模型周围的运行与控制系统",
+    "chapter": "15 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "context"
+    ]
+  },
+  {
+    "page": 36,
+    "title": "记忆与压缩：长任务怎样接着做？",
+    "chapter": "15 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "context"
+    ]
+  },
+  {
+    "page": 37,
+    "title": "工具执行、沙箱与停止条件",
+    "chapter": "15 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "agents"
+    ]
+  },
+  {
+    "page": 38,
+    "title": "Tool、MCP、Skill 的分工",
+    "chapter": "16 / 连接与任务方法",
+    "sources": [
+      "mcp",
+      "skills",
+      "tools"
+    ]
+  },
+  {
+    "page": 39,
+    "title": "MCP：应用连接外部系统的标准协议",
+    "chapter": "16 / 连接与任务方法",
+    "sources": [
+      "mcp",
+      "mcp_arch"
+    ]
+  },
+  {
+    "page": 40,
+    "title": "Skill：把任务说明和材料打包",
+    "chapter": "16 / 连接与任务方法",
+    "sources": [
+      "skills"
+    ]
+  },
+  {
+    "page": 41,
+    "title": "多模态：输入输出可以超出文字",
+    "chapter": "17 / 更多模型能力",
+    "sources": []
+  },
+  {
+    "page": 42,
+    "title": "常见 AI 模型，在应用中的位置",
+    "chapter": "17 / 更多模型能力",
+    "sources": [
+      "embedding",
+      "rag"
+    ]
+  },
+  {
+    "page": 43,
+    "title": "差旅助手的完整组成",
+    "chapter": "回到整项任务",
+    "sources": [
+      "agents",
+      "harness",
+      "mcp",
+      "skills"
+    ]
+  },
+  {
+    "page": 44,
+    "title": "把名词放回它解决的问题",
+    "chapter": "回顾与交流",
+    "sources": []
+  },
+  {
+    "page": 45,
+    "title": "一次用户任务的成本与效果",
+    "chapter": "附录 / 按需展开",
+    "sources": [
+      "agents",
+      "context"
+    ]
+  },
+  {
+    "page": 46,
+    "title": "参考资料：模型、文件与训练",
+    "chapter": "附录 / 资料来源",
+    "sources": [
+      "llm",
+      "tokens",
+      "files",
+      "config",
+      "weight_index",
+      "safetensors",
+      "tokenizer",
+      "tokenizer_config",
+      "qwen",
+      "q8",
+      "q8awq",
+      "q8gguf",
+      "q30",
+      "q30fp8",
+      "q235",
+      "quant",
+      "awq",
+      "gptq",
+      "gguf",
+      "sft",
+      "rlhf",
+      "lora",
+      "distill",
+      "chat"
+    ]
+  },
+  {
+    "page": 47,
+    "title": "参考资料：检索、工具与 Agent",
+    "chapter": "附录 / 资料来源",
+    "sources": [
+      "context",
+      "vllm_api",
+      "rag",
+      "embedding",
+      "tools",
+      "agents",
+      "react",
+      "harness",
+      "mcp",
+      "skills"
+    ]
+  },
+  {
+    "page": 48,
+    "title": "资料与演示说明",
+    "chapter": "附录 / 分享说明",
+    "sources": []
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "date": "2026-11-18",
+  "assets": [
+    {
+      "file": "model-workbench.png",
+      "kind": "AI-generated conceptual illustration",
+      "use": "cover",
+      "description": "Paper workbench metaphor with model core, documents, calculator and terminal. Not a product screenshot or network architecture."
+    },
+    {
+      "file": "dense-moe.png",
+      "kind": "AI-generated educational diagram",
+      "use": "Dense/MoE comparison",
+      "description": "Local feed-forward layer only. Dense shared FFN versus routing to E1 and E3 among four experts. Does not depict a full Transformer or actual Qwen expert counts.",
+      "reference": "https://huggingface.co/Qwen/Qwen3-235B-A22B"
+    },
+    {
+      "file": null,
+      "kind": "native HTML excerpt of official file list, not a screenshot",
+      "use": "Qwen3-8B repository files",
+     "source": "https://huggingface.co/Qwen/Qwen3-8B/tree/main",
+      "description": "Verified filenames and sizes excerpted and arranged for readability. Three remaining weight shards abbreviated. Official site was inaccessible in local browser; no screenshot claim."
+    }
+  ]
+}

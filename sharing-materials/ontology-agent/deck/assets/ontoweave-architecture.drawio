@@ -1,0 +1,157 @@
+<mxfile host="Electron" modified="2026-10-15T00:00:00.000Z" agent="Codex" version="26.0.0" type="device">
+  <diagram id="ontoweave-architecture" name="OntoWeave Architecture">
+    <mxGraphModel dx="1696" dy="650" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1696" pageHeight="650" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#16382e;fontFamily=Deck Sans;fontSize=18;fontSize=28;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="10" width="1" height="1" as="geometry" />
+        </mxCell>
+
+        <!-- The platform boundary is intentionally separate from external business systems. -->
+        <mxCell id="platform" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#16382e;strokeWidth=3;" vertex="1" parent="1">
+          <mxGeometry x="360" y="70" width="980" height="510" as="geometry" />
+        </mxCell>
+        <mxCell id="platform-label" value="ONTOWEAVE 平台边界" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#16382e;fontFamily=Deck Sans;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="385" y="82" width="300" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lane-interfaces" value="接口入口" style="swimlane;startSize=32;horizontal=1;fillColor=#e1e9dc;strokeColor=#bfccbf;fontColor=#617068;fontFamily=Deck Sans;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="120" width="940" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-services" value="应用服务" style="swimlane;startSize=32;horizontal=1;fillColor=#f0f2eb;strokeColor=#bfccbf;fontColor=#617068;fontFamily=Deck Sans;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="265" width="940" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-storage" value="平台数据" style="swimlane;startSize=32;horizontal=1;fillColor=#e1e9dc;strokeColor=#bfccbf;fontColor=#617068;fontFamily=Deck Sans;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="450" width="940" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- External actors and team. -->
+        <mxCell id="planning" value="远期设想｜待实现·规划待确认&lt;br/&gt;跨阶段调度 · 运行管理界面" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eee4d3;strokeColor=#9c6c36;strokeWidth=2;dashed=1;fontColor=#9c6c36;fontFamily=Deck Sans;fontSize=21;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="35" width="330" height="78" as="geometry" />
+        </mxCell>
+        <mxCell id="business-owner" value="业务人员&lt;br/&gt;确认含义与范围" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eee4d3;strokeColor=#9c6c36;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="20" y="125" width="330" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="team" value="建模 Team&lt;br/&gt;生产协作边界" style="swimlane;startSize=38;horizontal=1;fillColor=#e1e9dc;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="220" width="330" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="team-modeling" value="Modeling&lt;br/&gt;语义建模" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="team">
+          <mxGeometry x="40" y="52" width="130" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="team-coordinator" value="Coordinator&lt;br/&gt;范围与依赖" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="team">
+          <mxGeometry x="190" y="52" width="130" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="team-cq" value="CQ&lt;br/&gt;能力问题" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="team">
+          <mxGeometry x="40" y="140" width="130" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="team-delivery" value="Delivery&lt;br/&gt;授权与进度" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="team">
+          <mxGeometry x="190" y="140" width="130" height="72" as="geometry" />
+        </mxCell>
+        <mxCell id="team-note" value="Team 做语义判断；平台守边界" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="team">
+          <mxGeometry x="40" y="232" width="290" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Platform components. -->
+        <mxCell id="ui" value="管理界面&lt;br/&gt;React / Vite" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="420" y="170" width="220" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="http" value="HTTP 接口&lt;br/&gt;FastAPI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="680" y="170" width="220" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="mcp" value="Agent 工具接口&lt;br/&gt;FastMCP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="950" y="170" width="280" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="auth" value="授权与范围&lt;br/&gt;Project / Ontology" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1e9dc;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="425" y="325" width="220" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="direct" value="直接模型变更&lt;br/&gt;compiler → apply_atomic&lt;br/&gt;回执与实际修订" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d7e7d0;strokeColor=#16382e;strokeWidth=3;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="690" y="305" width="330" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="query" value="语义查询与读取&lt;br/&gt;治理范围 / IRI 周边" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1e9dc;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="325" width="230" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="postgres" value="PostgreSQL&lt;br/&gt;元数据、工作状态、回执" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="450" y="490" width="300" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="rdf" value="RDF / Oxigraph&lt;br/&gt;权威业务语义图" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=22;" vertex="1" parent="1">
+          <mxGeometry x="860" y="490" width="360" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- External business systems and independent acceptance. -->
+        <mxCell id="business-systems" value="外部业务系统" style="swimlane;startSize=42;horizontal=1;fillColor=#eee4d3;strokeColor=#9c6c36;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=22;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="120" width="290" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="business-db" value="业务数据库&lt;br/&gt;订单、商品等业务行" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#9c6c36;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="business-systems">
+          <mxGeometry x="25" y="70" width="240" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="business-api" value="业务 API&lt;br/&gt;状态查询与业务执行" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#9c6c36;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="business-systems">
+          <mxGeometry x="25" y="143" width="240" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="consumer" value="消费 Agent&lt;br/&gt;读取语义、查事实、完成任务" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eee4d3;strokeColor=#9c6c36;strokeWidth=2;fontColor=#16382e;fontFamily=Deck Sans;fontSize=24;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="375" width="290" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="acceptance-boundary" value="独立验收边界" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f3ec;strokeColor=#2c7053;strokeWidth=2;dashed=1;fontColor=#2c7053;fontFamily=Deck Sans;fontSize=21;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="480" width="290" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="acceptance" value="Acceptance&lt;br/&gt;只读治理上下文，独立判定" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1e9dc;strokeColor=#2c7053;fontColor=#16382e;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="1">
+          <mxGeometry x="1385" y="520" width="260" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Current paths: green solid connectors. -->
+        <mxCell id="e-owner" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9c6c36;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="business-owner" target="team" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="185" y="215" /><mxPoint x="355" y="215" /><mxPoint x="355" y="220" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-modeling" value="Modeling 提交 / 团队自查" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" edge="1" source="team" target="mcp" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="355" y="220" /><mxPoint x="355" y="112" /><mxPoint x="1090" y="112" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-ui-http" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="ui" target="http" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-http-auth" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="http" target="auth" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="790" y="285" /><mxPoint x="535" y="285" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-mcp-direct" value="当前变更入口" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" edge="1" source="mcp" target="direct" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1090" y="285" /><mxPoint x="855" y="285" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-mcp-query" value="查询 / 自查" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" edge="1" source="mcp" target="query" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1090" y="285" /><mxPoint x="1175" y="285" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-auth-direct" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="auth" target="direct" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-direct-pg" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="direct" target="postgres" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="855" y="465" /><mxPoint x="600" y="465" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-direct-rdf" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="direct" target="rdf" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="855" y="465" /><mxPoint x="1040" y="465" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-query-rdf" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="query" target="rdf" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1175" y="465" /><mxPoint x="1040" y="465" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-consumer-mcp" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;endArrow=block;endFill=1;" edge="1" source="consumer" target="mcp" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1335" y="412" /><mxPoint x="1335" y="207" /><mxPoint x="1230" y="207" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-consumer-api" value="业务查询 / 执行" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9c6c36;strokeWidth=2;endArrow=block;endFill=1;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" edge="1" source="consumer" target="business-api" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1515" y="350" /><mxPoint x="1515" y="294" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="e-acceptance" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2c7053;strokeWidth=2;dashed=1;endArrow=block;endFill=1;" edge="1" source="acceptance" target="query" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1360" y="544" /><mxPoint x="1305" y="420" /></Array></mxGeometry>
+        </mxCell>
+        <mxCell id="acceptance-context-label" value="只读治理&lt;br/&gt;上下文" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="445" width="120" height="52" as="geometry" />
+        </mxCell>
+
+        <!-- Scope placeholder only; no concrete future product capability is asserted. -->
+        <mxCell id="e-planning" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#9c6c36;strokeWidth=2;dashed=1;endArrow=open;endFill=0;" edge="1" source="planning" target="team" parent="1">
+          <mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="185" y="118" /><mxPoint x="355" y="118" /><mxPoint x="355" y="220" /></Array></mxGeometry>
+        </mxCell>
+
+        <mxCell id="legend" value="实线＝当前能力与路径　　赭色虚线＝范围尚待确认的规划占位　　独立验收不回写生产链" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;fontColor=#617068;fontFamily=Deck Sans;fontSize=21;" vertex="1" parent="1">
+          <mxGeometry x="385" y="595" width="960" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
