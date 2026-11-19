@@ -1,0 +1,364 @@
+[
+  {
+    "page": 1,
+    "title": "大模型常见概念",
+    "chapter": "开场",
+    "sources": []
+  },
+  {
+    "page": 2,
+    "title": "人工智能、深度学习与自然语言处理",
+    "chapter": "01 / 模型是什么",
+    "sources": [
+      "nlp"
+    ]
+  },
+  {
+    "page": 3,
+    "title": "大语言模型与 NLP 的发展",
+    "chapter": "01 / 模型是什么",
+    "sources": [
+      "llm",
+      "lstm",
+      "transformer",
+      "bert",
+      "chatgpt"
+    ]
+  },
+  {
+    "page": 4,
+    "title": "托管 API 与自行部署",
+    "chapter": "02 / 使用方式与模型文件",
+    "sources": [
+      "qwen"
+    ]
+  },
+  {
+    "page": 5,
+    "title": "模型仓库的三类文件",
+    "chapter": "02 / 使用方式与模型文件",
+    "sources": [
+      "files",
+      "safetensors",
+      "vocab",
+      "tokenizer_config"
+    ]
+  },
+  {
+    "page": 6,
+    "title": "Token 与 Token ID",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "tokenizer",
+      "vocab"
+    ]
+  },
+  {
+    "page": 7,
+    "title": "逐个 Token 生成文本",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "llm",
+      "tokenizer",
+      "tokenizer_config",
+      "generation_config"
+    ]
+  },
+  {
+    "page": 8,
+    "title": "网络结构与模型权重",
+    "chapter": "03 / 分词、生成与加载",
+    "sources": [
+      "network_diagram",
+      "config",
+      "weight_index",
+      "safetensors"
+    ]
+  },
+  {
+    "page": 9,
+    "title": "模型名称里的参数量和量化规格",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "q8",
+      "q8awq",
+      "q30",
+      "q30fp8"
+    ]
+  },
+  {
+    "page": 10,
+    "title": "Dense 与 MoE 的前馈层",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "q8",
+      "q30",
+      "qwen"
+    ]
+  },
+  {
+    "page": 11,
+    "title": "低精度、量化与蒸馏",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "quant",
+      "awq",
+      "distill"
+    ]
+  },
+  {
+    "page": 12,
+    "title": "同一模型的原始权重与量化版本",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "q8",
+      "q8awq",
+      "q8gguf",
+      "q30",
+      "q30fp8",
+      "awq",
+      "gptq",
+      "gguf"
+    ]
+  },
+  {
+    "page": 13,
+    "title": "训练、部署与推理框架",
+    "chapter": "04 / 模型规格与推理服务",
+    "sources": [
+      "files",
+      "qwen",
+      "vllm_api",
+      "lora"
+    ]
+  },
+  {
+    "page": 14,
+    "title": "预训练、监督微调与对齐",
+    "chapter": "05 / 训练与对话",
+    "sources": [
+      "llm",
+      "sft",
+      "rlhf"
+    ]
+  },
+  {
+    "page": 15,
+    "title": "续写模型怎样成为对话助手",
+    "chapter": "05 / 训练与对话",
+    "sources": [
+      "sft",
+      "chat",
+      "tokenizer_config"
+    ]
+  },
+  {
+    "page": 16,
+    "title": "提示词是什么，怎样写清楚？",
+    "chapter": "06 / 模型到应用",
+    "sources": [
+      "context"
+    ]
+  },
+  {
+    "page": 17,
+    "title": "一次请求里的上下文与窗口",
+    "chapter": "06 / 模型到应用",
+    "sources": [
+      "context",
+      "vllm_api",
+      "chat"
+    ]
+  },
+  {
+    "page": 18,
+    "title": "RAG 怎样把相关条款带进回答？",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "rag",
+      "embedding"
+    ]
+  },
+  {
+    "page": 19,
+    "title": "Token ID 与 Embedding 向量",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "vocab",
+      "embedding"
+    ]
+  },
+  {
+    "page": 20,
+    "title": "检索候选与重排",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "embedding",
+      "rag"
+    ]
+  },
+  {
+    "page": 21,
+    "title": "制度条款怎样支持报销结论？",
+    "chapter": "07 / RAG 与检索",
+    "sources": [
+      "rag"
+    ]
+  },
+  {
+    "page": 22,
+    "title": "Function Calling 的调用请求",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "tools"
+    ]
+  },
+  {
+    "page": 23,
+    "title": "两次工具调用完成一次换算",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "tools"
+    ]
+  },
+  {
+    "page": 24,
+    "title": "Workflow 与 Agent 的决策分工",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "agents"
+    ]
+  },
+  {
+    "page": 25,
+    "title": "ReAct 的行动与观察",
+    "chapter": "08 / 工具与自主决策",
+    "sources": [
+      "react",
+      "agents"
+    ]
+  },
+  {
+    "page": 26,
+    "title": "Harness 怎样运行 Agent？",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "context"
+    ]
+  },
+  {
+    "page": 27,
+    "title": "长任务的记忆与上下文压缩",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "context"
+    ]
+  },
+  {
+    "page": 28,
+    "title": "工具执行与停止条件",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "harness",
+      "agents"
+    ]
+  },
+  {
+    "page": 29,
+    "title": "Tool、MCP 与 Skill 的分工",
+    "chapter": "10 / 连接与任务方法",
+    "sources": [
+      "mcp",
+      "skills",
+      "tools"
+    ]
+  },
+  {
+    "page": 30,
+    "title": "MCP 的 Host、Client 与 Server",
+    "chapter": "10 / 连接与任务方法",
+    "sources": [
+      "mcp",
+      "mcp_arch"
+    ]
+  },
+  {
+    "page": 31,
+    "title": "Skill 的任务说明与按需加载",
+    "chapter": "10 / 连接与任务方法",
+    "sources": [
+      "skills"
+    ]
+  },
+  {
+    "page": 32,
+    "title": "多模态怎样读出票据字段？",
+    "chapter": "11 / 多模态与交付",
+    "sources": []
+  },
+  {
+    "page": 33,
+    "title": "差旅任务中各类模型的分工",
+    "chapter": "11 / 多模态与交付",
+    "sources": [
+      "embedding",
+      "rag",
+      "tools"
+    ]
+  },
+  {
+    "page": 34,
+    "title": "差旅助手交付的核对说明",
+    "chapter": "11 / 多模态与交付",
+    "sources": []
+  },
+  {
+    "page": 35,
+    "title": "整项任务的效果与成本",
+    "chapter": "回顾与交流",
+    "sources": [
+      "agents",
+      "context"
+    ]
+  },
+  {
+    "page": 36,
+    "title": "助手引用了不存在的条款，怎么排查？",
+    "chapter": "回顾与交流",
+    "sources": []
+  },
+  {
+    "page": 37,
+    "title": "参考资料",
+    "chapter": "附录 / 参考资料",
+    "sources": [
+      "llm",
+      "transformer",
+      "bert",
+      "chatgpt",
+      "files",
+      "vocab",
+      "quant",
+      "distill",
+      "sft",
+      "rlhf",
+      "chat",
+      "vllm_api",
+      "rag",
+      "context",
+      "tools",
+      "react",
+      "harness",
+      "mcp",
+      "skills"
+    ]
+  },
+  {
+    "page": 38,
+    "title": "案例数据与演示口径",
+    "chapter": "附录 / 参考资料",
+    "sources": []
+  }
+]
