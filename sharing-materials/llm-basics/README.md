@@ -1,21 +1,21 @@
 # 大模型常见概念分享
 
-当前版本 **v0.6**，2026-11-19。以公司差旅助手为贯穿案例，面向无需机器学习背景的 IT 同事。
+当前版本 **v0.9**，2026-11-19。面向无需机器学习背景的 IT 同事，介绍模型、推理服务和 Agent 应用中的常见概念。
 
-- [离线 HTML 演示](exports/llm-basics-slides-v0.6.html)
-- [PDF 阅读版](exports/llm-basics-slides-v0.6.pdf)
-- [逐页讲稿](exports/llm-basics-speech-v0.6.md)
-- [本版大纲与 v0.5 页码对照](outline-v0.6.md)
-- [制作源码与重建说明](v0.6/README.md)
-- [资料与素材来源](v0.6/sources.md)
+- [离线 HTML 演示](exports/llm-basics-slides-v0.9.html)
+- [PDF 阅读版](exports/llm-basics-slides-v0.9.pdf)
+- [逐页讲稿](exports/llm-basics-speech-v0.9.md)
+- [本版大纲与新旧页码对照](outline-v0.9.md)
+- [制作源码与重建说明](v0.9/README.md)
+- [资料与素材来源](v0.9/sources.md)
 
-共 38 页。P01–P36 为主讲与回顾，建议约 70 分钟，另留交流时间。P37–P38 为参考资料和演示口径。
+共 33 页。P01–P31 为主讲与回顾，建议约 65 分钟，另留交流时间。P32–P33 为参考资料和演示口径。
 
 ## 内容
 
-先讲 AI、深度学习和 NLP，再用实际模型仓库讲分词、生成、权重加载和模型规格。比较预训练、监督微调和对齐，演示续写模型如何在助手轮次作答。
+先讲 AI、深度学习和 NLP，再用实际模型仓库讲分词、自回归生成、权重文件和推理服务。用翻译和会议通知解释预训练、监督微调、对齐、多轮对话和提示词。
 
-应用部分从提示词进入完整的上下文请求，再讲制度召回、重排、引用核对和两次工具调用。ReAct 演示比较有无审批记录时的下一步，随后介绍 Harness、MCP 与 Skill。最后用差旅核对说明回顾如何评测和排查问题。
+应用部分用差旅案例演示 RAG 和 ReAct，用构建排查示例解释任务状态以及 Tool、MCP 和 Skill 的分工。最后比较非 LLM 模型，说明推理指标，并用一页回顾已讲概念和可选补讲主题。
 
 P17 讲稿可复制完整 vLLM 请求体。各页核对材料随讲稿列出。
 
@@ -30,13 +30,25 @@ HTML 可独立离线打开，字体、图片、样式、交互和讲稿均已内
 1. 对照词表查看英文分词，切换中文和代码示例。
 2. 逐步追加 Token，看到模型输出结束符时如何停止生成。
 3. 对照示范对话与助手的续写起点，切换到第二轮观察历史怎样带回。
-4. 查看工具请求、程序执行、工具结果与最终回答。
-5. 切换有无审批记录，观察 ReAct 如何选择不同的下一步。
+4. 查看一次换算调用的请求、回执与回答。
+5. 切换审批材料并查看提交结果，观察 ReAct 如何在等待补件与提交申请之间切换。
 
-PDF 展开三种真实分词、单 Token 追加、两次工具调用和 ReAct 的审批分支。聊天模板页展示第二轮请求。现场操作使用 HTML。
+PDF 展开三种真实分词、单 Token 追加、一次换算调用和 ReAct 的提交分支。聊天模板页展示第二轮请求。现场操作使用 HTML。
 
 ## 历史版本
 
+- [v0.8 HTML](exports/llm-basics-slides-v0.8.html)
+- [v0.8 PDF](exports/llm-basics-slides-v0.8.pdf)
+- [v0.8 讲稿](exports/llm-basics-speech-v0.8.md)
+- [v0.8 大纲](outline-v0.8.md)
+- [v0.7 HTML](exports/llm-basics-slides-v0.7.html)
+- [v0.7 PDF](exports/llm-basics-slides-v0.7.pdf)
+- [v0.7 讲稿](exports/llm-basics-speech-v0.7.md)
+- [v0.7 大纲](outline-v0.7.md)
+- [v0.6 HTML](exports/llm-basics-slides-v0.6.html)
+- [v0.6 PDF](exports/llm-basics-slides-v0.6.pdf)
+- [v0.6 讲稿](exports/llm-basics-speech-v0.6.md)
+- [v0.6 大纲](outline-v0.6.md)
 - [v0.5 HTML](exports/llm-basics-slides-v0.5.html)
 - [v0.5 PDF](exports/llm-basics-slides-v0.5.pdf)
 - [v0.5 讲稿](exports/llm-basics-speech-v0.5.md)

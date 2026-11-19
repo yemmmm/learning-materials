@@ -1,0 +1,42 @@
+# v0.9 制作说明
+
+P01–P31 为主讲和回顾，P32–P33 为参考资料与演示说明。 [大纲](../outline-v0.9.md) · [离线演示](../exports/llm-basics-slides-v0.9.html)
+
+## 文件
+
+- `content.py`：逐页可见内容、讲稿和引用。
+- `deck.css`：纸色、深绿配色，1920×1080 固定画布版式与打印样式。
+- `deck.js`：翻页、目录、讲稿、文字编辑与五个离线交互。
+- `build.py`：生成独立 HTML、Markdown 讲稿和页清单；字体及图片均内嵌。
+- `export.cjs`：使用 Playwright / Chromium 导出 PDF。
+- `slide-manifest.json`：页码、标题、章节与引用键。
+- `sources.md`：来源和教学示例说明。
+- `assets/neural-network.png` 为前馈神经网络示意图，`assets/rag-retrieve-rerank.png` 为 RAG 流程插图。封面和 Dense/MoE 图沿用 `../v0.2/assets/`。各图来源见 `sources.md`。
+
+字体打包复用 `../deck/build.py` 的 `make_fonts`，基础画布复用 `../deck/vendor/frontend-slides/viewport-base.css`，许可见 `../deck/THIRD-PARTY-NOTICES.txt`。
+
+## 重建 HTML 与讲稿
+
+从分享材料目录运行以下命令。该目录包含 `llm-basics/`。
+
+```bash
+env PYTHONDONTWRITEBYTECODE=1 uv run --python 3.14 \
+  --with fonttools==4.68.0 --with tiktoken==0.14.0 --with regex==2026.11.15 \
+  python llm-basics/v0.9/build.py
+```
+
+需要本机 `/usr/share/fonts/opentype/noto/` 中的 Noto CJK 字体。构建复用旧版的字体打包模块，保留它的导入依赖。Qwen3-8B 的分词示例已保存到源码，依赖有缓存时可给 `uv run` 加上 `--offline`。
+
+## 导出 PDF
+
+需要可用的 Playwright Node 包和 Chromium。可使用已经安装的环境：
+
+```bash
+NODE_PATH=/home/yangxiang/.nvm/versions/node/v22.22.1/lib/node_modules/@playwright/cli/node_modules \
+CHROMIUM_PATH=/home/yangxiang/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell \
+node llm-basics/v0.9/export.cjs
+```
+
+若系统已能直接加载 `playwright` 且安装了对应 Chromium，可直接运行 `node llm-basics/v0.9/export.cjs`。
+
+导出按 CSS 页面尺寸每页一张，包含背景。修改源码后先重建 HTML，再导出 PDF。PDF 展开三类分词、逐步生成、一次换算调用和 ReAct 的待补与提交分支。聊天模板展示第二轮。交互演示使用 HTML。
