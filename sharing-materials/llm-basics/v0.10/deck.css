@@ -105,20 +105,139 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#173b32;color:#eef2e7
   font-size: 23px;
 }
 .agent-equation {
-  padding-bottom: 24px;
-  border-bottom: 2px solid var(--green);
   color: var(--green);
   font-family: 'Deck Serif', serif;
-  font-size: 78px;
+  font-size: 61px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.2;
 }
 .agent-equation span {
-  margin: 0 16px;
+  margin: 0 11px;
   color: var(--ochre);
 }
-.harness-columns {
-  margin-top: 12px;
+.harness-loop .flow {
+  margin: 0;
+  gap: 45px;
+}
+.harness-loop .flow li {
+  padding: 15px 21px;
+  background: var(--soft);
+}
+.harness-loop .flow li:nth-child(2) {
+  background: var(--sand);
+  border-color: var(--ochre);
+}
+.harness-loop .flow li + li::before {
+  left: -35px;
+  top: 30px;
+}
+.harness-loop .flow span {
+  margin-top: 5px;
+  font-size: 24px;
+}
+.harness-loop .loop-return {
+  margin: 6px 0 0;
+  padding: 6px 0 9px;
+}
+.harness-capability-title,
+.memory-recall h2 {
+  font-size: 31px;
+  line-height: 1.3;
+  margin-bottom: 13px;
+}
+.harness-capabilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 17px 28px;
+}
+.harness-capabilities .text-block {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin: 0;
+}
+.harness-capabilities .text-block h3 {
+  margin-bottom: 3px;
+}
+.harness-capabilities .text-block p {
+  font-size: 24px;
+  line-height: 1.45;
+}
+.memory-columns {
+  gap: 42px;
+}
+.memory-example {
+  background: var(--soft);
+  border-left: 3px solid var(--green);
+  padding: 17px 22px;
+  margin-top: 20px;
+}
+.memory-columns > :last-child .memory-example {
+  background: var(--sand);
+  border-color: var(--ochre);
+}
+.memory-example p:first-child {
+  font-weight: 700;
+}
+.memory-example p + p {
+  margin-top: 10px;
+}
+.memory-recall .flow {
+  margin: 0;
+}
+.memory-recall .flow li {
+  padding-block: 13px;
+}
+.memory-recall .flow span {
+  margin-top: 7px;
+  font-size: 24px;
+}
+.compaction-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 46px minmax(0, 1fr);
+  gap: 19px;
+}
+.compaction-columns > .serving-arrow {
+  align-self: center;
+}
+.compaction-window {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 21px 27px;
+  border-top: 3px solid var(--green);
+  background: #eef0e9;
+}
+.compaction-window h2 {
+  font-size: 34px;
+  line-height: 1.3;
+}
+.compaction-window .text-block {
+  border-top: 1px solid var(--line);
+  padding: 8px 13px;
+  margin: 0;
+}
+.compaction-window .text-block h3 {
+  font-size: 26px;
+  margin-bottom: 4px;
+}
+.compaction-window .text-block p {
+  font-size: 25px;
+  line-height: 1.48;
+}
+.compaction-window .compaction-history {
+  border-color: var(--ochre);
+  background: var(--sand);
+}
+.compressed-window .compaction-history {
+  border-color: var(--green);
+  background: var(--soft);
+}
+.compaction-budget {
+  margin-top: auto;
+  padding: 7px 13px;
+  border: 1px dashed var(--green);
+  color: var(--green);
+  font-size: 23px;
 }
 .recall-options p {
   margin: 0;

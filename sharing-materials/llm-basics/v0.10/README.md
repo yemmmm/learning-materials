@@ -1,6 +1,6 @@
 # v0.10 制作说明
 
-P01–P31 为主讲和回顾，P32–P33 为参考资料与演示说明。 [大纲](../outline-v0.10.md) · [离线演示](../exports/llm-basics-slides-v0.10.html)
+P01–P32 为主讲和回顾，P33–P34 为参考资料与演示说明。 [大纲](../outline-v0.10.md) · [离线演示](../exports/llm-basics-slides-v0.10.html)
 
 ## 文件
 

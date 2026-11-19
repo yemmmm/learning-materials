@@ -60,7 +60,12 @@ SOURCES = {
  'agents': ('Anthropic · Workflow 与 Agent', 'https://www.anthropic.com/research/building-effective-agents'),
  'react': ('Yao 等 · ReAct', 'https://arxiv.org/abs/2210.03629'),
  'harness': ('Anthropic · 长任务 Harness', 'https://www.anthropic.com/research/effective-harnesses-for-long-running-agents'),
+ 'harness_definition': ('Google Cloud · Agent Harness 定义', 'https://cloud.google.com/discover/agent-harness'),
+ 'deep_agents': ('LangChain · Deep Agents 运行能力', 'https://docs.langchain.com/oss/python/deepagents/overview'),
  'agent_evals': ('Anthropic · Agent 与 Harness 评测', 'https://www.anthropic.com/research/demystifying-evals-for-ai-agents'),
+ 'agent_memory': ('Anthropic · Agent 记忆的组成', 'https://www.anthropic.com/research/components-of-agent-memory'),
+ 'langgraph_memory': ('LangGraph · 会话内与跨会话记忆', 'https://docs.langchain.com/oss/python/concepts/memory'),
+ 'adk_compaction': ('Google ADK · 上下文压缩', 'https://adk.dev/context/compaction/'),
  'mcp': ('MCP · 官方介绍', 'https://modelcontextprotocol.io/docs/getting-started/intro'),
  'skills': ('Agent Skills · 官方格式', 'https://agentskills.io/home'),
  'graphrag': ('Microsoft · GraphRAG 项目', 'https://github.com/microsoft/graphrag'),
@@ -497,32 +502,87 @@ add('08 / 工具与自主决策', 'ReAct 的行动与观察', 'Reasoning + Actin
     + cols(block('缺事前审批', p('保存草稿，请用户补件。申请处于待补状态。')),
            block('审批核验通过', p('调用提交工具，按回执确认已提交，返回教学申请单号 DEMO-018。'))) + '</div>',
     '检查结果决定接下来是等待补件，还是提交并返回申请单号。',
-    '【演示】用户目标是提交申请。先走完前三步，第四步切换审批记录，再点提交结果。缺记录时保存草稿并向用户要补件。有记录的分支预设审批系统核验通过，应用调用提交工具，收到教学申请单号 DEMO-018 后才报告已提交。整页为离线模拟，判断栏是讲述用的状态摘要。下一页讲模型提出动作后，由谁执行和记住进度。',
+    '【演示】用户目标是提交申请。先走完前三步，第四步切换审批记录，再点提交结果。缺记录时保存草稿并向用户要补件。有记录的分支预设审批系统核验通过，应用调用提交工具，收到教学申请单号 DEMO-018 后才报告已提交。整页为离线模拟，判断栏是讲述用的状态摘要。下一页看看是谁把模型调用、工具执行和回执连成循环。',
     ('react', 'agents'), cls='react-page')
 
-add('09 / Agent 运行环境', '什么是 Harness？', 'Harness 是围绕模型的运行程序。它组织模型调用、执行工具，并管理任务状态和停止条件。',
+add('09 / Agent 运行环境', '什么是 Agent Harness？',
+    'Agent Harness 是模型外围的应用运行层。它组织模型调用，接入工具和执行环境，让多步任务能持续运行。',
     '<p class="agent-equation">Agent <span>=</span> LLM <span>+</span> Harness</p>'
-    + cols(block('LLM 提出下一步', p('模型根据当前目标和工具返回，判断接下来是核验审批、申请提交，还是向用户索取材料。')),
-           block('Harness 运行这一步', p('准备上下文，检查调用权限并执行工具。保存回执，再决定把结果带进下一轮，还是结束本轮。')),
-           cls='harness-columns'),
-    '例如提交工具返回申请单号，Harness 保存回执，模型据此向用户报告结果。',
-    '用这个式子帮助理解分工。上一页 LLM 提出调用提交工具，Harness 检查执行条件，调用工具，再把回执送回模型。任务记录可以包括已完成步骤、证据和待办。Harness 也可以管理工具权限、重试和费用上限。下一页改用构建排查，说明任务中断后怎样恢复进度。',
-    ('harness', 'agent_evals'), cls='harness-page')
+    + '<div class="harness-loop">'
+    + flow(('Harness 组装输入', '带上目标、相关历史和可用工具，再调用模型。'),
+           ('LLM 决定怎么回应', '生成回复，或提出工具名称和参数。'),
+           ('Harness 处理输出', '返回回复，或校验请求并实际执行工具。'))
+    + '<div class="loop-return">← 继续时，把工具的实际返回结果带回模型</div></div>'
+    + '<div><h2 class="harness-capability-title">常见运行能力</h2><div class="harness-capabilities">'
+    + block('上下文与记忆', p('检索相关历史，按需压缩上下文。'))
+    + block('权限与人工确认', p('按权限和沙箱限制操作，必要时等人确认。'))
+    + block('计划与协作', p('调度任务步骤，也可委派给子 Agent。'))
+    + block('异常与预算', p('有限重试、暂停或按时限和费用上限停止。'))
+    + block('状态与恢复', p('留住会话和执行状态，从中断处继续。'))
+    + block('可观测性', p('跟踪各步调用、耗时、用量和错误。'))
+    + '</div></div>',
+    '',
+    'Anthropic 把 Agent Harness 也叫 scaffold，指让模型能够作为 Agent 工作的系统。Google Cloud 强调它处在运行时，负责控制执行循环。'
+    '用公式提示分工。模型根据输入给出回复或提出动作。Harness 整理输入、接收输出，在授权范围内执行动作，把实际回执带入下一次调用，并按运行规则继续、暂停或停止。'
+    'vLLM 等推理框架运行模型并提供推理接口，应用侧的 Harness 可以把这个接口与工具和执行环境连起来。'
+    '上一页的申请提交可以说明闭环。模型提出调用，程序通过外部系统执行，回执确认成功后才报告申请单号。\n\n'
+    '下方是典型职责。能力随场景选择。例如高影响操作可以停下来等人工确认，遇到临时故障可以有限重试，长任务可以保存检查点或拆分给子 Agent。'
+    '可观测性通过调用链串起模型调用和工具执行，帮助定位慢在哪一步、哪里报错、花了多少用量。接下来展开记忆和上下文压缩。',
+    ('agent_evals', 'harness_definition', 'harness', 'deep_agents', 'otel_genai'), cls='harness-page')
 
-add('09 / Agent 运行环境', '长任务的记忆与上下文压缩', '任务中断或窗口变紧时，保留可恢复的状态，再按当前步骤取回需要的细节。',
-    cols('<div class="document-paper">'
-         + p('模型外保存的任务记录', 'kicker')
-         + '<h3>排查构建失败</h3>'
-         + p('<b>已确认</b>　后端构建通过，前端卡在依赖安装。')
-         + p('<b>证据</b>　构建 #1847 的前端日志。')
-         + p('<b>待办</b>　对照上一次成功构建的依赖锁文件。') + '</div>',
-         '<div>'
-         + block('记忆让状态可恢复', p('保存结论、出处和待办。恢复时先取回任务记录。'))
-         + block('压缩给上下文留出空间', p('本轮只带失败阶段和关键错误。需要细查时，再取回完整构建日志。'))
-         + '</div>', cls='case-comparison'),
-    '摘要可能遗漏细节，保存的资料也可能过期。出处要能重新查到。',
-    '先请大家指出下一轮还要做哪一件事。任务记录存放在模型外，恢复后可以继续查锁文件。新一轮只带概要和相关日志，能在有限窗口中留出更多空间。下一页看遇到超时、缺材料等情况时，怎样决定继续还是停止。',
-    ('harness', 'context'))
+add('09 / Agent 运行环境', 'Agent 的记忆怎样起作用？',
+    '记忆让 Agent 在后续交互中取用过去的信息。应用把相关内容放入本轮上下文，供模型使用。',
+    cols(block('会话内延续',
+               p('在同一个会话中，取用相关的历史消息和工具结果。')
+               + '<div class="memory-example">'
+               + p('「这段翻译保留产品英文名。」')
+               + p('接着说「下一段也翻一下」，应用把前面的要求带进来。')
+               + '</div>'),
+         block('跨会话记忆',
+               p('把经确认的偏好、事实或做事方法留给以后的会话。')
+               + '<div class="memory-example">'
+               + p('「以后翻译技术文档，都保留产品英文名。」')
+               + p('另开会话翻译技术文档时，应用查找并带入这条偏好。')
+               + '</div>'),
+         cls='memory-columns')
+    + '<div class="memory-recall"><h2>跨会话记忆的使用过程</h2>'
+    + flow(('选择写入', '按设置保存用户确认的长期偏好。'),
+           ('按范围检索', '找出与当前用户或项目相关的记忆。'),
+           ('放入上下文', '把选中的内容和当前请求一起交给模型。'))
+    + '</div>',
+    '偏好可能改变。应用可以更正或清除已保存的记忆，并在授权范围内检索。',
+    '左侧是会话内连续性，框架也常称它为短期记忆。应用保存或取用同一个会话的历史，挑选本轮需要的部分。'
+    '右侧是跨会话的长期记忆，Anthropic 的 Agent 记忆文章用这个较窄的含义。新会话可按用户、项目范围和当前任务检索保存的信息。'
+    '举例时强调「这段」与「以后」的适用范围。可以把用户明确要求保留的偏好写入记忆。若用户后来要求中文优先，应以本次要求为准，并可按用户意愿更新长期偏好。'
+    '两种做法都依赖应用把信息提供给模型。接下来看看同一个会话越来越长时，应用如何调整每次请求的内容。',
+    ('agent_memory', 'langgraph_memory'), cls='memory-page')
+
+compaction_instruction = block('系统指令', p('按已确认的信息写项目例会通知。'))
+compaction_latest = block('最新消息', p('「标题再短一点，时间地点保留。」'))
+
+add('09 / Agent 运行环境', '上下文压缩怎样腾出空间？',
+    '接近 Token 预算时，可以用较短的摘要替换部分旧消息，让下一轮有空间继续输入和生成。',
+    '<div class="compaction-columns">'
+    '<section class="compaction-window"><h2>压缩前</h2>'
+    + compaction_instruction
+    + block('旧历史原文节选', p('最早考虑周四下午，最后确认周五 10:00。<br>会议室先选 B101，后来确认 A305。<br>用户要求通知不超过 100 字。<br>中间还产生了多版措辞不同的草稿。'),
+            cls='compaction-history')
+    + compaction_latest
+    + '</section>'
+    + '<span class="serving-arrow" aria-hidden="true">→</span>'
+    + '<section class="compaction-window compressed-window"><h2>压缩后</h2>'
+    + compaction_instruction
+    + block('旧历史摘要', p('例会定于周五 10:00，地点 A305。<br>通知不超过 100 字。'),
+            cls='compaction-history')
+    + compaction_latest
+    + p('留给后续输入和生成的空间', 'compaction-budget')
+    + '</section></div>',
+    '摘要保留已确认的事实和约束，近期消息保留原文。需要精确信息时回查原始出处。',
+    '以项目例会通知为例。在多轮讨论和改稿后，应用可按 Token 阈值或历史长度触发压缩。'
+    '这里选出一批旧消息，归纳出仍有效的时间、地点和字数要求，用摘要代替旧消息进入下一轮。系统指令和最新消息保留原文。'
+    '运行中还可以裁剪已用过的大段工具结果。重要数字、权限约束和待解问题值得保留。对摘要可能遗漏的内容，可以按需找回原文。'
+    '记忆面向后续交互的信息复用，上下文压缩面向每次请求的空间。两种机制可以配合使用。下一页看看工具失败、缺输入或预算耗尽时怎么处理。',
+    ('context', 'adk_compaction'), cls='compaction-page')
 
 add('09 / Agent 运行环境', '工具执行与停止条件', '根据实际返回状态处理失败，在权限、时限和预算范围内推进任务。',
     table(['运行中遇到什么', '运行环境怎样处理', '交付时怎么写'], [
@@ -641,7 +701,7 @@ add('回顾与交流', '概念回顾与可选补讲', '',
 REFERENCE_GROUPS = [
     ('模型与部署', ['llm', 'transformer', 'bert', 'chatgpt', 'files', 'vocab', 'quant', 'distill', 'seedance']),
     ('训练、服务与评测', ['sft', 'rlhf', 'chat', 'vllm_api', 'vllm_benchmark', 'vllm_metrics', 'ragas_metrics', 'agent_evals']),
-    ('检索与 Agent', ['rag', 'rerank', 'context', 'tools', 'react', 'harness', 'mcp', 'skills']),
+    ('检索与 Agent', ['rag', 'rerank', 'context', 'tools', 'react', 'harness_definition', 'harness', 'mcp', 'skills']),
 ]
 reference_groups = []
 for heading, keys in REFERENCE_GROUPS:

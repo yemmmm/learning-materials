@@ -1,8 +1,8 @@
 # 大模型常见概念
 
-v0.10 · 2026-11-19。对应 33 页演示。
+v0.10 · 2026-11-19。对应 34 页演示。
 
-P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议约 65 分钟，另留交流时间。
+P01–P32 为主讲与回顾，P33–P34 为参考资料与演示说明。建议约 70 分钟，另留交流时间。
 
 | 页码 | 内容 | 预计用时 |
 | --- | --- | --- |
@@ -10,8 +10,8 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 | P06–P13 | 分词、生成、模型规格、训练与推理 | 15 分钟 |
 | P14–P17 | 训练、对话、提示词和上下文 | 11 分钟 |
 | P18–P21 | 召回、重排序、Embedding 和单次工具调用 | 10 分钟 |
-| P22–P28 | ReAct、Harness、构建排查与任务方法 | 12 分钟 |
-| P29–P31 | 其他模型、应用评价指标、概念回顾与可选补讲 | 7 分钟 |
+| P22–P29 | ReAct、Harness、记忆、上下文压缩、工具执行与任务方法 | 17 分钟 |
+| P30–P32 | 其他模型、应用评价指标、概念回顾与可选补讲 | 7 分钟 |
 
 ## P01 大模型常见概念
 
@@ -241,32 +241,46 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 
 ## P23 ReAct 的行动与观察
 
-【演示】用户目标是提交申请。先走完前三步，第四步切换审批记录，再点提交结果。缺记录时保存草稿并向用户要补件。有记录的分支预设审批系统核验通过，应用调用提交工具，收到教学申请单号 DEMO-018 后才报告已提交。整页为离线模拟，判断栏是讲述用的状态摘要。下一页讲模型提出动作后，由谁执行和记住进度。
+【演示】用户目标是提交申请。先走完前三步，第四步切换审批记录，再点提交结果。缺记录时保存草稿并向用户要补件。有记录的分支预设审批系统核验通过，应用调用提交工具，收到教学申请单号 DEMO-018 后才报告已提交。整页为离线模拟，判断栏是讲述用的状态摘要。下一页看看是谁把模型调用、工具执行和回执连成循环。
 
 来源（不朗读）：
 
 - [Yao 等 · ReAct](https://arxiv.org/abs/2210.03629)
 - [Anthropic · Workflow 与 Agent](https://www.anthropic.com/research/building-effective-agents)
 
-## P24 什么是 Harness？
+## P24 什么是 Agent Harness？
 
-用这个式子帮助理解分工。上一页 LLM 提出调用提交工具，Harness 检查执行条件，调用工具，再把回执送回模型。任务记录可以包括已完成步骤、证据和待办。Harness 也可以管理工具权限、重试和费用上限。下一页改用构建排查，说明任务中断后怎样恢复进度。
+Anthropic 把 Agent Harness 也叫 scaffold，指让模型能够作为 Agent 工作的系统。Google Cloud 强调它处在运行时，负责控制执行循环。用公式提示分工。模型根据输入给出回复或提出动作。Harness 整理输入、接收输出，在授权范围内执行动作，把实际回执带入下一次调用，并按运行规则继续、暂停或停止。vLLM 等推理框架运行模型并提供推理接口，应用侧的 Harness 可以把这个接口与工具和执行环境连起来。上一页的申请提交可以说明闭环。模型提出调用，程序通过外部系统执行，回执确认成功后才报告申请单号。
+
+下方是典型职责。能力随场景选择。例如高影响操作可以停下来等人工确认，遇到临时故障可以有限重试，长任务可以保存检查点或拆分给子 Agent。可观测性通过调用链串起模型调用和工具执行，帮助定位慢在哪一步、哪里报错、花了多少用量。接下来展开记忆和上下文压缩。
 
 来源（不朗读）：
 
-- [Anthropic · 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)
 - [Anthropic · Agent 与 Harness 评测](https://www.anthropic.com/research/demystifying-evals-for-ai-agents)
+- [Google Cloud · Agent Harness 定义](https://cloud.google.com/discover/agent-harness)
+- [Anthropic · 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)
+- [LangChain · Deep Agents 运行能力](https://docs.langchain.com/oss/python/deepagents/overview)
+- [OpenTelemetry · 大模型用量和调用链](https://opentelemetry.io/blog/2026/genai-observability/)
 
-## P25 长任务的记忆与上下文压缩
+## P25 Agent 的记忆怎样起作用？
 
-先请大家指出下一轮还要做哪一件事。任务记录存放在模型外，恢复后可以继续查锁文件。新一轮只带概要和相关日志，能在有限窗口中留出更多空间。下一页看遇到超时、缺材料等情况时，怎样决定继续还是停止。
+左侧是会话内连续性，框架也常称它为短期记忆。应用保存或取用同一个会话的历史，挑选本轮需要的部分。右侧是跨会话的长期记忆，Anthropic 的 Agent 记忆文章用这个较窄的含义。新会话可按用户、项目范围和当前任务检索保存的信息。举例时强调「这段」与「以后」的适用范围。可以把用户明确要求保留的偏好写入记忆。若用户后来要求中文优先，应以本次要求为准，并可按用户意愿更新长期偏好。两种做法都依赖应用把信息提供给模型。接下来看看同一个会话越来越长时，应用如何调整每次请求的内容。
 
 来源（不朗读）：
 
-- [Anthropic · 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)
-- [Anthropic · 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
+- [Anthropic · Agent 记忆的组成](https://www.anthropic.com/research/components-of-agent-memory)
+- [LangGraph · 会话内与跨会话记忆](https://docs.langchain.com/oss/python/concepts/memory)
 
-## P26 工具执行与停止条件
+## P26 上下文压缩怎样腾出空间？
+
+以项目例会通知为例。在多轮讨论和改稿后，应用可按 Token 阈值或历史长度触发压缩。这里选出一批旧消息，归纳出仍有效的时间、地点和字数要求，用摘要代替旧消息进入下一轮。系统指令和最新消息保留原文。运行中还可以裁剪已用过的大段工具结果。重要数字、权限约束和待解问题值得保留。对摘要可能遗漏的内容，可以按需找回原文。记忆面向后续交互的信息复用，上下文压缩面向每次请求的空间。两种机制可以配合使用。下一页看看工具失败、缺输入或预算耗尽时怎么处理。
+
+来源（不朗读）：
+
+- [Anthropic · 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
+- [Google ADK · 上下文压缩](https://adk.dev/context/compaction/)
+
+## P27 工具执行与停止条件
 
 文档搜索超时属于运行错误，可以按规则重试。缺输入时，助手列明缺项并等待补充。脚本的资源访问受沙箱约束。接下来看看应用怎样接入工具，以及怎样给 Agent 提供可复用的任务方法。
 
@@ -275,7 +289,7 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 - [Anthropic · 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)
 - [Anthropic · Workflow 与 Agent](https://www.anthropic.com/research/building-effective-agents)
 
-## P27 Tool、MCP 与 Skill 的分工
+## P28 Tool、MCP 与 Skill 的分工
 
 这里的工具负责读构建日志，MCP 是应用接入这项能力时可以使用的协议。Skill 给出排查顺序和报告要求，也可以说明何时调用日志查询工具。下一页看同一个 Skill 怎样按需读入。
 
@@ -285,7 +299,7 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 - [Agent Skills · 官方格式](https://agentskills.io/home)
 - [Claude · 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 
-## P28 Skill 的任务说明与按需加载
+## P29 Skill 的任务说明与按需加载
 
 先用名称和描述选择排查 Skill，再读说明。碰到不熟悉的错误类型才打开参考文件，写结论时再读报告模板。接下来看看哪些应用能力可以交给专用模型。
 
@@ -293,7 +307,7 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 
 - [Agent Skills · 官方格式](https://agentskills.io/home)
 
-## P29 LLM 之外的常见模型
+## P30 LLM 之外的常见模型
 
 先从前面见过的 Embedding 和 Reranker 开始，前者给文本算向量，后者给查询和候选打相关性分。OCR 是从图里认字，目标检测是找图里的对象和位置。语音识别与合成的输入输出方向相反。图像生成的输出可以是一张图，Seedance 2.5 则能根据文字和参考素材生成带声音的视频。右边是各任务的代表模型。
 
@@ -308,7 +322,7 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 - [Stability AI · Stable Diffusion 3.5](https://stability.ai/news-updates/introducing-stable-diffusion-3-5)
 - [ByteDance Seed · Seedance 2.5](https://seed.bytedance.com/en/blog/one-take-creation-flexible-referencing-introducing-seedance-2-5)
 
-## P30 大模型应用的常见评价指标
+## P31 大模型应用的常见评价指标
 
 按实际任务定义达标条件。知识问答可以分别测是否检索到所需证据、结论是否有证据支持，以及答案是否符合参考答案。工具型 Agent 可以核对工具与参数，并用数据库记录或操作结果验证任务终态。重复运行同一批任务还能观察结果的一致性。评估安全时分别准备应拦截的任务和合法任务，统计越权拦截率与误拦率。
 
@@ -325,7 +339,7 @@ P01–P31 为主讲与回顾，P32–P33 为参考资料与演示说明。建议
 - [Google ADK · Agent 质量、安全与任务完成](https://adk.dev/evaluate/criteria/)
 - [OpenTelemetry · 大模型用量和调用链](https://opentelemetry.io/blog/2026/genai-observability/)
 
-## P31 概念回顾与可选补讲
+## P32 概念回顾与可选补讲
 
 先顺着模型、应用和 Agent 快速回顾，再请听众从右侧选感兴趣的词。
 
@@ -348,7 +362,7 @@ Prefill 处理输入，Decode 逐步生成。KV Cache 保存了什么？投机�
 - [Anthropic · Agent 与 Harness 评测](https://www.anthropic.com/research/demystifying-evals-for-ai-agents)
 - [OpenTelemetry · 大模型用量和调用链](https://opentelemetry.io/blog/2026/genai-observability/)
 
-## P32 参考资料
+## P33 参考资料
 
 本页供会后找资料。按主题跳到相应页可查看该页的模型配置、论文或协议说明。
 
@@ -376,10 +390,11 @@ Prefill 处理输入，Decode 逐步生成。KV Cache 保存了什么？投机�
 - [Anthropic · 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents)
 - [Claude · 工具调用](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
 - [Yao 等 · ReAct](https://arxiv.org/abs/2210.03629)
+- [Google Cloud · Agent Harness 定义](https://cloud.google.com/discover/agent-harness)
 - [Anthropic · 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents)
 - [MCP · 官方介绍](https://modelcontextprotocol.io/docs/getting-started/intro)
 - [Agent Skills · 官方格式](https://agentskills.io/home)
 
-## P33 案例数据与演示口径
+## P34 案例数据与演示口径
 
 整场交互在本地运行。公开的模型规格、代码和物料出处可在逐页讲稿或同版资料说明中查到。

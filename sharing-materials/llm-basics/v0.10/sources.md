@@ -1,6 +1,6 @@
 # v0.10 资料与素材来源
 
-2026-11-19 核对 Seedance 2.5 的输入与输出、应用评价指标定义及补讲主题的参考资料。代表模型、Agent Harness 与权重节选保留原核对来源。评价页的案例数字为教学设定。
+2026-11-19 核对 Agent Harness 的定义和运行能力、会话内与跨会话记忆、上下文压缩示例的实现依据，并保留 Seedance 2.5 和应用评价指标的核对来源。会议通知、翻译偏好和评价页的案例数字为教学设定。
 
 ## 自然语言处理与大语言模型
 
@@ -48,8 +48,14 @@
 - ReAct：https://arxiv.org/abs/2210.03629
 - Harness：https://www.anthropic.com/research/effective-harnesses-for-long-running-agents
 - MCP：https://modelcontextprotocol.io/docs/getting-started/intro
-- Agent Harness 的输入处理、工具调度及执行结果参见 [Anthropic 的 Agent 评测说明](https://www.anthropic.com/research/demystifying-evals-for-ai-agents)。
 - Agent Skills：https://agentskills.io/home
+
+## Agent Harness、记忆与上下文压缩
+
+- Anthropic 将 Agent Harness（也称 scaffold）定义为让模型能作为 Agent 工作的系统，涵盖输入、工具调用与结果。Google Cloud 的定义着重运行时控制，包括执行循环、会话状态、权限和人工确认。P24 结合两者解释运行层，并用公式提示分工。 [Anthropic 的 Agent 评测说明](https://www.anthropic.com/research/demystifying-evals-for-ai-agents) · [Google Cloud 的 Agent Harness 定义](https://cloud.google.com/discover/agent-harness)
+- 规划与子 Agent 委派以 Deep Agents 的实现为例，长任务恢复和运行跟踪分别参考 Anthropic 与 OpenTelemetry 的工程说明。 [Deep Agents](https://docs.langchain.com/oss/python/deepagents/overview) · [Anthropic 长任务 Harness](https://www.anthropic.com/research/effective-harnesses-for-long-running-agents) · [OpenTelemetry 用量与调用链](https://opentelemetry.io/blog/2026/genai-observability/)
+- LangGraph 用短期记忆描述会话内连续性，用长期记忆描述跨会话保存和检索。Anthropic 的 Agent 记忆文章聚焦跨会话保留的内容。P25 用同一个翻译场景区分两个范围。 [LangGraph 记忆概述](https://docs.langchain.com/oss/python/concepts/memory) · [Anthropic Agent 记忆的组成](https://www.anthropic.com/research/components-of-agent-memory)
+- 上下文压缩可用摘要替换旧消息，并保留近期原始消息。P26 用会议通知揭示哪些内容进入摘要，哪些部分沿用原文。 [Anthropic 上下文工程](https://www.anthropic.com/research/effective-context-engineering-for-ai-agents) · [Google ADK 上下文压缩](https://adk.dev/context/compaction/)
 
 ## 应用评价指标
 

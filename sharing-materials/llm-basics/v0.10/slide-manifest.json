@@ -225,24 +225,36 @@
   },
   {
     "page": 24,
-    "title": "什么是 Harness？",
+    "title": "什么是 Agent Harness？",
     "chapter": "09 / Agent 运行环境",
     "sources": [
+      "agent_evals",
+      "harness_definition",
       "harness",
-      "agent_evals"
+      "deep_agents",
+      "otel_genai"
     ]
   },
   {
     "page": 25,
-    "title": "长任务的记忆与上下文压缩",
+    "title": "Agent 的记忆怎样起作用？",
     "chapter": "09 / Agent 运行环境",
     "sources": [
-      "harness",
-      "context"
+      "agent_memory",
+      "langgraph_memory"
     ]
   },
   {
     "page": 26,
+    "title": "上下文压缩怎样腾出空间？",
+    "chapter": "09 / Agent 运行环境",
+    "sources": [
+      "context",
+      "adk_compaction"
+    ]
+  },
+  {
+    "page": 27,
     "title": "工具执行与停止条件",
     "chapter": "09 / Agent 运行环境",
     "sources": [
@@ -251,7 +263,7 @@
     ]
   },
   {
-    "page": 27,
+    "page": 28,
     "title": "Tool、MCP 与 Skill 的分工",
     "chapter": "10 / 连接与任务方法",
     "sources": [
@@ -261,7 +273,7 @@
     ]
   },
   {
-    "page": 28,
+    "page": 29,
     "title": "Skill 的任务说明与按需加载",
     "chapter": "10 / 连接与任务方法",
     "sources": [
@@ -269,7 +281,7 @@
     ]
   },
   {
-    "page": 29,
+    "page": 30,
     "title": "LLM 之外的常见模型",
     "chapter": "11 / 其他模型",
     "sources": [
@@ -284,7 +296,7 @@
     ]
   },
   {
-    "page": 30,
+    "page": 31,
     "title": "大模型应用的常见评价指标",
     "chapter": "12 / 评价指标",
     "sources": [
@@ -297,7 +309,7 @@
     ]
   },
   {
-    "page": 31,
+    "page": 32,
     "title": "概念回顾与可选补讲",
     "chapter": "回顾与交流",
     "sources": [
@@ -311,7 +323,7 @@
     ]
   },
   {
-    "page": 32,
+    "page": 33,
     "title": "参考资料",
     "chapter": "附录 / 参考资料",
     "sources": [
@@ -337,13 +349,14 @@
       "context",
       "tools",
       "react",
+      "harness_definition",
       "harness",
       "mcp",
       "skills"
     ]
   },
   {
-    "page": 33,
+    "page": 34,
     "title": "案例数据与演示口径",
     "chapter": "附录 / 参考资料",
     "sources": []
